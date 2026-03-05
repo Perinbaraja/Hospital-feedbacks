@@ -18,12 +18,23 @@ const userSchema = mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['Admin', 'Dept_Head'],
+      enum: ['Super_Admin', 'Admin', 'Dept_Head'],
       default: 'Admin',
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
     department: {
-      type: String, 
+      type: String,
       // Only required if role is Dept_Head
+    },
+    hospital: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Hospital'
+    },
+    phone: {
+      type: String
     }
   },
   {
@@ -37,7 +48,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
-    next();
+    return next();
   }
 
   const salt = await bcrypt.genSalt(10);
