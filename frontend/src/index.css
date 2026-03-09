@@ -370,15 +370,15 @@ body {
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(67, 56, 202, 0.1);
-  border-top-color: #4338ca;
+  border: 3px solid rgba(0, 0, 0, 0.05);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 .loader {
   font-weight: 700;
-  color: #4338ca;
+  color: var(--primary);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -407,4 +407,52 @@ body {
 .card-hover:hover {
   transform: translateY(-8px);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-wrapper .form-control {
+  padding-right: 3.5rem !important;
+  /* Force padding so text never overlaps button */
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.password-toggle:hover {
+  color: var(--primary);
+  background-color: rgba(12, 166, 120, 0.08);
+  transform: scale(1.05);
+}
+
+.password-toggle:active {
+  transform: scale(0.95);
+  background-color: rgba(12, 166, 120, 0.15);
+}
+
+.password-toggle svg {
+  transition: transform 0.3s ease;
+}
+
+.password-toggle:hover svg {
+  filter: drop-shadow(0 0 4px rgba(12, 166, 120, 0.2));
 }

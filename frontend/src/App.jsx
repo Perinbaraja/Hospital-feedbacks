@@ -4,9 +4,11 @@ import { AuthProvider } from './context/AuthContext';
 // Layouts
 import DashboardLayout from './components/DashboardLayout';
 import SuperAdminLayout from './components/SuperAdminLayout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import PublicFeedback from './pages/PublicFeedback';
+import TrackFeedback from './pages/TrackFeedback';
 import Login from './pages/Login';
 import AdminSettings from './pages/AdminSettings';
 import AdminStaff from './pages/AdminStaff';
@@ -23,25 +25,25 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/feedback/:qrId" element={<PublicFeedback />} />
+        <Route path="/track" element={<TrackFeedback />} />
+        <Route path="/track/:id" element={<TrackFeedback />} />
         <Route path="/login" element={<Login />} />
 
         {/* Super Admin Dashboard (Purple Theme) */}
-        <Route element={<SuperAdminLayout />}>
+        <Route element={<ProtectedRoute element={<SuperAdminLayout />} allowedRoles={['Super_Admin']} />}>
           <Route path="/super-admin" element={<SuperAdminDashboard />} />
           <Route path="/super-admin/add-hospital" element={<SuperAdminAddHospital />} />
+          <Route path="/super-admin/hospital/:id" element={<SuperAdminHospitalDetail />} />
         </Route>
 
         {/* Standard Hospital Dashboards (Brand Theme) */}
-        <Route element={<DashboardLayout allowedRoles={['Admin', 'Super_Admin', 'Dept_Head']} />}>
-
-          {/* Routes shared by Admin and Super Admin */}
+        <Route element={<ProtectedRoute element={<DashboardLayout allowedRoles={['Admin', 'Super_Admin', 'Dept_Head']} />} allowedRoles={['Admin', 'Super_Admin', 'Dept_Head']} />}>
           <Route path="/admin" element={<AdminFeedback />} />
           <Route path="/admin/staff" element={<AdminStaff />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-
-          {/* Dept Head Dashboard */}
           <Route path="/dept" element={<DeptDashboard />} />
         </Route>
+
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api';
 import toast, { Toaster } from 'react-hot-toast';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ const Login = () => {
 
     const [isResetMode, setIsResetMode] = useState(false);
     const [newPass, setNewPass] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -62,7 +64,23 @@ const Login = () => {
                     </div>
                     <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <input type="email" className="form-control" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your Email" />
-                        <input type="password" className="form-control" required value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="New Password" />
+                        <div className="password-wrapper">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                className="form-control"
+                                required
+                                value={newPass}
+                                onChange={(e) => setNewPass(e.target.value)}
+                                placeholder="New Password"
+                            />
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                         <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Resetting...' : 'Update Password'}</button>
                         <button type="button" className="btn-outline" onClick={() => setIsResetMode(false)}>Back to Login</button>
                     </form>
@@ -96,15 +114,25 @@ const Login = () => {
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label">Password</label>
-                        <input
-                            type="password"
-                            className="form-control"
-                            required
-                            autoComplete="new-password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                        />
+                        <div className="password-wrapper">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                className="form-control"
+                                required
+                                autoComplete="new-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() => setShowPassword(!showPassword)}
+                                title={showPassword ? "Hide Password" : "Show Password"}
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                         <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
                             <button
                                 type="button"

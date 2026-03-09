@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Hospital from '../models/Hospital.js';
 import Feedback from '../models/Feedback.js';
+import { validateUserInput } from '../middleware/validation.js';
 
 // Protect routes middleware
 export const protect = async (req, res, next) => {
@@ -11,17 +12,19 @@ export const protect = async (req, res, next) => {
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+            if (!process.env.JWT_SECRET) {
+                return res.status(500).json({ message: 'Server configuration error: JWT_SECRET not set' });
+            }
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = await User.findById(decoded.id).select('-password');
-            next();
+            return next();
         } catch (error) {
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            console.error('Token verification failed:', error.message);
+            return res.status(401).json({ message: 'Not authorized, token failed' });
         }
     }
 
-    if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token' });
-    }
+    return res.status(401).json({ message: 'Not authorized, no token' });
 };
 
 // Admin middleware
@@ -29,7 +32,7 @@ export const admin = (req, res, next) => {
     if (req.user && (req.user.role === 'Admin' || req.user.role === 'Super_Admin')) {
         next();
     } else {
-        res.status(401).json({ message: 'Not authorized as an admin' });
+        res.status(403).json({ message: 'Not authorized as an admin' });
     }
 };
 
@@ -38,25 +41,29 @@ export const superAdmin = (req, res, next) => {
     if (req.user && req.user.role === 'Super_Admin') {
         next();
     } else {
-        res.status(401).json({ message: 'Not authorized as a Super Admin' });
+        res.status(403).json({ message: 'Not authorized as a Super Admin' });
     }
 };
 
 const router = express.Router();
 
 const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
+    if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET environment variable is not configured');
+    }
+    return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: '30d',
     });
 };
 
 // @desc    Auth user & get token
 // @route   POST /api/users/login
-router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+router.post('/login', validateUserInput, async (req, res) => {
+    const email = req.body.email?.trim();
+    const { password } = req.body;
 
     try {
-        const user = await User.findOne({ email }).populate('hospital');
+        const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } }).populate('hospital');
 
         if (user && (await user.matchPassword(password))) {
             if (!user.isActive) {
@@ -86,7 +93,7 @@ router.post('/login', async (req, res) => {
 
 // @desc    Register a new user (Admin only)
 // @route   POST /api/users
-router.post('/', protect, admin, async (req, res) => {
+router.post('/', protect, admin, validateUserInput, async (req, res) => {
     const { name, email, password, role, department } = req.body;
 
     try {
@@ -102,7 +109,7 @@ router.post('/', protect, admin, async (req, res) => {
         const user = await User.create({
             name,
             email,
-            password,
+            password: password || 'password123', // Default password if not provided
             role: role || 'Dept_Head',
             department,
             hospital: targetHospital
@@ -166,6 +173,9 @@ router.put('/profile', protect, async (req, res) => {
             res.status(404).json({ message: 'User not found' });
         }
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'Email already in use' });
+        }
         res.status(500).json({ message: 'Server error updating profile' });
     }
 });

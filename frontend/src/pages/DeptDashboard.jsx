@@ -16,15 +16,28 @@ const DeptDashboard = () => {
     const { user } = useAuth();
     const [feedbacks, setFeedbacks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedFeedback, setSelectedFeedback] = useState(null); // For Note Modal
+    const [newNote, setNewNote] = useState('');
+    const [postingNote, setPostingNote] = useState(false);
 
-    const fetchDeptFeedbacks = async () => {
+    const fetchDeptFeedbacks = async (retryCount = 0) => {
         try {
             const { data } = await API.get(`/feedback/department/${user.department}`);
             setFeedbacks(data);
-        } catch (error) {
-            toast.error('Failed to load assignments');
-        } finally {
             setLoading(false);
+            if (selectedFeedback) {
+                const refreshed = data.find(f => f._id === selectedFeedback._id);
+                if (refreshed) setSelectedFeedback(refreshed);
+            }
+        } catch (error) {
+            console.error('Dept fetch error:', error);
+            if (retryCount < 2) {
+                console.log(`Retrying dept fetch (${retryCount + 1})...`);
+                setTimeout(() => fetchDeptFeedbacks(retryCount + 1), 1500);
+            } else {
+                toast.error('Failed to load assignments. Please refresh or check connection.');
+                setLoading(false);
+            }
         }
     };
 
@@ -37,116 +50,182 @@ const DeptDashboard = () => {
     const handleResolve = async (id) => {
         try {
             await API.put(`/feedback/${id}`, { status: 'COMPLETED' });
-            toast.success('Issue marked as COMPLETED!');
+            toast.success('Issue marked as Resolved!');
             fetchDeptFeedbacks();
         } catch (error) {
             toast.error('Error resolving issue');
         }
     };
 
-    if (loading) return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-            <div className="loader">Loading Dashboard...</div>
-        </div>
-    );
+    const handleAddNote = async (e) => {
+        e.preventDefault();
+        if (!newNote.trim()) return;
+        setPostingNote(true);
+        try {
+            await API.post(`/feedback/${selectedFeedback._id}/notes`, { text: newNote });
+            toast.success('Internal note added');
+            setNewNote('');
+            fetchDeptFeedbacks();
+        } catch (error) {
+            toast.error('Failed to add note');
+        } finally {
+            setPostingNote(false);
+        }
+    };
 
     return (
-        <div>
+        <div style={{ position: 'relative' }}>
+            {loading && (
+                <div style={{
+                    position: 'absolute', top: '1rem', right: '1rem',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    background: 'var(--surface)', padding: '6px 14px',
+                    borderRadius: '2rem', border: '1px solid var(--border)',
+                    boxShadow: 'var(--shadow-sm)', zIndex: 20
+                }}>
+                    <div className="spinner" style={{ width: '16px', height: '16px' }}></div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Syncing...</span>
+                </div>
+            )}
             <div className="page-header">
                 <div>
-                    <h2 className="page-title">Department Console</h2>
-                    <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Managing operations for: <b style={{ color: 'var(--primary-dark)' }}>{user?.department}</b></p>
+                    <h2 className="page-title">Department Ops console</h2>
+                    <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Active investigations for: <b style={{ color: 'var(--primary-dark)' }}>{user?.department}</b></p>
                 </div>
                 <button className="btn-outline" onClick={fetchDeptFeedbacks}>Refresh Tasks</button>
             </div>
 
-            {feedbacks.length === 0 ? (
+            {feedbacks.length === 0 && !loading ? (
                 <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
                     <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
-                    <h3 style={{ marginBottom: '0.5rem' }}>All clear!</h3>
-                    <p style={{ color: 'var(--text-muted)' }}>No pending feedback or tasks assigned to your department at the moment.</p>
+                    <h3 style={{ marginBottom: '0.5rem' }}>Operations Clear</h3>
+                    <p style={{ color: 'var(--text-muted)' }}>No pending investigations assigned to your department.</p>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(450px, 1fr))', gap: '1.5rem' }}>
-                    {feedbacks.map(fb => {
-                        const isCompleted = fb.status === 'COMPLETED';
-                        return (
-                            <div key={fb._id} className="card" style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '1.25rem',
-                                borderTop: isCompleted ? '4px solid var(--secondary)' : '4px solid var(--accent)',
-                                opacity: isCompleted ? 0.85 : 1,
-                                transition: 'var(--transitions)'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Patient Assignment</div>
-                                        <h4 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-                                            {fb.patientName || 'Anonymous Guest'}
-                                        </h4>
-                                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                            <span>{new Date(fb.createdAt).toLocaleDateString()}</span>
-                                            <span>•</span>
-                                            <span>{new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        </div>
-                                    </div>
-                                    <StatusBadge status={fb.status} />
-                                </div>
+                <div className="table-container" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                    <table className="modern-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: '40px' }}>#</th>
+                                <th>PATIENT</th>
+                                <th>FEEDBACK DETAILS</th>
+                                <th>COMMENTS</th>
+                                <th>STATUS</th>
+                                <th>NOTES</th>
+                                <th style={{ textAlign: 'right' }}>ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {feedbacks.map((fb, idx) => {
+                                const isCompleted = fb.status === 'COMPLETED';
+                                const deptFeedback = fb.categories?.find(c =>
+                                    c.department?.trim().toLowerCase() === user.department?.trim().toLowerCase()
+                                ) || fb.categories?.[0] || {};
 
-                                {/* Show specific issue for this department */}
-                                <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
-                                    {fb.categories?.filter(r => r.department === user.department).map(r => (
-                                        <div key={r._id}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                                <span style={{
-                                                    padding: '0.25rem 0.5rem',
-                                                    background: r.reviewType === 'Positive' ? '#dcfce7' : '#fee2e2',
-                                                    color: r.reviewType === 'Positive' ? '#166534' : '#991b1b',
-                                                    borderRadius: '0.375rem',
-                                                    fontSize: '0.7rem',
-                                                    fontWeight: 700
-                                                }}>
-                                                    {r.reviewType}
-                                                </span>
-                                                <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                                                    {Array.isArray(r.issue) ? r.issue.join(', ') : r.issue}
-                                                </span>
+                                return (
+                                    <tr key={fb._id} style={{ opacity: isCompleted ? 0.7 : 1 }}>
+                                        <td>
+                                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem' }}>
+                                                {idx + 1}
                                             </div>
-                                            {r.rating && (
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    Experience: <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{r.rating}</span>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontWeight: 600 }}>{fb.patientName || 'Anonymous'}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(fb.createdAt).toLocaleDateString()}</div>
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <span className={`badge ${deptFeedback.reviewType === 'Positive' ? 'badge-resolved' : 'badge-pending'}`} style={{ fontSize: '0.6rem' }}>
+                                                    {deptFeedback.reviewType}
+                                                </span>
+                                                <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                                                    {Array.isArray(deptFeedback.issue) ? deptFeedback.issue.join(', ') : deptFeedback.issue}
                                                 </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '300px' }}>
+                                                {fb.comments ? `"${fb.comments}"` : '—'}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <StatusBadge status={fb.status} />
+                                        </td>
+                                        <td>
+                                            <button
+                                                className="btn-outline"
+                                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                onClick={() => setSelectedFeedback(fb)}
+                                            >
+                                                💬 {fb.notes?.length || 0} Notes
+                                            </button>
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            {!isCompleted ? (
+                                                <button
+                                                    onClick={() => handleResolve(fb._id)}
+                                                    className="btn-primary"
+                                                    style={{ background: 'var(--secondary)', fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+                                                >
+                                                    Mark Resolved
+                                                </button>
+                                            ) : (
+                                                <span style={{ color: 'var(--secondary)', fontWeight: 700, fontSize: '0.75rem' }}>✓ Closed</span>
                                             )}
-                                        </div>
-                                    ))}
-                                </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-                                {fb.comments && (
-                                    <div style={{ position: 'relative', paddingLeft: '1rem', borderLeft: '2px solid var(--primary-light)' }}>
-                                        <p style={{ color: '#475569', fontSize: '0.9rem', fontStyle: 'italic' }}>"{fb.comments}"</p>
+            {/* Notes Side-Panel */}
+            {selectedFeedback && (
+                <div style={{
+                    position: 'fixed', top: 0, right: 0, width: '400px', height: '100vh',
+                    background: 'white', boxShadow: '-10px 0 30px rgba(0,0,0,0.1)',
+                    zIndex: 1000, padding: '2rem', display: 'flex', flexDirection: 'column'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <h3 style={{ fontSize: '1.25rem' }}>Staff Discussion</h3>
+                        <button className="btn-outline" style={{ border: 'none', padding: '8px' }} onClick={() => setSelectedFeedback(null)}>✕</button>
+                    </div>
+
+                    <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {selectedFeedback.notes && selectedFeedback.notes.length > 0 ? (
+                            selectedFeedback.notes.map((note, i) => (
+                                <div key={i} style={{
+                                    padding: '1rem', background: note.senderRole === 'Admin' ? '#f0f9ff' : '#f8fafc',
+                                    borderRadius: '0.75rem', border: '1px solid #e2e8f0'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: '0.5rem' }}>
+                                        <b style={{ color: 'var(--primary-dark)' }}>{note.senderName} ({note.senderRole})</b>
+                                        <span style={{ color: '#94a3b8' }}>{new Date(note.createdAt).toLocaleDateString()}</span>
                                     </div>
-                                )}
-
-                                <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    {!isCompleted ? (
-                                        <button
-                                            onClick={() => handleResolve(fb._id)}
-                                            className="btn-primary"
-                                            style={{ background: 'var(--secondary)' }}
-                                        >
-                                            Mark as Resolved
-                                        </button>
-                                    ) : (
-                                        <div style={{ color: 'var(--secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                            <div style={{ background: '#dcfce7', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</div>
-                                            Issue Rectified
-                                        </div>
-                                    )}
+                                    <p style={{ fontSize: '0.85rem', color: '#334155', margin: 0 }}>{note.text}</p>
                                 </div>
+                            ))
+                        ) : (
+                            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>
+                                <p>No internal notes yet.</p>
                             </div>
-                        );
-                    })}
+                        )}
+                    </div>
+
+                    <form onSubmit={handleAddNote} style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
+                        <textarea
+                            className="form-control"
+                            placeholder="Type an internal note..."
+                            style={{ height: '100px', marginBottom: '1rem', resize: 'none' }}
+                            value={newNote}
+                            onChange={(e) => setNewNote(e.target.value)}
+                        />
+                        <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={postingNote}>
+                            {postingNote ? 'Saving...' : 'Add Note'}
+                        </button>
+                    </form>
                 </div>
             )}
         </div>

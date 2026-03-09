@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../api';
 import toast from 'react-hot-toast';
+import { Eye, EyeOff } from 'lucide-react';
 
 const AdminStaff = () => {
     const { search } = window.location;
@@ -16,6 +17,7 @@ const AdminStaff = () => {
     const [password, setPassword] = useState('');
     const [department, setDepartment] = useState('');
     const [creating, setCreating] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -57,7 +59,7 @@ const AdminStaff = () => {
                 hospitalId
             });
 
-            toast.success('Department Head account created!');
+            toast.success(`Dept Head account created! ${!password ? '(Default password: password123)' : ''}`);
             setName('');
             setEmail('');
             setPassword('');
@@ -81,10 +83,20 @@ const AdminStaff = () => {
         }
     };
 
-    if (loading) return <div>Loading Staff Management...</div>;
-
     return (
-        <div>
+        <div style={{ position: 'relative' }}>
+            {loading && (
+                <div style={{
+                    position: 'absolute', top: '1rem', right: '1rem',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    background: 'var(--surface)', padding: '6px 14px',
+                    borderRadius: '2rem', border: '1px solid var(--border)',
+                    boxShadow: 'var(--shadow-sm)', zIndex: 20
+                }}>
+                    <div className="spinner" style={{ width: '16px', height: '16px' }}></div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Updating directory...</span>
+                </div>
+            )}
             <div className="page-header">
                 <div>
                     <h2 className="page-title">Staff Management</h2>
@@ -125,17 +137,27 @@ const AdminStaff = () => {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Temporary Password</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                placeholder="Min 6 characters"
-                                required
-                                minLength={6}
-                                autoComplete="new-password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
+                            <label className="form-label">Login Password</label>
+                            <div className="password-wrapper">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    className="form-control"
+                                    placeholder="Leave blank to use 'password123'"
+                                    autoComplete="new-password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px', display: 'block' }}>
+                                Default password if empty: <b>password123</b>
+                            </small>
                         </div>
 
                         <div className="form-group">
@@ -147,7 +169,7 @@ const AdminStaff = () => {
                                 onChange={(e) => setDepartment(e.target.value)}
                             >
                                 <option value="" disabled>-- Select Department --</option>
-                                {hospital?.departments.map(dept => (
+                                {hospital?.departments?.map(dept => (
                                     <option key={dept.name} value={dept.name}>{dept.name}</option>
                                 ))}
                             </select>

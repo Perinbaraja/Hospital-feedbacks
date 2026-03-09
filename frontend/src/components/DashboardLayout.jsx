@@ -1,36 +1,35 @@
 import { useState, useEffect } from 'react';
-import { Outlet, Navigate, Link } from 'react-router-dom';
+import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api';
-import { LayoutDashboard, Users, LogOut, Settings, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const hospitalId = params.get('hospitalId');
+    const hQuery = hospitalId ? `?hospitalId=${hospitalId}` : '';
 
     const handleLogout = () => {
         logout();
         toast.success('Logged out successfully');
     };
 
-    const linkStyle = {
+    const getLinkStyle = ({ isActive }) => ({
         padding: '0.875rem 1rem',
         borderRadius: '0.75rem',
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: isActive ? 'white' : 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        fontWeight: '500',
-        fontSize: '0.925rem'
-    };
-
-    const activeLinkStyle = {
-        ...linkStyle,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-        color: 'white',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-    };
+        fontWeight: isActive ? '700' : '500',
+        fontSize: '0.925rem',
+        boxShadow: isActive ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none'
+    });
 
     return (
         <div style={{
@@ -55,22 +54,35 @@ const Sidebar = () => {
                 </div>
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {['Admin', 'Super_Admin'].includes(user?.role) ? (
+                    {user?.role === 'Admin' && (
                         <>
-                            <Link to="/admin" style={linkStyle}>
-                                <Users size={20} /> All Feedback
-                            </Link>
-                            <Link to="/admin/staff" style={linkStyle}>
+                            <NavLink to={`/admin${hQuery}`} style={getLinkStyle} end>
+                                <ClipboardList size={20} /> All Feedback
+                            </NavLink>
+                            <NavLink to={`/admin/staff${hQuery}`} style={getLinkStyle}>
                                 <UserPlus size={20} /> Manage Staff
-                            </Link>
-                            <Link to="/admin/settings" style={linkStyle}>
+                            </NavLink>
+                            <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
                                 <Settings size={20} /> Settings
-                            </Link>
+                            </NavLink>
                         </>
-                    ) : (
-                        <Link to="/dept" style={linkStyle}>
+                    )}
+
+                    {user?.role === 'Super_Admin' && (
+                        <>
+                            <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
+                                <Settings size={20} /> Hospital Settings
+                            </NavLink>
+                            <NavLink to="/super-admin" style={getLinkStyle}>
+                                <ChevronLeft size={20} /> Return to Network
+                            </NavLink>
+                        </>
+                    )}
+
+                    {user?.role === 'Dept_Head' && (
+                        <NavLink to="/dept" style={getLinkStyle}>
                             <Users size={20} /> Dept Tasks
-                        </Link>
+                        </NavLink>
                     )}
                 </nav>
             </div>
@@ -114,10 +126,13 @@ const DashboardLayout = ({ allowedRoles }) => {
     const { user, loading } = useAuth();
     const [themeLoading, setThemeLoading] = useState(true);
 
+    const hospitalId = new URLSearchParams(useLocation().search).get('hospitalId');
     useEffect(() => {
         const fetchTheme = async () => {
             try {
-                const { data } = await API.get('/hospital');
+                const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
+
+                const { data } = await API.get(`/hospital${hIdParam}`);
                 if (data && data.themeColor) {
                     document.documentElement.style.setProperty('--primary', data.themeColor);
                 }
@@ -128,14 +143,9 @@ const DashboardLayout = ({ allowedRoles }) => {
             }
         };
         fetchTheme();
-    }, []);
+    }, [hospitalId]);
 
-    if (loading || themeLoading) return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f8fafc' }}>
-            <div className="spinner"></div>
-            <p style={{ marginLeft: '12px', fontWeight: 600, color: '#4338ca' }}>Connecting to node...</p>
-        </div>
-    );
+    if (loading) return null;
 
     if (!user || !allowedRoles.includes(user.role)) {
         return <Navigate to="/login" replace />;

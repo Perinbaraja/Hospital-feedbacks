@@ -47,7 +47,15 @@ const feedbackSchema = mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Hospital',
             required: true
-        }
+        },
+        notes: [
+            {
+                text: { type: String, required: true },
+                senderName: { type: String, required: true },
+                senderRole: { type: String, required: true },
+                createdAt: { type: Date, default: Date.now }
+            }
+        ]
     },
     {
         timestamps: true,
@@ -55,5 +63,15 @@ const feedbackSchema = mongoose.Schema(
 );
 
 const Feedback = mongoose.model('Feedback', feedbackSchema);
+
+// To ensure virtuals are included in JSON responses
+feedbackSchema.set('toJSON', { virtuals: true });
+feedbackSchema.set('toObject', { virtuals: true });
+
+feedbackSchema.virtual('isOverdue').get(function () {
+    if (this.status !== 'Pending') return false;
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    return this.createdAt < fortyEightHoursAgo;
+});
 
 export default Feedback;

@@ -2,11 +2,12 @@ import { useState } from 'react';
 import API from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ChevronLeft, Save, X, ShieldCheck, User, Mail, Phone, Lock, Smartphone } from 'lucide-react';
+import { Building2, ChevronLeft, Save, X, ShieldCheck, User, Mail, Phone, Lock, Smartphone, Eye, EyeOff } from 'lucide-react';
 
 const SuperAdminAddHospital = () => {
     const navigate = useNavigate();
     const [submitting, setSubmitting] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const [newHospital, setNewHospital] = useState({
         name: '',
@@ -23,7 +24,7 @@ const SuperAdminAddHospital = () => {
         setSubmitting(true);
         try {
             await API.post('/super-admin/hospitals', newHospital);
-            toast.success('Facility enrolled! Credentials sent to admin phone.');
+            toast.success('Facility enrolled! Credentials sent to admin email.');
             setTimeout(() => {
                 navigate('/super-admin');
             }, 1500);
@@ -133,7 +134,7 @@ const SuperAdminAddHospital = () => {
                                     <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e1b4b', margin: 0 }}>Root Administrator Setup</h3>
                                 </div>
                                 <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>
-                                    These credentials will be securely sent to the admin's personal mobile for initial access.
+                                    These credentials will be securely sent to the admin's personal email for initial access.
                                 </p>
                             </div>
 
@@ -187,10 +188,10 @@ const SuperAdminAddHospital = () => {
 
                             <div className="form-group">
                                 <label className="form-label" style={{ fontWeight: 700, color: '#475569' }}>Initial Password</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Lock size={18} style={{ position: 'absolute', left: '14px', top: '17px', color: '#94a3b8' }} />
+                                <div className="password-wrapper" style={{ position: 'relative' }}>
+                                    <Lock size={18} style={{ position: 'absolute', left: '14px', top: '17px', color: '#94a3b8', zIndex: 1 }} />
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         className="form-control"
                                         required
                                         placeholder="••••••••"
@@ -198,6 +199,13 @@ const SuperAdminAddHospital = () => {
                                         onChange={(e) => setNewHospital({ ...newHospital, adminPassword: e.target.value })}
                                         style={{ height: '52px', borderRadius: '12px', paddingLeft: '42px', background: '#f8fafc' }}
                                     />
+                                    <button
+                                        type="button"
+                                        className="password-toggle"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                    </button>
                                 </div>
                             </div>
                         </div>

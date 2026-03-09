@@ -10,7 +10,12 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
-            setUser(JSON.parse(userInfo));
+            try {
+                setUser(JSON.parse(userInfo));
+            } catch (err) {
+                console.error('Invalid user session data found', err);
+                localStorage.removeItem('userInfo');
+            }
         }
         setLoading(false);
     }, []);
@@ -27,8 +32,13 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('userInfo');
     };
 
+    const updateUser = (data) => {
+        setUser(data);
+        localStorage.setItem('userInfo', JSON.stringify(data));
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
             {children}
         </AuthContext.Provider>
     );

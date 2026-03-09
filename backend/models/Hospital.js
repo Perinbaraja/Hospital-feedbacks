@@ -48,6 +48,8 @@ const hospitalSchema = mongoose.Schema(
         qrId: {
             type: String,
             default: 'main',
+            unique: true,
+            index: true,
         },
     },
     {

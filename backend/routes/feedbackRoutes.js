@@ -2,6 +2,7 @@ import express from 'express';
 import Feedback from '../models/Feedback.js';
 import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
 import { protect, admin } from './userRoutes.js';
+import { validateFeedbackInput } from '../middleware/validation.js';
 
 import multer from 'multer';
 import path from 'path';
@@ -34,7 +35,7 @@ const upload = multer({
 
 // @desc    Submit new feedback
 // @route   POST /api/feedback
-router.post('/', upload.any(), async (req, res) => {
+router.post('/', upload.any(), validateFeedbackInput, async (req, res) => {
     try {
         const { patientName, patientEmail, categories: categoriesRaw, comments } = req.body;
         const categories = JSON.parse(categoriesRaw);
@@ -76,6 +77,24 @@ router.post('/', upload.any(), async (req, res) => {
     }
 });
 
+// @desc    Track feedback status (Public)
+// @route   GET /api/feedback/track/:id
+router.get('/track/:id', async (req, res) => {
+    try {
+        const feedback = await Feedback.findById(req.params.id)
+            .select('status patientName createdAt hospital')
+            .populate('hospital', 'name themeColor');
+
+        if (!feedback) {
+            return res.status(404).json({ message: 'Feedback not found' });
+        }
+
+        res.json(feedback);
+    } catch (error) {
+        res.status(500).json({ message: 'Error tracking feedback' });
+    }
+});
+
 // @desc    Get all feedback (Admin)
 // @route   GET /api/feedback
 router.get('/', protect, admin, async (req, res) => {
@@ -83,6 +102,8 @@ router.get('/', protect, admin, async (req, res) => {
         const filter = {};
         if (req.user.role === 'Admin') {
             filter.hospital = req.user.hospital;
+        } else if (req.user.role === 'Super_Admin' && req.query.hospitalId) {
+            filter.hospital = req.query.hospitalId;
         }
         const feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
         res.json(feedbacks);
@@ -95,66 +116,127 @@ router.get('/', protect, admin, async (req, res) => {
 // @route   GET /api/feedback/department/:dept
 router.get('/department/:dept', protect, async (req, res) => {
     try {
-        // Only allow head of their own dept unless admin
-        if (req.user.role !== 'Admin' && req.user.department !== req.params.dept) {
+        const deptName = req.params.dept?.trim();
+
+        // Only allow head of their own dept unless admin (case-insensitive check)
+        if (req.user.role !== 'Admin' && req.user.department?.trim().toLowerCase() !== deptName?.toLowerCase()) {
             return res.status(403).json({ message: 'Not authorized for this department view' });
         }
-        const feedbacks = await Feedback.find({ assignedTo: req.params.dept }).sort({ createdAt: -1 });
+        // Use regex to match the department name within a potentially comma-separated list
+        const feedbacks = await Feedback.find({
+            assignedTo: { $regex: deptName, $options: 'i' }
+        }).sort({ createdAt: -1 });
         res.json(feedbacks);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching feedback' });
     }
 });
 
-// @desc    Update feedback (Admin)
+// @desc    Update feedback (Admin & Assigned Dept Head)
 // @route   PUT /api/feedback/:id
-router.put('/:id', protect, admin, async (req, res) => {
+router.put('/:id', protect, async (req, res) => {
     try {
         const feedback = await Feedback.findById(req.params.id);
 
-        if (feedback) {
-            if (req.body.assignedTo !== undefined) {
-                feedback.assignedTo = req.body.assignedTo;
-                // If assignedTo is set to a non-empty string, move to IN PROGRESS. If cleared, go back to Pending.
-                const newStatus = (req.body.assignedTo && req.body.assignedTo.trim() !== '') ? 'IN PROGRESS' : 'Pending';
+        if (!feedback) {
+            return res.status(404).json({ message: 'Feedback not found' });
+        }
 
-                // Only change status automatically if it's currently Pending or IN PROGRESS (don't revert COMPLETED)
-                if (feedback.status !== 'COMPLETED') {
-                    feedback.status = newStatus;
-                }
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'Super_Admin';
+        const isAssignedDeptHead = req.user.role === 'Dept_Head' &&
+            feedback.assignedTo?.toLowerCase().trim() === req.user.department?.toLowerCase().trim();
+
+        if (!isAdmin && !isAssignedDeptHead) {
+            return res.status(403).json({ message: 'Not authorized to update this feedback' });
+        }
+
+        // --- Role-Based Permission Logic ---
+
+        // 1. Updating 'assignedTo' and 'categories' is ONLY for Admins
+        if (req.body.assignedTo !== undefined || req.body.categoryUpdate !== undefined) {
+            if (!isAdmin) {
+                return res.status(403).json({ message: 'Only admins can modify assignments or categories' });
             }
 
-            if (req.body.status !== undefined) {
-                feedback.status = req.body.status;
-                if (req.body.status === 'COMPLETED' && feedback.patientEmail) {
-                    sendResolutionEmail(feedback.patientEmail, feedback.patientName);
+            if (req.body.assignedTo !== undefined) {
+                feedback.assignedTo = req.body.assignedTo;
+                // If assignedTo is cleared, revert to Pending (unless already COMPLETED)
+                if (feedback.status !== 'COMPLETED') {
+                    if (req.body.assignedTo && req.body.assignedTo.trim() !== '') {
+                        feedback.status = 'IN PROGRESS';
+                    } else {
+                        feedback.status = 'Pending';
+                    }
                 }
             }
 
             if (req.body.categoryUpdate) {
-                const { department, reviewType } = req.body.categoryUpdate;
+                const { department, reviewType, issue } = req.body.categoryUpdate;
                 if (feedback.categories && feedback.categories.length > 0) {
-                    if (department) {
-                        feedback.categories[0].department = department;
-                    }
-                    if (reviewType) {
-                        feedback.categories[0].reviewType = reviewType;
+                    if (department) feedback.categories[0].department = department;
+                    if (reviewType) feedback.categories[0].reviewType = reviewType;
+                    if (issue) {
+                        feedback.categories[0].issue = Array.isArray(issue) ? issue : issue.split(',').map(s => s.trim()).filter(s => s);
                     }
                     feedback.markModified('categories');
                 }
-                // When admin manually updates category, move to IN PROGRESS if it was Pending
-                if (feedback.status === 'Pending') {
+                // Only move to IN PROGRESS on category update if we actually have an assignment
+                if (feedback.status === 'Pending' && feedback.assignedTo && feedback.assignedTo.trim() !== '') {
                     feedback.status = 'IN PROGRESS';
                 }
             }
-
-            const updatedFeedback = await feedback.save();
-            res.json(updatedFeedback);
-        } else {
-            res.status(404).json({ message: 'Feedback not found' });
         }
+
+        // 2. Updating 'status' is allowed for both Admins and the Assigned Dept Head
+        if (req.body.status !== undefined) {
+            // Check if Dept_Head is trying to do something weird
+            if (isAssignedDeptHead && req.body.status !== 'COMPLETED') {
+                // Dept heads usually only mark as COMPLETED/Resolved
+                // But we'll allow it for now unless restricted
+            }
+
+            feedback.status = req.body.status;
+            if (req.body.status === 'COMPLETED' && feedback.patientEmail) {
+                sendResolutionEmail(feedback.patientEmail, feedback.patientName);
+            }
+        }
+
+        const updatedFeedback = await feedback.save();
+        res.json(updatedFeedback);
     } catch (error) {
+        console.error('Update error:', error);
         res.status(500).json({ message: 'Error updating feedback' });
+    }
+});
+
+// @desc    Add internal note (Admin & Assigned Dept Head)
+// @route   POST /api/feedback/:id/notes
+router.post('/:id/notes', protect, async (req, res) => {
+    try {
+        const feedback = await Feedback.findById(req.params.id);
+        if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
+
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'Super_Admin';
+        const isAssignedDeptHead = req.user.role === 'Dept_Head' && feedback.assignedTo === req.user.department;
+
+        if (!isAdmin && !isAssignedDeptHead) {
+            return res.status(403).json({ message: 'Not authorized to add notes to this feedback' });
+        }
+
+        const note = {
+            text: req.body.text,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+        };
+
+        if (!note.text) return res.status(400).json({ message: 'Note text is required' });
+
+        feedback.notes.push(note);
+        await feedback.save();
+
+        res.status(201).json(feedback.notes);
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding internal note' });
     }
 });
 

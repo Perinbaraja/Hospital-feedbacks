@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import Hospital from '../models/Hospital.js';
 import { protect, admin } from './userRoutes.js';
+import { validateHospitalInput } from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -33,16 +34,26 @@ router.get('/', async (req, res) => {
     const { hospitalId, qrId } = req.query;
     try {
         let hospital;
-        if (hospitalId) {
-            hospital = await Hospital.findById(hospitalId);
-        } else if (qrId) {
+        if (qrId) {
             hospital = await Hospital.findOne({ qrId });
+        } else if (hospitalId) {
+            hospital = await Hospital.findById(hospitalId);
+        } else if (req.user && req.user.hospital) {
+            // Priority: Authenticated Admin's assigned hospital
+            hospital = await Hospital.findById(req.user.hospital);
         } else {
+            // Fallback for public access (QR scan) or when ID is omitted
             hospital = await Hospital.findOne({});
+        }
+
+        // If no hospital found, return error with appropriate status
+        if (!hospital) {
+            return res.status(404).json({ message: 'Hospital not found. Please ensure hospital is initialized.' });
         }
 
         res.json(hospital);
     } catch (error) {
+        console.error('Error fetching hospital settings:', error.message);
         res.status(500).json({ message: 'Error fetching hospital settings' });
     }
 });
@@ -55,16 +66,17 @@ router.post('/upload', protect, admin, upload.single('image'), (req, res) => {
 });
 
 // @desc    Update hospital config
-router.put('/', protect, admin, async (req, res) => {
+router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
     const { name, logoUrl, departments, themeColor, qrId } = req.body;
     const { hospitalId } = req.query;
 
     try {
         let hospital;
-        if (hospitalId && req.user.role === 'Super_Admin') {
+        if (req.user.role === 'Super_Admin' && hospitalId) {
             hospital = await Hospital.findById(hospitalId);
         } else {
-            hospital = await Hospital.findOne({});
+            // Normal Admin: Update their own hospital!
+            hospital = await Hospital.findById(req.user.hospital);
         }
 
         if (hospital) {
