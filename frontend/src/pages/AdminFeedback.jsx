@@ -306,10 +306,10 @@ const AdminFeedback = () => {
                                         </td>
                                         <td>
                                             {cat.image ? (
-                                                <a href={`http://localhost:5000${cat.image}`} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: 'fit-content' }}>
+                                                <a href={`${API_BASE_URL}${cat.image}`} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: 'fit-content' }}>
                                                     <div style={{ position: 'relative' }}>
                                                         <img
-                                                            src={`http://localhost:5000${cat.image}`}
+                                                            src={`${API_BASE_URL}${cat.image}`}
                                                             alt="attachment"
                                                             style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', transition: 'var(--transitions)' }}
                                                             onMouseOver={e => {

@@ -215,7 +215,7 @@ const AdminSettings = () => {
                                             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
                                         }}>
                                             <img
-                                                src={logoFile ? URL.createObjectURL(logoFile) : (hospital.logoUrl.startsWith('/') ? `http://localhost:5000${hospital.logoUrl}` : hospital.logoUrl)}
+                                                src={logoFile ? URL.createObjectURL(logoFile) : (hospital.logoUrl.startsWith('/') ? `${API_BASE_URL}${hospital.logoUrl}` : hospital.logoUrl)}
                                                 alt="Logo"
                                                 style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                             />
@@ -353,7 +353,7 @@ const AdminSettings = () => {
                                 }}>
                                     {(newDept.imageFile || newDept.imageUrl) ? (
                                         <img
-                                            src={newDept.imageFile ? URL.createObjectURL(newDept.imageFile) : (newDept.imageUrl.startsWith('/') ? `http://localhost:5000${newDept.imageUrl}` : newDept.imageUrl)}
+                                            src={newDept.imageFile ? URL.createObjectURL(newDept.imageFile) : (newDept.imageUrl.startsWith('/') ? `${API_BASE_URL}${newDept.imageUrl}` : newDept.imageUrl)}
                                             alt="Preview"
                                             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                         />
@@ -376,7 +376,7 @@ const AdminSettings = () => {
                                         {dept.imageUrl && (
                                             <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderBottom: '1px solid var(--border)', padding: '0.75rem' }}>
                                                 <img
-                                                    src={dept.imageUrl.startsWith('/') ? `http://localhost:5000${dept.imageUrl}` : dept.imageUrl}
+                                                    src={dept.imageUrl.startsWith('/') ? `${API_BASE_URL}${dept.imageUrl}` : dept.imageUrl}
                                                     alt=""
                                                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                                 />

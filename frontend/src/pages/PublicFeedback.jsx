@@ -312,7 +312,7 @@ const PublicFeedback = () => {
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                         {hospital?.logoUrl && (
                             <img
-                                src={hospital.logoUrl.startsWith('/') ? `http://localhost:5000${hospital.logoUrl}` : hospital.logoUrl}
+                                src={hospital.logoUrl.startsWith('/') ? `${API_BASE_URL}${hospital.logoUrl}` : hospital.logoUrl}
                                 alt="Hospital Logo"
                                 style={{ height: '80px', objectFit: 'contain', marginBottom: '1rem' }}
                             />
@@ -399,7 +399,7 @@ const PublicFeedback = () => {
                                             {dept.imageUrl ? (
                                                 <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '0.5rem' }}>
                                                     <img
-                                                        src={dept.imageUrl.startsWith('/') ? `http://localhost:5000${dept.imageUrl}` : dept.imageUrl}
+                                                        src={dept.imageUrl.startsWith('/') ? `${API_BASE_URL}${dept.imageUrl}` : dept.imageUrl}
                                                         alt={dept.name}
                                                         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                                     />
@@ -455,7 +455,7 @@ const PublicFeedback = () => {
                                                     {cat.imageUrl ? (
                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                                                             <img
-                                                                src={cat.imageUrl.startsWith('/') ? `http://localhost:5000${cat.imageUrl}` : cat.imageUrl}
+                                                                src={cat.imageUrl.startsWith('/') ? `${API_BASE_URL}${cat.imageUrl}` : cat.imageUrl}
                                                                 alt={cat.department}
                                                                 style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                                             />

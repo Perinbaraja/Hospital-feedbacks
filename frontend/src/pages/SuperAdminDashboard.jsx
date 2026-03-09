@@ -126,7 +126,7 @@ const SuperAdminDashboard = () => {
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0'
                                 }}>
                                     {hosp.logoUrl ? (
-                                        <img src={hosp.logoUrl.startsWith('/') ? `http://localhost:5000${hosp.logoUrl}` : hosp.logoUrl} alt="Logo" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
+                                        <img src={hosp.logoUrl.startsWith('/') ? `${API_BASE_URL}${hosp.logoUrl}` : hosp.logoUrl} alt="Logo" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
                                     ) : (
                                         <Building2 size={32} color="#64748b" />
                                     )}
