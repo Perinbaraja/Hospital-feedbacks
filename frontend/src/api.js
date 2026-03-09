@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-// Vite proxies to the local Node.js backend when using /api route
+// Use dynamic base URL based on environment
 const API = axios.create({
-    baseURL: '/api',
+    baseURL: API_BASE_URL,
 });
 
 // Add token to requests
