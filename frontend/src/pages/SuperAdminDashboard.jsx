@@ -3,6 +3,7 @@ import API from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Building2, ShieldCheck, LogOut, Power, Settings, Activity, Users, MessageSquare } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 const SuperAdminDashboard = () => {
     const navigate = useNavigate();

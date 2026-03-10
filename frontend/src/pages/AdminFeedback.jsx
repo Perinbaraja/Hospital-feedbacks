@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../api';
 import toast from 'react-hot-toast';
+import { API_BASE_URL } from '../config';
 
 const StatusBadge = ({ status }) => {
     const statusClasses = {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import API from '../api';
 import toast, { Toaster } from 'react-hot-toast';
+import { API_BASE_URL } from '../config';
 
 const DEFAULT_ISSUES = {
     positive: ['Professional Staff', 'Clean Environment', 'Quick Service', 'Clear Communication', 'Helpful Information'],
