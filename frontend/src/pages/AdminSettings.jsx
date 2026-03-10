@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import API from '../api';
 import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
+import { API_BASE_URL } from '../config';
 
 const AdminSettings = () => {
     const { search } = window.location;
