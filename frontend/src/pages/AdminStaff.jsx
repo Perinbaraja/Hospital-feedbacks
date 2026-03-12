@@ -60,7 +60,7 @@ const AdminStaff = () => {
                 hospitalId
             });
 
-            toast.success(`Dept Head account created! ${!password ? '(Default password: password123)' : ''}`);
+            toast.success('Dept Head account created successfully!');
             setName('');
             setEmail('');
             setPassword('');
@@ -155,7 +155,8 @@ const AdminStaff = () => {
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     className="form-control"
-                                    placeholder="Leave blank to use 'password123'"
+                                    placeholder="Enter secure password"
+                                    required
                                     autoComplete="new-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -168,9 +169,7 @@ const AdminStaff = () => {
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px', display: 'block' }}>
-                                Default password if empty: <b>password123</b>
-                            </small>
+
                         </div>
 
                         <div className="form-group">

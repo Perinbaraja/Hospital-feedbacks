@@ -18,7 +18,6 @@ const SuperAdminAddHospital = () => {
         adminPhone: '', // Root Admin Mobile (for SMS/Notifications)
         departments: '', // List of departments (comma separated)
         logoUrl: '',
-        themeColor: '#4338ca',
         location: '',
         district: '',
         state: ''
@@ -147,16 +146,7 @@ const SuperAdminAddHospital = () => {
                                 />
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label" style={{ fontWeight: 700 }}>Theme Color</label>
-                                <input
-                                    type="color"
-                                    className="form-control"
-                                    value={newHospital.themeColor || '#4338ca'}
-                                    onChange={(e) => setNewHospital({ ...newHospital, themeColor: e.target.value })}
-                                    style={{ height: '48px', cursor: 'pointer' }}
-                                />
-                            </div>
+
 
                             <div style={{ gridColumn: 'span 2', marginTop: '1.5rem' }}>
                                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '0.5rem' }}>Hospital Admin Credentials</h3>

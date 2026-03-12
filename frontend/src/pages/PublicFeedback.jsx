@@ -66,8 +66,8 @@ const PublicFeedback = () => {
                 setHospital(data);
 
                 if (data.themeColor) {
-                    const themeColor = data.themeColor.startsWith('#') ? data.themeColor : '#4F46E5';
-                    document.documentElement.style.setProperty('--primary', themeColor);
+                    // Theme color is now applied locally to the container via inline styles
+                    // to prevent "connecting" the Admin and Public form themes globally.
                 }
 
                 const query = new URLSearchParams(window.location.search);
@@ -301,16 +301,19 @@ const PublicFeedback = () => {
         );
     }
 
-    const containerStyle = hospital?.feedbackBgUrl
-        ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${getAssetUrl(hospital.feedbackBgUrl)})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundAttachment: 'fixed'
-        }
-        : (hospital?.themeColor
-            ? { background: `linear-gradient(135deg, ${hospital.themeColor} 0%, ${hospital.themeColor}bb 100%)` }
-            : { backgroundColor: '#F3F4F6' });
+    const containerStyle = {
+        '--primary': hospital?.themeColor || '#4F46E5',
+        ...(hospital?.feedbackBgUrl
+            ? {
+                backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${getAssetUrl(hospital.feedbackBgUrl)})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundAttachment: 'fixed'
+            }
+            : (hospital?.themeColor
+                ? { background: `linear-gradient(135deg, ${hospital.themeColor} 0%, ${hospital.themeColor}bb 100%)` }
+                : { backgroundColor: '#F3F4F6' }))
+    };
 
     return (
         <div className="feedback-container branded-bg" style={containerStyle}>
@@ -433,7 +436,7 @@ const PublicFeedback = () => {
                                                 {cat.imageUrl ? (
                                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                                                         <img
-                                                            src={cat.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${cat.imageUrl}` : cat.imageUrl}
+                                                            src={getAssetUrl(cat.imageUrl)}
                                                             alt={cat.department}
                                                             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                                         />

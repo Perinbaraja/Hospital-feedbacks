@@ -11,6 +11,10 @@ import superAdminRoutes from './routes/superAdminRoutes.js';
 
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config(); // Load from root
@@ -40,6 +44,14 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Static Files
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+console.log(`📂 Serving static files from: ${uploadsDir}`);
+app.use('/uploads', express.static(uploadsDir));
+
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/hospital', hospitalRoutes);
@@ -47,7 +59,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 
 if (process.env.NODE_ENV === 'production') {
-    const frontendDist = path.join(cwd, '..', 'frontend', 'dist');
+    const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
     app.use(express.static(frontendDist));
     app.get('*', (req, res) => {
         res.sendFile(path.resolve(frontendDist, 'index.html'));

@@ -138,7 +138,7 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
         const user = await User.create({
             name: name?.trim(),
             email: email?.trim().toLowerCase(),
-            password: password || 'password123',
+            password: password,
             role: role || 'Dept_Head',
             department: department?.trim(),
             hospital: targetHospital

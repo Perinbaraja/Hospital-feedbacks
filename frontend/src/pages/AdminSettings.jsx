@@ -78,7 +78,8 @@ const AdminSettings = () => {
 
     useEffect(() => {
         if (hospital.themeColor) {
-            document.documentElement.style.setProperty('--primary', hospital.themeColor);
+            // Theme color is no longer applied globally to the Admin UI
+            // to allow separate aesthetics for Admin and Public Views.
         }
     }, [hospital.themeColor]);
 

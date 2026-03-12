@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import API from '../api';
+import API, { getAssetUrl } from '../api';
 import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -48,7 +48,7 @@ const Sidebar = ({ hospital }) => {
                     <h2 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
                         <div style={{ background: 'white', padding: '6px', borderRadius: '10px', display: 'flex', width: '40px', height: '40px', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                             {hospital?.logoUrl ? (
-                                <img src={hospital.logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                <img src={getAssetUrl(hospital.logoUrl)} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                             ) : (
                                 <LayoutDashboard size={24} color="var(--primary)" />
                             )}
@@ -144,9 +144,7 @@ const DashboardLayout = ({ allowedRoles }) => {
                 const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
                 const { data } = await API.get(`/hospital${hIdParam}`);
                 setHospital(data);
-                if (data && data.themeColor) {
-                    document.documentElement.style.setProperty('--primary', data.themeColor);
-                }
+                // Removed global theme override to decouple Admin UI from public branding
             } catch (error) {
                 console.error('Failed to load hospital data', error);
             }

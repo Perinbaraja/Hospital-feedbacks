@@ -33,7 +33,7 @@ router.post('/', validateFeedbackInput, async (req, res) => {
                     rating: cat.rating,
                     image: cat.image // This is now a Base64 string from the frontend
                 }],
-                status: 'Pending',
+                status: 'IN PROGRESS',
                 assignedTo: cat.department
             });
             createdFeedbacks.push(feedback);
