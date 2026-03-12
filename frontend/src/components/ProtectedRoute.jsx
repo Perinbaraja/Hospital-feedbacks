@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ element, allowedRoles }) => {
@@ -12,11 +12,17 @@ const ProtectedRoute = ({ element, allowedRoles }) => {
         return <Navigate to="/login" replace />;
     }
 
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-        return <Navigate to="/login" replace />;
+    if (allowedRoles) {
+        const userRoleLower = user.role.toLowerCase();
+        const isAllowed = allowedRoles.some(role => role.toLowerCase() === userRoleLower);
+
+        if (!isAllowed) {
+            console.warn(`[ProtectedRoute] Access denied for role: ${user.role}. Allowed: ${allowedRoles.join(', ')}`);
+            return <Navigate to="/login" replace />;
+        }
     }
 
-    return element;
+    return element || <Outlet />;
 };
 
 export default ProtectedRoute;

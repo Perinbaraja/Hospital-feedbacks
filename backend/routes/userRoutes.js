@@ -27,9 +27,29 @@ export const protect = async (req, res, next) => {
     return res.status(401).json({ message: 'Not authorized, no token' });
 };
 
+// Optional Protect middleware (extracts user if token exists, but doesn't fail if it doesn't)
+export const optionalProtect = async (req, res, next) => {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            token = req.headers.authorization.split(' ')[1];
+            if (process.env.JWT_SECRET) {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                req.user = await User.findById(decoded.id).select('-password');
+            }
+        } catch (error) {
+            console.error('Optional token verification failed:', error.message);
+        }
+    }
+    return next();
+};
+
 // Admin middleware
 export const admin = (req, res, next) => {
-    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Super_Admin')) {
+    const isHospitalAdmin = req.user && (req.user.role === 'Admin' || req.user.role === 'hospital_admin');
+    const isSuperAdmin = req.user && (req.user.role === 'Super_Admin' || req.user.role === 'super_admin');
+
+    if (isHospitalAdmin || isSuperAdmin) {
         next();
     } else {
         res.status(403).json({ message: 'Not authorized as an admin' });
@@ -38,7 +58,7 @@ export const admin = (req, res, next) => {
 
 // Super Admin middleware
 export const superAdmin = (req, res, next) => {
-    if (req.user && req.user.role === 'Super_Admin') {
+    if (req.user && (req.user.role === 'Super_Admin' || req.user.role === 'super_admin')) {
         next();
     } else {
         res.status(403).json({ message: 'Not authorized as a Super Admin' });
@@ -63,30 +83,37 @@ router.post('/login', validateUserInput, async (req, res) => {
     const { password } = req.body;
 
     try {
+        console.log(`[LOGIN] Attempt for email: ${email}`);
         const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } }).populate('hospital');
 
         if (user && (await user.matchPassword(password))) {
             if (!user.isActive) {
+                console.warn(`[LOGIN] Denied: Account ${email} is deactivated.`);
                 return res.status(403).json({ message: 'Your account is deactivated. Contact Super Admin.' });
             }
 
             if (user.role !== 'Super_Admin' && user.hospital && !user.hospital.isActive) {
+                console.warn(`[LOGIN] Denied: Hospital for ${email} is restricted.`);
                 return res.status(403).json({ message: 'Super Admin restricted your access' });
             }
+
+            console.log(`[LOGIN] Success: ${user.name} (${user.role})`);
 
             res.json({
                 _id: user._id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                department: user.department,
-                hospital: user.hospital,
+                department: user.department || '',
+                hospital: user.role === 'Super_Admin' ? null : user.hospital,
                 token: generateToken(user._id),
             });
         } else {
+            console.warn(`[LOGIN] Failed: Invalid credentials for ${email}`);
             res.status(401).json({ message: 'Invalid email or password' });
         }
     } catch (error) {
+        console.error('[LOGIN] Server Error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -97,7 +124,9 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
     const { name, email, password, role, department } = req.body;
 
     try {
-        const userExists = await User.findOne({ email });
+        const userExists = await User.findOne({
+            email: { $regex: new RegExp(`^${email?.trim()}$`, 'i') }
+        });
 
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
@@ -107,11 +136,11 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
         const targetHospital = (hospitalId && req.user.role === 'Super_Admin') ? hospitalId : req.user.hospital;
 
         const user = await User.create({
-            name,
-            email,
-            password: password || 'password123', // Default password if not provided
+            name: name?.trim(),
+            email: email?.trim().toLowerCase(),
+            password: password || 'password123',
             role: role || 'Dept_Head',
-            department,
+            department: department?.trim(),
             hospital: targetHospital
         });
 
@@ -137,9 +166,12 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
 router.get('/', protect, async (req, res) => {
     try {
         const filter = {};
-        if (req.user.role === 'Admin') {
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        if (isAdmin) {
             filter.hospital = req.user.hospital;
-        } else if (req.user.role === 'Super_Admin' && req.query.hospitalId) {
+        } else if (isSuperAdmin && req.query.hospitalId) {
             filter.hospital = req.query.hospitalId;
         }
 
@@ -186,12 +218,21 @@ router.put('/profile', protect, async (req, res) => {
 router.delete('/:id', protect, admin, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
-        if (user) {
-            await user.deleteOne();
-            res.json({ message: 'User removed' });
-        } else {
-            res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
         }
+
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        if (isAdmin) {
+            if (isSuperAdmin || (user.hospital?.toString() !== req.user.hospital?.toString())) {
+                return res.status(403).json({ message: 'Not authorized to delete this user' });
+            }
+        }
+
+        await user.deleteOne();
+        res.json({ message: 'User removed' });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -214,12 +255,38 @@ router.put('/:id/status', protect, superAdmin, async (req, res) => {
     }
 });
 
-// @desc    Reset password
+// @desc    Admin reset user password
+// @route   PUT /api/users/:id/reset-password
+router.post('/:id/reset-password', protect, admin, async (req, res) => {
+    const { newPassword } = req.body;
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        // Authorization check
+        if (isAdmin) {
+            if (user.hospital?.toString() !== req.user.hospital?.toString()) {
+                return res.status(403).json({ message: 'Not authorized to manage this user' });
+            }
+        }
+
+        user.password = newPassword || 'password123';
+        await user.save();
+        res.json({ message: `Password for ${user.email} has been reset.` });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @desc    Self Reset password (Public)
 // @route   POST /api/users/reset-password
 router.post('/reset-password', async (req, res) => {
     const { email, newPassword } = req.body;
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: { $regex: new RegExp(`^${email?.trim()}$`, 'i') } });
         if (user) {
             user.password = newPassword;
             await user.save();
@@ -228,7 +295,8 @@ router.post('/reset-password', async (req, res) => {
             res.status(404).json({ message: 'User not found' });
         }
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('[RESET PASSWORD] Server Error:', error);
+        res.status(500).json({ message: 'Server error during password reset' });
     }
 });
 

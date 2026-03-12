@@ -18,9 +18,9 @@
   --surface-colorful: linear-gradient(135deg, #ffffff 0%, #f1f3f5 100%);
 
   /* Balanced Colorful Gradients */
-  --grad-primary: linear-gradient(135deg, #0ca678 0%, #845ef7 100%);
-  --grad-header: linear-gradient(135deg, #099268 0%, #5f3dc4 100%);
-  --grad-colorful: linear-gradient(135deg, #12b886, #845ef7, #f06595);
+  --grad-primary: linear-gradient(135deg, var(--primary) 0%, var(--vibrant-violet) 100%);
+  --grad-header: linear-gradient(135deg, var(--primary) 0%, var(--vibrant-violet) 100%);
+  --grad-colorful: linear-gradient(135deg, var(--vibrant-teal), var(--vibrant-violet), var(--vibrant-rose));
 
   --text-main: #0f172a;
   --text-muted: #64748b;

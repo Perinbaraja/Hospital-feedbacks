@@ -13,18 +13,20 @@ const SuperAdminHospitalDetail = () => {
 
     useEffect(() => {
         fetchDetails();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     const fetchDetails = async () => {
         try {
-            const hospRes = await API.get(`/super-admin/hospitals`);
-            const found = hospRes.data.find(h => h._id === id);
-            setHospital(found);
-
-            const staffRes = await API.get(`/super-admin/hospitals/${id}/users`);
+            const [hospRes, staffRes] = await Promise.all([
+                API.get(`/super-admin/hospitals/${id}`),
+                API.get(`/super-admin/hospitals/${id}/users`)
+            ]);
+            setHospital(hospRes.data);
             setStaff(staffRes.data);
         } catch (error) {
-            toast.error('Failed to load details');
+            console.error('Failed to load details:', error);
+            toast.error(error.response?.data?.message || 'Failed to load details');
         } finally {
             setLoading(false);
         }
@@ -35,7 +37,7 @@ const SuperAdminHospitalDetail = () => {
             const { data } = await API.put(`/super-admin/hospitals/${id}/status`, { isActive: !hospital.isActive });
             setHospital(data);
             toast.success(`Hospital ${data.isActive ? 'Activated' : 'Deactivated'}`);
-        } catch (error) {
+        } catch {
             toast.error('Failed to update status');
         }
     };
@@ -119,10 +121,7 @@ const SuperAdminHospitalDetail = () => {
                                     <Activity size={20} color="#4338ca" /> Facility Overview
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                    <div>
-                                        <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Location</p>
-                                        <p style={{ fontWeight: 600, color: '#1e1b4b' }}>{hospital.location || 'Not Set'}</p>
-                                    </div>
+
                                     <div>
                                         <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Contact Phone</p>
                                         <p style={{ fontWeight: 600, color: '#1e1b4b' }}>{hospital.phone || 'Not Set'}</p>

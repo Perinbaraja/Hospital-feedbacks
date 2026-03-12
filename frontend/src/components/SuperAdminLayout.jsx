@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+// No React hooks needed here
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, Building2, ShieldCheck, LogOut, Settings, BarChart3, Plus } from 'lucide-react';
@@ -56,12 +56,11 @@ const SuperSidebar = () => {
                         <Building2 size={20} /> Hospital Network
                     </Link>
 
-                    {/* Add Hospital Quick Action */}
                     <Link
                         to="/super-admin/add-hospital"
                         style={linkStyle(location.pathname === '/super-admin/add-hospital')}
                     >
-                        Add New Hospital
+                        <Plus size={20} /> Enroll Hospital
                     </Link>
                 </nav>
             </div>
@@ -116,7 +115,7 @@ const SuperAdminLayout = () => {
         <div className="spinner"></div>
     </div>;
 
-    if (!user || user.role !== 'Super_Admin') {
+    if (!user || !['Super_Admin', 'super_admin'].includes(user.role)) {
         return <Navigate to="/login" replace />;
     }
 

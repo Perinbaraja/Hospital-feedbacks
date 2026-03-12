@@ -12,8 +12,10 @@ export const validatePassword = (password) => {
 
 export const validateUserInput = (req, res, next) => {
     const { email, password, name } = req.body;
+    const trimmedEmail = email?.trim();
+    const trimmedName = name?.trim();
 
-    if (email && !validateEmail(email)) {
+    if (trimmedEmail && !validateEmail(trimmedEmail)) {
         return res.status(400).json({ message: 'Invalid email format' });
     }
 
@@ -21,7 +23,7 @@ export const validateUserInput = (req, res, next) => {
         return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
 
-    if (name && typeof name !== 'string' || (name && name.trim().length === 0)) {
+    if (trimmedName && (typeof trimmedName !== 'string' || trimmedName.length === 0)) {
         return res.status(400).json({ message: 'Name must be a non-empty string' });
     }
 
@@ -31,7 +33,7 @@ export const validateUserInput = (req, res, next) => {
 export const validateFeedbackInput = (req, res, next) => {
     const { patientEmail, categories } = req.body || {};
 
-    if (patientEmail && !validateEmail(patientEmail)) {
+    if (patientEmail && !validateEmail(patientEmail?.trim())) {
         return res.status(400).json({ message: 'Invalid patient email format' });
     }
 

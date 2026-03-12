@@ -8,11 +8,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import PublicFeedback from './pages/PublicFeedback';
-import TrackFeedback from './pages/TrackFeedback';
 import Login from './pages/Login';
 import AdminSettings from './pages/AdminSettings';
 import AdminStaff from './pages/AdminStaff';
 import AdminFeedback from './pages/AdminFeedback';
+import AdminDashboard from './pages/AdminDashboard';
 import DeptDashboard from './pages/DeptDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SuperAdminHospitalDetail from './pages/SuperAdminHospitalDetail';
@@ -25,20 +25,21 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/feedback/:qrId" element={<PublicFeedback />} />
-        <Route path="/track" element={<TrackFeedback />} />
-        <Route path="/track/:id" element={<TrackFeedback />} />
         <Route path="/login" element={<Login />} />
 
         {/* Super Admin Dashboard (Purple Theme) */}
-        <Route element={<ProtectedRoute element={<SuperAdminLayout />} allowedRoles={['Super_Admin']} />}>
-          <Route path="/super-admin" element={<SuperAdminDashboard />} />
-          <Route path="/super-admin/add-hospital" element={<SuperAdminAddHospital />} />
-          <Route path="/super-admin/hospital/:id" element={<SuperAdminHospitalDetail />} />
+        <Route element={<ProtectedRoute allowedRoles={['Super_Admin', 'super_admin']} />}>
+          <Route element={<SuperAdminLayout />}>
+            <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Route path="/super-admin/add-hospital" element={<SuperAdminAddHospital />} />
+            <Route path="/super-admin/hospital/:id" element={<SuperAdminHospitalDetail />} />
+          </Route>
         </Route>
 
         {/* Standard Hospital Dashboards (Brand Theme) */}
-        <Route element={<ProtectedRoute element={<DashboardLayout allowedRoles={['Admin', 'Super_Admin', 'Dept_Head']} />} allowedRoles={['Admin', 'Super_Admin', 'Dept_Head']} />}>
-          <Route path="/admin" element={<AdminFeedback />} />
+        <Route element={<DashboardLayout allowedRoles={['Admin', 'hospital_admin', 'Super_Admin', 'super_admin', 'Dept_Head', 'dept_head']} />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/feedbacks" element={<AdminFeedback />} />
           <Route path="/admin/staff" element={<AdminStaff />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/dept" element={<DeptDashboard />} />

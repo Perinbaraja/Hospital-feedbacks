@@ -3,10 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import API, { BASE_ASSET_URL } from '../api';
 import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus } from 'lucide-react';
+import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, ImageOff } from 'lucide-react';
 
 const AdminSettings = () => {
-    const { login, updateUser } = useAuth();
+    const { updateUser } = useAuth();
     const { search } = window.location;
     const queryParams = new URLSearchParams(search);
     const hospitalId = queryParams.get('hospitalId');
@@ -14,6 +14,7 @@ const AdminSettings = () => {
     const [hospital, setHospital] = useState({
         name: '',
         logoUrl: '',
+        feedbackBgUrl: '',
         departments: [],
         themeColor: '#0ca678',
         qrId: '1'
@@ -30,6 +31,7 @@ const AdminSettings = () => {
         negativeIssues: ''
     });
     const [logoFile, setLogoFile] = useState(null);
+    const [bgFile, setBgFile] = useState(null);
     const [adminProfile, setAdminProfile] = useState({ name: '', email: '', password: '' });
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -66,6 +68,7 @@ const AdminSettings = () => {
             const parsed = JSON.parse(userInfo);
             setAdminProfile(prev => ({ ...prev, name: parsed.name, email: parsed.email }));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -74,18 +77,18 @@ const AdminSettings = () => {
         }
     }, [hospital.themeColor]);
 
-    const handleImageUpload = async (file) => {
-        const formData = new FormData();
-        formData.append('image', file);
-        try {
-            const { data } = await API.post('/hospital/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            return data.url;
-        } catch (error) {
-            toast.error('Image upload failed');
-            return null;
-        }
+    const handleImageUpload = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                resolve(reader.result);
+            };
+            reader.onerror = () => {
+                toast.error('Image processing failed');
+                resolve(null);
+            };
+            reader.readAsDataURL(file);
+        });
     };
 
     const handleSave = async (e) => {
@@ -97,12 +100,17 @@ const AdminSettings = () => {
                 const url = await handleImageUpload(logoFile);
                 if (url) updatedHospital.logoUrl = url;
             }
+            if (bgFile) {
+                const url = await handleImageUpload(bgFile);
+                if (url) updatedHospital.feedbackBgUrl = url;
+            }
             const url = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
             await API.put(url, updatedHospital);
             setHospital(updatedHospital);
             setLogoFile(null);
+            setBgFile(null);
             toast.success('Settings updated successfully');
-        } catch (error) {
+        } catch {
             toast.error('Error saving settings');
         } finally {
             setSaving(false);
@@ -134,7 +142,7 @@ const AdminSettings = () => {
             } else {
                 toast.error('Department already exists');
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to add department');
         } finally {
             setSaving(false);
@@ -216,6 +224,8 @@ const AdminSettings = () => {
                                     />
                                 </div>
 
+
+
                                 <div className="form-group" style={{ marginTop: '1.5rem' }}>
                                     <label className="form-label">Brand Logo</label>
                                     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
@@ -224,7 +234,7 @@ const AdminSettings = () => {
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="Brand Logo URL"
-                                                value={hospital.logoUrl}
+                                                value={hospital.logoUrl || ''}
                                                 onChange={(e) => setHospital({ ...hospital, logoUrl: e.target.value })}
                                                 style={{ marginBottom: '0.75rem' }}
                                             />
@@ -236,17 +246,87 @@ const AdminSettings = () => {
                                             />
                                         </div>
                                         {(hospital.logoUrl || logoFile) && (
-                                            <div style={{
-                                                width: '100px', height: '100px',
-                                                border: '2px solid var(--border)', borderRadius: '1rem',
-                                                overflow: 'hidden', background: '#f8fafc',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
-                                            }}>
-                                                <img
-                                                    src={logoFile ? URL.createObjectURL(logoFile) : (hospital.logoUrl.startsWith('/') ? `${BASE_ASSET_URL}${hospital.logoUrl}` : hospital.logoUrl)}
-                                                    alt="Logo"
-                                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                                                />
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{
+                                                    width: '100px', height: '100px',
+                                                    border: '2px solid var(--border)', borderRadius: '1rem',
+                                                    overflow: 'hidden', background: '#f8fafc',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
+                                                }}>
+                                                    <img
+                                                        src={logoFile ? URL.createObjectURL(logoFile) : (hospital.logoUrl?.startsWith('/') ? `${BASE_ASSET_URL}${hospital.logoUrl}` : hospital.logoUrl)}
+                                                        alt="Logo"
+                                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setHospital({ ...hospital, logoUrl: '' }); setLogoFile(null); }}
+                                                    style={{
+                                                        position: 'absolute', top: '-10px', right: '-10px',
+                                                        background: '#ef4444', color: 'white',
+                                                        border: 'none', borderRadius: '50%',
+                                                        width: '24px', height: '24px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                                    }}
+                                                    title="Remove Logo"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="form-group" style={{ marginTop: '1.5rem' }}>
+                                    <label className="form-label">Feedback Form Background</label>
+                                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                placeholder="Background Image URL"
+                                                value={hospital.feedbackBgUrl || ''}
+                                                onChange={(e) => setHospital({ ...hospital, feedbackBgUrl: e.target.value })}
+                                                style={{ marginBottom: '0.75rem' }}
+                                            />
+                                            <input
+                                                type="file"
+                                                className="form-control"
+                                                onChange={(e) => setBgFile(e.target.files[0])}
+                                                accept="image/*"
+                                            />
+                                        </div>
+                                        {(hospital.feedbackBgUrl || bgFile) && (
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{
+                                                    width: '100px', height: '100px',
+                                                    border: '2px solid var(--border)', borderRadius: '1rem',
+                                                    overflow: 'hidden', background: '#f8fafc',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
+                                                }}>
+                                                    <img
+                                                        src={bgFile ? URL.createObjectURL(bgFile) : (hospital.feedbackBgUrl?.startsWith('/') ? `${BASE_ASSET_URL}${hospital.feedbackBgUrl}` : hospital.feedbackBgUrl)}
+                                                        alt="Background"
+                                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setHospital({ ...hospital, feedbackBgUrl: '' }); setBgFile(null); }}
+                                                    style={{
+                                                        position: 'absolute', top: '-10px', right: '-10px',
+                                                        background: '#ef4444', color: 'white',
+                                                        border: 'none', borderRadius: '50%',
+                                                        width: '24px', height: '24px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                                    }}
+                                                    title="Remove Background"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
                                             </div>
                                         )}
                                     </div>

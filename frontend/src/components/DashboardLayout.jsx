@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api';
 import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-const Sidebar = () => {
+const Sidebar = ({ hospital }) => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const params = new URLSearchParams(location.search);
@@ -45,18 +45,25 @@ const Sidebar = () => {
         }}>
             <div>
                 <div style={{ paddingLeft: '0.75rem', marginBottom: '3rem' }}>
-                    <h2 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                        <div style={{ background: 'white', padding: '6px', borderRadius: '10px', display: 'flex' }}>
-                            <LayoutDashboard size={24} color="var(--primary)" />
+                    <h2 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
+                        <div style={{ background: 'white', padding: '6px', borderRadius: '10px', display: 'flex', width: '40px', height: '40px', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                            {hospital?.logoUrl ? (
+                                <img src={hospital.logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                            ) : (
+                                <LayoutDashboard size={24} color="var(--primary)" />
+                            )}
                         </div>
-                        HOSPITAL
+                        {hospital?.name || 'HOSPITAL'}
                     </h2>
                 </div>
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {user?.role === 'Admin' && (
+                    {['Admin', 'hospital_admin'].includes(user?.role) && (
                         <>
                             <NavLink to={`/admin${hQuery}`} style={getLinkStyle} end>
+                                <LayoutDashboard size={20} /> Dashboard
+                            </NavLink>
+                            <NavLink to={`/admin/feedbacks${hQuery}`} style={getLinkStyle}>
                                 <ClipboardList size={20} /> All Feedback
                             </NavLink>
                             <NavLink to={`/admin/staff${hQuery}`} style={getLinkStyle}>
@@ -68,8 +75,11 @@ const Sidebar = () => {
                         </>
                     )}
 
-                    {user?.role === 'Super_Admin' && (
+                    {['Super_Admin', 'super_admin'].includes(user?.role) && (
                         <>
+                            <NavLink to={`/admin/staff${hQuery}`} style={getLinkStyle}>
+                                <UserPlus size={20} /> Manage Staff
+                            </NavLink>
                             <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
                                 <Settings size={20} /> Hospital Settings
                             </NavLink>
@@ -79,7 +89,7 @@ const Sidebar = () => {
                         </>
                     )}
 
-                    {user?.role === 'Dept_Head' && (
+                    {['Dept_Head', 'dept_head'].includes(user?.role) && (
                         <NavLink to="/dept" style={getLinkStyle}>
                             <Users size={20} /> Dept Tasks
                         </NavLink>
@@ -124,37 +134,41 @@ const Sidebar = () => {
 
 const DashboardLayout = ({ allowedRoles }) => {
     const { user, loading } = useAuth();
-    const [themeLoading, setThemeLoading] = useState(true);
 
+    const [hospital, setHospital] = useState(null);
     const hospitalId = new URLSearchParams(useLocation().search).get('hospitalId');
+
     useEffect(() => {
-        const fetchTheme = async () => {
+        const fetchHospital = async () => {
             try {
                 const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
-
                 const { data } = await API.get(`/hospital${hIdParam}`);
+                setHospital(data);
                 if (data && data.themeColor) {
                     document.documentElement.style.setProperty('--primary', data.themeColor);
                 }
             } catch (error) {
-                console.error('Failed to load theme', error);
-            } finally {
-                setThemeLoading(false);
+                console.error('Failed to load hospital data', error);
             }
         };
-        fetchTheme();
+        fetchHospital();
     }, [hospitalId]);
 
     if (loading) return null;
 
-    if (!user || !allowedRoles.includes(user.role)) {
+    const isAllowed = !allowedRoles || allowedRoles.some(role => role.toLowerCase() === user?.role?.toLowerCase());
+
+    if (!user || !isAllowed) {
+        if (user) {
+            console.warn(`[DashboardLayout] Unauthorized role: ${user.role}. Required one of: ${allowedRoles.join(', ')}`);
+        }
         return <Navigate to="/login" replace />;
     }
 
     return (
         <div className="layout-container">
             <Toaster position="top-right" />
-            <Sidebar />
+            <Sidebar hospital={hospital} />
             <main className="main-content">
                 <Outlet />
             </main>

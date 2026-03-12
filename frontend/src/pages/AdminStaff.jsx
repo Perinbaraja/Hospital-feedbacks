@@ -28,7 +28,7 @@ const AdminStaff = () => {
             ]);
             setHospital(hospRes.data);
             setStaffList(staffRes.data.filter(u => u.role === 'Dept_Head'));
-        } catch (error) {
+        } catch {
             toast.error('Failed to load staff data');
         } finally {
             setLoading(false);
@@ -37,6 +37,7 @@ const AdminStaff = () => {
 
     useEffect(() => {
         fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleCreateStaff = async (e) => {
@@ -78,8 +79,20 @@ const AdminStaff = () => {
             await API.delete(`/users/${id}`);
             toast.success('Staff account removed');
             fetchData();
-        } catch (error) {
+        } catch {
             toast.error('Error removing staff account');
+        }
+    };
+
+    const handleResetPassword = async (id, name) => {
+        const newPassword = window.prompt(`Enter new password for ${name}:`, 'password123');
+        if (newPassword === null) return;
+
+        try {
+            await API.post(`/users/${id}/reset-password`, { newPassword });
+            toast.success(`Password updated for ${name}`);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error resetting password');
         }
     };
 
@@ -223,20 +236,34 @@ const AdminStaff = () => {
                                                     </span>
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    <button
-                                                        onClick={() => handleDeleteStaff(staff._id)}
-                                                        className="btn-outline"
-                                                        style={{
-                                                            padding: '0.35rem 0.75rem',
-                                                            fontSize: '0.75rem',
-                                                            color: 'var(--danger)',
-                                                            borderColor: '#fee2e2'
-                                                        }}
-                                                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                                                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                    >
-                                                        Remove
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            onClick={() => handleResetPassword(staff._id, staff.name)}
+                                                            className="btn-outline"
+                                                            style={{
+                                                                padding: '0.35rem 0.75rem',
+                                                                fontSize: '0.75rem',
+                                                                color: 'var(--primary)',
+                                                                borderColor: '#e2e8f0'
+                                                            }}
+                                                        >
+                                                            Reset Pwd
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteStaff(staff._id)}
+                                                            className="btn-outline"
+                                                            style={{
+                                                                padding: '0.35rem 0.75rem',
+                                                                fontSize: '0.75rem',
+                                                                color: 'var(--danger)',
+                                                                borderColor: '#fee2e2'
+                                                            }}
+                                                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}

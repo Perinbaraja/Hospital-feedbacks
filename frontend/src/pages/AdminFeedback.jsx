@@ -77,6 +77,7 @@ const AdminFeedback = () => {
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleAssign = async (id, departments, categoryUpdate, statusUpdate) => {
@@ -88,7 +89,7 @@ const AdminFeedback = () => {
             });
             toast.success(`Feedback rectified successfully`);
             fetchData();
-        } catch (error) {
+        } catch {
             toast.error('Error updating feedback');
         }
     };
@@ -102,7 +103,7 @@ const AdminFeedback = () => {
             toast.success('Internal note added');
             setNewNote('');
             fetchData();
-        } catch (error) {
+        } catch {
             toast.error('Failed to add note');
         } finally {
             setPostingNote(false);
@@ -113,7 +114,6 @@ const AdminFeedback = () => {
 
     // Filtering Logic
     const filteredFeedbacks = feedbacks.filter(fb => {
-        const cat = fb.categories?.[0] || {};
         const target = filterDept.toLowerCase().trim();
         const matchesDept = filterDept === '' ||
             fb.categories?.some(c => c.department && c.department.toLowerCase().includes(target)) ||
@@ -253,63 +253,115 @@ const AdminFeedback = () => {
                                     return (
                                         <tr key={fb._id} className={rowClass}>
                                             <td>
-                                                <div className="index-circle-container">
+                                                <div style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    borderRadius: '50%',
+                                                    background: '#f1f5f9',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 600,
+                                                    color: '#64748b'
+                                                }}>
                                                     {index + 1}
-                                                    {isOverdue && <span title="SLA Breached (>48h)" style={{ position: 'absolute', top: '-5px', right: '-5px', fontSize: '10px' }}>🚨</span>}
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="patient-name-cell">
+                                                <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
                                                     {fb.patientName || 'Anonymous'}
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="patient-email-cell">
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                                                     {fb.patientEmail || 'N/A'}
                                                 </div>
                                             </td>
                                             <td>
-                                                <span className={`type-badge-container ${isPositive ? 'positive-badge' : 'negative-badge'}`}>
+                                                <span style={{
+                                                    padding: '0.25rem 0.6rem',
+                                                    borderRadius: '2rem',
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 700,
+                                                    textTransform: 'uppercase',
+                                                    backgroundColor: isPositive ? '#f0fdf4' : '#fef2f2',
+                                                    color: isPositive ? '#166534' : '#991b1b',
+                                                    border: `1px solid ${isPositive ? '#dcfce7' : '#fee2e2'}`,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.3rem'
+                                                }}>
                                                     {isPositive ? '✨ Positive' : '⚠️ Negative'}
                                                 </span>
                                             </td>
                                             <td>
-                                                <div className="hospital-service-cell">
-                                                    <div className="service-icon">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div style={{
+                                                        width: '28px',
+                                                        height: '28px',
+                                                        borderRadius: '0.4rem',
+                                                        background: '#f8fafc',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '0.85rem',
+                                                        border: '1px solid #f1f5f9'
+                                                    }}>
                                                         🏥
                                                     </div>
-                                                    <div className="service-name">{cat.department}</div>
+                                                    <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.8125rem' }}>{cat.department}</div>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="issue-context-container">
-                                                    <div className="issue-title">
+                                                <div style={{ maxWidth: '240px' }}>
+                                                    <div style={{ fontWeight: 600, color: '#334155', marginBottom: '0.2rem', fontSize: '0.8125rem' }}>
                                                         {Array.isArray(cat.issue) ? cat.issue.join(' • ') : cat.issue}
                                                     </div>
                                                     {fb.comments && (
-                                                        <div className="issue-note">
-                                                            <span className="note-label">Note:</span>
+                                                        <div style={{
+                                                            fontSize: '0.75rem',
+                                                            color: '#64748b',
+                                                            background: '#f8fafc',
+                                                            padding: '0.4rem 0.6rem',
+                                                            borderRadius: '0.4rem',
+                                                            border: '1px solid #f1f5f9',
+                                                            marginTop: '0.35rem',
+                                                            lineHeight: '1.4'
+                                                        }}>
+                                                            <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginRight: '0.4rem' }}>Note:</span>
                                                             "{fb.comments}"
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="rating-display">
-                                                    <div className="rating-content" style={{ color: cat.rating === 'Completely Satisfied' ? '#16a34a' : cat.rating === 'Partially Satisfied' ? '#ca8a04' : '#dc2626' }}>
+                                                <div style={{
+                                                    display: 'inline-flex',
+                                                    flexDirection: 'column',
+                                                    gap: '0.15rem'
+                                                }}>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.3rem',
+                                                        fontWeight: 700,
+                                                        fontSize: '0.8rem',
+                                                        color: cat.rating === 'Completely Satisfied' ? '#16a34a' : cat.rating === 'Partially Satisfied' ? '#ca8a04' : '#dc2626'
+                                                    }}>
                                                         {cat.rating === 'Completely Satisfied' ? '🤩' : cat.rating === 'Partially Satisfied' ? '😐' : '😡'}
-                                                        <span className="rating-label">{cat.rating?.split(' ')[0]}</span>
+                                                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.025em' }}>{cat.rating?.split(' ')[0]}</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td>
                                                 {cat.image ? (
-                                                    <a href={`${BASE_ASSET_URL}${cat.image}`} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: 'fit-content' }}>
+                                                    <div style={{ display: 'block', width: 'fit-content', cursor: 'pointer' }} onClick={() => window.open(cat.image, '_blank')}>
                                                         <div style={{ position: 'relative' }}>
                                                             <img
-                                                                src={`${BASE_ASSET_URL}${cat.image}`}
+                                                                src={cat.image.startsWith('data:') ? cat.image : (cat.image.startsWith('/') ? `${BASE_ASSET_URL}${cat.image}` : cat.image)}
                                                                 alt="attachment"
-                                                                className="attachment-preview"
+                                                                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', transition: 'var(--transitions)' }}
                                                                 onMouseOver={e => {
                                                                     e.currentTarget.style.transform = 'scale(1.1)';
                                                                 }}
@@ -318,19 +370,19 @@ const AdminFeedback = () => {
                                                                 }}
                                                             />
                                                         </div>
-                                                    </a>
+                                                    </div>
                                                 ) : (
-                                                    <div className="no-attachment">
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', border: '1px dashed #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.55rem' }}>
                                                         NONE
                                                     </div>
                                                 )}
                                             </td>
                                             <td>
-                                                <div className="date-logged-cell">
-                                                    <div className="date-text">
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                                                    <div style={{ fontWeight: 600, color: '#475569', fontSize: '0.75rem' }}>
                                                         {new Date(fb.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                                     </div>
-                                                    <div className="time-text">
+                                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
                                                         {new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </div>
                                                 </div>
@@ -352,7 +404,7 @@ const AdminFeedback = () => {
                                                     <div className="custom-assign-dropdown">
                                                         <div
                                                             className="dropdown-trigger"
-                                                            onClick={(e) => {
+                                                            onClick={() => {
                                                                 const isOpening = activeFeedbackId !== fb._id;
                                                                 setActiveFeedbackId(isOpening ? fb._id : null);
 
@@ -391,7 +443,8 @@ const AdminFeedback = () => {
                                                                 <div className="dept-list">
                                                                     {hospital?.departments.map(dept => {
                                                                         const isChecked = selectedAssignment.includes(dept.name);
-                                                                        const isPatientChoice = cat.department === dept.name;
+                                                                        const currentCat = fb.categories?.[0] || {};
+                                                                        const isPatientChoice = currentCat.department === dept.name;
 
                                                                         return (
                                                                             <label key={dept.name} className={`dept-item ${isChecked ? 'selected' : ''}`}>

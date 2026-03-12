@@ -48,11 +48,11 @@ const PublicFeedback = () => {
     const [patientName, setPatientName] = useState('');
     const [patientEmail, setPatientEmail] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
-    const [comments, setComments] = useState('');
+    const [comments] = useState('');
 
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
-    const [submittedData, setSubmittedData] = useState(null);
+    const [, setSubmittedData] = useState(null);
 
     useEffect(() => {
         const fetchConfig = async (retryCount = 0) => {
@@ -128,10 +128,13 @@ const PublicFeedback = () => {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob((blob) => {
-            const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            updateImageFile(cameraDept, file);
-            stopCamera();
-            toast.success("Photo captured!");
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                updateImageFile(cameraDept, reader.result);
+                stopCamera();
+                toast.success("Photo captured!");
+            };
+            reader.readAsDataURL(blob);
         }, 'image/jpeg');
     };
 
@@ -142,7 +145,7 @@ const PublicFeedback = () => {
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     videoRef.current.srcObject = stream;
-                } catch (err) {
+                } catch {
                     toast.error("Camera access denied.");
                     setIsCameraOpen(false);
                 }
@@ -155,15 +158,22 @@ const PublicFeedback = () => {
     }, [isCameraOpen]);
 
     const toggleDepartment = (dept) => {
-        setSelectedCategories([{
-            department: dept.name,
-            issue: [],
-            customText: '',
-            reviewType: '',
-            rating: '',
-            imageFile: null,
-            imageUrl: dept.imageUrl
-        }]);
+        setSelectedCategories(prev => {
+            const exists = prev.find(c => c.department === dept.name);
+            if (exists) {
+                return prev.filter(c => c.department !== dept.name);
+            } else {
+                return [...prev, {
+                    department: dept.name,
+                    issue: [],
+                    customText: '',
+                    reviewType: '',
+                    rating: '',
+                    imageFile: null,
+                    imageUrl: dept.imageUrl
+                }];
+            }
+        });
     };
 
     const toggleIssue = (dept, issue) => {
@@ -195,11 +205,22 @@ const PublicFeedback = () => {
         }));
     };
 
-    const updateImageFile = (dept, file) => {
-        setSelectedCategories(prev => prev.map(c => {
-            if (c.department === dept) return { ...c, imageFile: file };
-            return c;
-        }));
+    const updateImageFile = (dept, fileOrBase64) => {
+        if (typeof fileOrBase64 === 'string') {
+            setSelectedCategories(prev => prev.map(c => {
+                if (c.department === dept) return { ...c, image: fileOrBase64 };
+                return c;
+            }));
+        } else {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedCategories(prev => prev.map(c => {
+                    if (c.department === dept) return { ...c, image: reader.result };
+                    return c;
+                }));
+            };
+            reader.readAsDataURL(fileOrBase64);
+        }
     };
 
     const handleNextStep = () => {
@@ -229,27 +250,27 @@ const PublicFeedback = () => {
         }
 
         try {
-            const formData = new FormData();
-            formData.append('patientName', patientName);
-            formData.append('patientEmail', patientEmail);
-            formData.append('comments', comments);
-            formData.append('categories', JSON.stringify(selectedCategories.map(c => ({
-                department: c.department,
-                issue: c.issue,
-                customText: c.customText,
-                reviewType: c.reviewType,
-                rating: c.rating
-            }))));
-            formData.append('hospital', hospital._id);
-            selectedCategories.forEach((c, index) => {
-                if (c.imageFile) formData.append(`image_${index}`, c.imageFile);
-            });
+            const payload = {
+                patientName,
+                patientEmail,
+                comments,
+                hospital: hospital._id,
+                categories: selectedCategories.map(c => ({
+                    department: c.department,
+                    issue: c.issue,
+                    customText: c.customText,
+                    reviewType: c.reviewType,
+                    rating: c.rating,
+                    image: c.image // This is now a Base64 string
+                }))
+            };
 
-            const { data } = await API.post('/feedback', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const { data } = await API.post('/feedback', payload);
             setSubmittedData(data);
             setSubmitted(true);
             toast.success('Submitted!');
         } catch (error) {
+            console.error('Submission error:', error);
             toast.error('Submission failed.');
         } finally {
             setSubmitting(false);
@@ -278,9 +299,16 @@ const PublicFeedback = () => {
         );
     }
 
-    const containerStyle = hospital?.themeColor
-        ? { background: `linear-gradient(135deg, ${hospital.themeColor} 0%, ${hospital.themeColor}bb 100%)` }
-        : { backgroundColor: '#F3F4F6' };
+    const containerStyle = hospital?.feedbackBgUrl
+        ? {
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${hospital.feedbackBgUrl.startsWith('/') ? `${BASE_ASSET_URL}${hospital.feedbackBgUrl}` : hospital.feedbackBgUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed'
+        }
+        : (hospital?.themeColor
+            ? { background: `linear-gradient(135deg, ${hospital.themeColor} 0%, ${hospital.themeColor}bb 100%)` }
+            : { backgroundColor: '#F3F4F6' });
 
     return (
         <div className="feedback-container branded-bg" style={containerStyle}>
@@ -359,11 +387,22 @@ const PublicFeedback = () => {
                                                 backgroundColor: isSelected ? 'rgba(79, 70, 229, 0.05)' : 'white'
                                             }}
                                         >
-                                            <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem' }}>
-                                                {dept.imageUrl && <img src={dept.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${dept.imageUrl}` : dept.imageUrl} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" />}
-                                            </div>
+                                            {dept.imageUrl ? (
+                                                <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '0.5rem' }}>
+                                                    <img
+                                                        src={dept.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${dept.imageUrl}` : dept.imageUrl}
+                                                        alt={dept.name}
+                                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div style={{ height: '100px', backgroundColor: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>No Image</div>
+                                            )}
                                             <div style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{dept.name}</div>
+                                                <div style={{ fontWeight: 600, color: isSelected ? 'var(--primary)' : '#374151', fontSize: '1rem', textTransform: 'uppercase' }}>{dept.name}</div>
+                                                {dept.description && dept.description.toLowerCase() !== dept.name.toLowerCase() && (
+                                                    <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>{dept.description}</div>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -386,11 +425,44 @@ const PublicFeedback = () => {
                                         : (DEPARTMENT_ISSUES[cat.department] || DEFAULT_ISSUES);
 
                                     return (
-                                        <div key={cat.department} className="card" style={{ padding: 0, marginBottom: '2rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                                            <div className="dept-header-visual" style={{ backgroundColor: hospital?.themeColor ? `${hospital.themeColor}22` : '#f8fafc' }}>
-                                                {cat.imageUrl && <img src={cat.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${cat.imageUrl}` : cat.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.15 }} alt="" />}
-                                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(to bottom, transparent, ${hospital?.themeColor}15)` }}>
-                                                    <h4 className="dept-header-title" style={{ fontSize: '2.2rem', fontWeight: 900, textTransform: 'uppercase', color: hospital?.themeColor || 'inherit', letterSpacing: '1px', textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{cat.department}</h4>
+                                        <div key={cat.department} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E5E7EB', borderRadius: '1.25rem' }}>
+                                            {/* Enhanced Header with properly resized image */}
+                                            <div style={{ position: 'relative', width: '100%', height: '200px', background: '#f8fafc', overflow: 'hidden' }}>
+                                                {cat.imageUrl ? (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                                                        <img
+                                                            src={cat.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${cat.imageUrl}` : cat.imageUrl}
+                                                            alt={cat.department}
+                                                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ height: '100%', backgroundColor: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Dept Image</div>
+                                                )}
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    bottom: 0,
+                                                    background: 'rgba(0,0,0,0.4)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '1.5rem',
+                                                    textAlign: 'center'
+                                                }}>
+                                                    <h4 style={{
+                                                        color: 'white',
+                                                        fontSize: '2rem',
+                                                        fontWeight: '800',
+                                                        margin: 0,
+                                                        textShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                                                        letterSpacing: '-0.02em',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        {cat.department}
+                                                    </h4>
                                                 </div>
                                             </div>
 

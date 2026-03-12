@@ -29,10 +29,24 @@ router.get('/hospitals', protect, superAdmin, async (req, res) => {
     }
 });
 
+// @desc    Get single hospital details
+// @route   GET /api/super-admin/hospitals/:id
+router.get('/hospitals/:id', protect, superAdmin, async (req, res) => {
+    try {
+        const hospital = await Hospital.findById(req.params.id).lean();
+        if (!hospital) return res.status(404).json({ message: 'Hospital not found' });
+
+        const feedbackCount = await Feedback.countDocuments({ hospital: hospital._id });
+        res.json({ ...hospital, feedbackCount });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching hospital details' });
+    }
+});
+
 // @desc    Create a new hospital
 // @route   POST /api/super-admin/hospitals
 router.post('/hospitals', protect, superAdmin, async (req, res) => {
-    const { name, location, phone, adminEmail, adminPassword, departments, adminName, adminPhone } = req.body;
+    const { name, location, state, district, phone, adminEmail, adminPassword, departments, adminName, adminPhone, logoUrl, themeColor } = req.body;
     try {
         // Generate uniqueId
         const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15);
@@ -49,8 +63,14 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             uniqueId,
             qrId: uniqueId, // Setting qrId to uniqueId by default
             location,
+            state: state || '',
+            district: district || '',
             phone,
-            departments: departments || []
+            logoUrl: logoUrl || '',
+            themeColor: themeColor || '#4338ca',
+            departments: typeof departments === 'string'
+                ? departments.split(',').map(d => d.trim()).filter(d => d !== '')
+                : (departments || [])
         });
 
         // Create Admin User for this hospital
@@ -62,7 +82,7 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
                     email: adminEmail,
                     password: adminPassword,
                     phone: adminPhone || '',
-                    role: 'Admin',
+                    role: 'hospital_admin',
                     hospital: hospital._id
                 });
 
@@ -127,6 +147,17 @@ router.post('/hospitals/:id/admin', protect, superAdmin, async (req, res) => {
         res.status(201).json({ _id: user._id, name: user.name, email: user.email });
     } catch (error) {
         res.status(500).json({ message: 'Error creating hospital admin' });
+    }
+});
+
+// @desc    Get all users for a specific hospital
+// @route   GET /api/super-admin/hospitals/:id/users
+router.get('/hospitals/:id/users', protect, superAdmin, async (req, res) => {
+    try {
+        const users = await User.find({ hospital: req.params.id }).select('-password');
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching hospital staff' });
     }
 });
 

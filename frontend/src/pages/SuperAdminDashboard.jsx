@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import API, { BASE_ASSET_URL } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Activity, Trash2, ShieldCheck } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
     const navigate = useNavigate();
     const [hospitals, setHospitals] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedHospital, setSelectedHospital] = useState(null);
 
     useEffect(() => {
         fetchHospitals();
@@ -18,7 +17,7 @@ const SuperAdminDashboard = () => {
         try {
             const { data } = await API.get('/super-admin/hospitals');
             setHospitals(data);
-        } catch (error) {
+        } catch {
             toast.error('Failed to fetch hospitals');
         } finally {
             setLoading(false);
@@ -34,22 +33,12 @@ const SuperAdminDashboard = () => {
             await API.put(`/super-admin/hospitals/${id}/status`, { isActive: !currentStatus });
             toast.success(`${name} ${action}d successfully`);
             fetchHospitals();
-        } catch (error) {
+        } catch {
             toast.error('Failed to update status');
         }
     };
 
-    const handleDeleteHospital = async (id, name) => {
-        if (!window.confirm(`⚠️ WARNING: Are you sure you want to PERMANENTLY delete ${name}? This will remove all feedback records and staff accounts associated with this hospital. This action cannot be undone.`)) return;
 
-        try {
-            await API.delete(`/super-admin/hospitals/${id}`);
-            toast.success(`${name} has been removed from the network`);
-            fetchHospitals();
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to delete hospital');
-        }
-    };
 
     // Removed handleCreateAdmin function as the Admin Creation modal is eliminated
 
@@ -101,125 +90,100 @@ const SuperAdminDashboard = () => {
                 </button>
             </div>
 
-
-            {/* Hospital Table Container */}
-            <div className="card" style={{ padding: '0', borderRadius: '1.25rem', border: '1px solid #e2e8f0', background: 'white', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            {/* Hospital Table View */}
+            <div className="table-container" style={{ marginTop: '2.5rem', border: '1px solid #f1f5f9', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.05)' }}>
+                <table className="modern-table">
                     <thead>
-                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                            <th style={{ padding: '1.25rem', fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Facility Info</th>
-                            <th style={{ padding: '1.25rem', fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Unique ID</th>
-                            <th style={{ padding: '1.25rem', fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Departments</th>
-                            <th style={{ padding: '1.25rem', fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Total Feedback</th>
-                            <th style={{ padding: '1.25rem', fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Status</th>
-                            <th style={{ padding: '1.25rem', fontSize: '0.85rem', fontWeight: 700, color: '#475569', textAlign: 'right' }}>Actions</th>
+                        <tr>
+                            <th style={{ paddingLeft: '2rem' }}>Hospital Facility</th>
+                            <th>Unique ID</th>
+                            <th>Depts</th>
+                            <th>Feedbacks</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right', paddingRight: '2rem' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {Array.isArray(hospitals) && hospitals.length > 0 ? (
                             hospitals.map((hosp) => (
-                                <tr key={hosp._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
-                                    <td style={{ padding: '1.25rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <tr key={hosp._id} className={hosp.isActive ? 'row-positive' : 'row-negative'}>
+                                    <td style={{ padding: '1.25rem 2rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                             <div style={{
-                                                width: '44px', height: '44px', borderRadius: '10px', background: '#f8fafc',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0', flexShrink: 0
+                                                width: '48px', height: '48px', borderRadius: '12px', background: '#f8fafc',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9'
                                             }}>
                                                 {hosp.logoUrl ? (
-                                                    <img src={hosp.logoUrl.startsWith('/') ? `${BASE_ASSET_URL}${hosp.logoUrl}` : hosp.logoUrl} alt="" style={{ maxWidth: '70%', maxHeight: '70%', objectFit: 'contain' }} />
+                                                    <img src={hosp.logoUrl.startsWith('/') ? `${BASE_ASSET_URL}${hosp.logoUrl}` : hosp.logoUrl} alt="Logo" style={{ maxWidth: '70%', maxHeight: '70%', objectFit: 'contain' }} />
                                                 ) : (
-                                                    <Building2 size={20} color="#64748b" />
+                                                    <Building2 size={24} color="#64748b" />
                                                 )}
                                             </div>
                                             <div>
-                                                <div style={{ fontWeight: 700, color: '#1e1b4b', fontSize: '0.95rem' }}>{hosp.name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{hosp.location || 'Location Not Set'}</div>
+                                                <div style={{ fontWeight: 800, color: '#1e1b4b', fontSize: '0.95rem' }}>{hosp.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Enrollment Active</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '1.25rem' }}>
-                                        <code style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', color: '#4338ca', fontWeight: 600 }}>
+                                    <td>
+                                        <code style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
                                             {hosp.uniqueId}
                                         </code>
                                     </td>
-                                    <td style={{ padding: '1.25rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>
-                                            <Users size={14} /> {hosp.departments?.length || 0}
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#475569' }}>
+                                            <Activity size={14} color="#94a3b8" />
+                                            {hosp.departments?.length || 0}
                                         </div>
                                     </td>
-                                    <td style={{ padding: '1.25rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>
-                                            <MessageSquare size={14} /> {hosp.feedbackCount || 0}
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#4338ca' }}>
+                                            <MessageSquare size={14} color="#818cf8" />
+                                            {hosp.feedbackCount || 0}
                                         </div>
                                     </td>
-                                    <td style={{ padding: '1.25rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span style={{
-                                                padding: '4px 10px',
-                                                borderRadius: '2rem',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 800,
-                                                textTransform: 'uppercase',
-                                                background: hosp.isActive ? '#dcfce7' : '#fee2e2',
-                                                color: hosp.isActive ? '#166534' : '#991b1b',
-                                                letterSpacing: '0.03em'
-                                            }}>
-                                                {hosp.isActive ? 'Active' : 'Offline'}
-                                            </span>
+                                    <td>
+                                        <span style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 800,
+                                            textTransform: 'uppercase',
+                                            background: hosp.isActive ? '#dcfce7' : '#fee2e2',
+                                            color: hosp.isActive ? '#166534' : '#991b1b',
+                                            letterSpacing: '0.05em',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}>
+                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: hosp.isActive ? '#166534' : '#991b1b' }}></span>
+                                            {hosp.isActive ? 'Active' : 'Restricted'}
+                                        </span>
+                                    </td>
+                                    <td style={{ textAlign: 'right', paddingRight: '2rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                            <button
+                                                className="btn-outline"
+                                                onClick={() => navigate(`/super-admin/hospital/${hosp._id}`)}
+                                                style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 700, borderRadius: '8px' }}
+                                            >
+                                                Manage
+                                            </button>
                                             <button
                                                 onClick={() => handleToggleStatus(hosp._id, hosp.name, hosp.isActive)}
                                                 style={{
-                                                    background: 'none', border: 'none', cursor: 'pointer', color: hosp.isActive ? '#ef4444' : '#22c55e',
-                                                    display: 'flex', transition: 'transform 0.2s'
+                                                    width: '32px', height: '32px',
+                                                    borderRadius: '8px',
+                                                    background: hosp.isActive ? 'transparent' : '#22c55e',
+                                                    color: hosp.isActive ? '#ef4444' : 'white',
+                                                    border: hosp.isActive ? '1px solid #fca5a5' : 'none',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
                                                 }}
-                                                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.2)'}
-                                                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                title={hosp.isActive ? "Deactivate" : "Activate"}
                                             >
                                                 <Power size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '1.25rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button
-                                                onClick={() => navigate(`/admin/settings?hospitalId=${hosp._id}`)}
-                                                style={{
-                                                    padding: '8px 16px',
-                                                    borderRadius: '8px',
-                                                    background: '#f1f5f9',
-                                                    border: '1px solid #e2e8f0',
-                                                    color: '#475569',
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: 700,
-                                                    cursor: 'pointer',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseOver={e => { e.currentTarget.style.background = '#4338ca'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseOut={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
-                                            >
-                                                <Settings size={14} /> Configure
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteHospital(hosp._id, hosp.name)}
-                                                style={{
-                                                    padding: '8px',
-                                                    borderRadius: '8px',
-                                                    background: '#fee2e2',
-                                                    border: '1px solid #fecaca',
-                                                    color: '#991b1b',
-                                                    cursor: 'pointer',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                title="Delete Hospital"
-                                                onMouseOver={e => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseOut={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#991b1b'; }}
-                                            >
-                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </td>
@@ -227,10 +191,10 @@ const SuperAdminDashboard = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" style={{ padding: '4rem', textAlign: 'center', color: '#64748b' }}>
-                                    <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🌐</div>
-                                    <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#1e1b4b' }}>No Hospitals Found</div>
-                                    <p>Start by enrolling your first medical facility into the network.</p>
+                                <td colSpan="6" style={{ textAlign: 'center', padding: '5rem 0' }}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🌐</div>
+                                    <h3 style={{ color: '#1e1b4b', marginBottom: '0.5rem' }}>Network Empty</h3>
+                                    <p style={{ color: '#64748b' }}>No hospital facilities have been registered in the system yet.</p>
                                 </td>
                             </tr>
                         )}

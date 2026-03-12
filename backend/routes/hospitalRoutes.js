@@ -1,36 +1,12 @@
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
 import Hospital from '../models/Hospital.js';
-import { protect, admin } from './userRoutes.js';
+import { protect, admin, optionalProtect } from './userRoutes.js';
 import { validateHospitalInput } from '../middleware/validation.js';
 
 const router = express.Router();
 
-// Multer Storage Configuration (Reuse pattern from feedbackRoutes)
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, `config-${Date.now()}${path.extname(file.originalname)}`);
-    },
-});
-
-const upload = multer({
-    storage,
-    limits: { fileSize: 5000000 }, // 5MB limit
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png|webp/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        if (extname && mimetype) return cb(null, true);
-        cb(new Error('Images only (jpeg, jpg, png, webp)!'));
-    },
-});
-
 // @desc    Get hospital config
-router.get('/', async (req, res) => {
+router.get('/', optionalProtect, async (req, res) => {
     const { hospitalId, qrId } = req.query;
     try {
         let hospital;
@@ -57,22 +33,15 @@ router.get('/', async (req, res) => {
         res.status(500).json({ message: 'Error fetching hospital settings' });
     }
 });
-
-// @desc    Upload an image for config (e.g., Logo)
-// @route   POST /api/hospital/upload
-router.post('/upload', protect, admin, upload.single('image'), (req, res) => {
-    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-    res.json({ url: `/uploads/${req.file.filename}` });
-});
-
 // @desc    Update hospital config
 router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
-    const { name, logoUrl, departments, themeColor, qrId } = req.body;
+    const { name, logoUrl, departments, themeColor, qrId, location, state, district, feedbackBgUrl } = req.body;
     const { hospitalId } = req.query;
 
     try {
         let hospital;
-        if (req.user.role === 'Super_Admin' && hospitalId) {
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        if (isSuperAdmin && hospitalId) {
             hospital = await Hospital.findById(hospitalId);
         } else {
             // Normal Admin: Update their own hospital!
@@ -82,9 +51,15 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
         if (hospital) {
             hospital.name = name || hospital.name;
             hospital.logoUrl = logoUrl !== undefined ? logoUrl : hospital.logoUrl;
-            hospital.departments = departments || hospital.departments;
+            hospital.departments = departments !== undefined ? departments : hospital.departments;
             if (themeColor !== undefined) hospital.themeColor = themeColor;
             if (qrId !== undefined) hospital.qrId = qrId;
+
+            // New metadata fields
+            if (location !== undefined) hospital.location = location;
+            if (state !== undefined) hospital.state = state;
+            if (district !== undefined) hospital.district = district;
+            if (feedbackBgUrl !== undefined) hospital.feedbackBgUrl = feedbackBgUrl;
 
             const updatedHospital = await hospital.save();
             res.json(updatedHospital);

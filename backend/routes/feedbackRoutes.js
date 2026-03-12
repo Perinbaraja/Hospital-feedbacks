@@ -4,66 +4,39 @@ import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService
 import { protect, admin } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
 
-import multer from 'multer';
-import path from 'path';
 
 const router = express.Router();
 
-// Multer Configuration
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    },
-});
-
-const upload = multer({
-    storage,
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png|webp/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        if (extname && mimetype) {
-            return cb(null, true);
-        } else {
-            cb('Error: Images only!');
-        }
-    },
-});
 
 // @desc    Submit new feedback
 // @route   POST /api/feedback
-router.post('/', upload.any(), validateFeedbackInput, async (req, res) => {
+router.post('/', validateFeedbackInput, async (req, res) => {
     try {
-        const { patientName, patientEmail, categories: categoriesRaw, comments } = req.body;
-        const categories = JSON.parse(categoriesRaw);
+        const { patientName, patientEmail, categories, comments, hospital } = req.body;
 
         const createdFeedbacks = [];
 
         for (let i = 0; i < categories.length; i++) {
             const cat = categories[i];
+            const issueList = Array.isArray(cat.issue) ? cat.issue : [];
 
-            // Check if there's an image for this category
-            // We'll look for a file field named like `image_${i}`
-            const file = req.files.find(f => f.fieldname === `image_${i}`);
-
-            const feedback = new Feedback({
+            const feedback = await Feedback.create({
                 patientName,
                 patientEmail,
-                categories: [{
-                    ...cat,
-                    image: file ? `/uploads/${file.filename}` : null
-                }],
+                hospital,
                 comments,
-                assignedTo: null, // Keep empty initially so admin sees "Assign"
+                categories: [{
+                    department: cat.department,
+                    issue: issueList,
+                    customText: cat.customText,
+                    reviewType: cat.reviewType,
+                    rating: cat.rating,
+                    image: cat.image // This is now a Base64 string from the frontend
+                }],
                 status: 'Pending',
-                hospital: req.body.hospital
+                assignedTo: cat.department
             });
-
-            const saved = await feedback.save();
-            createdFeedbacks.push(saved);
+            createdFeedbacks.push(feedback);
         }
 
         if (patientEmail) {
@@ -77,32 +50,18 @@ router.post('/', upload.any(), validateFeedbackInput, async (req, res) => {
     }
 });
 
-// @desc    Track feedback status (Public)
-// @route   GET /api/feedback/track/:id
-router.get('/track/:id', async (req, res) => {
-    try {
-        const feedback = await Feedback.findById(req.params.id)
-            .select('status patientName createdAt hospital')
-            .populate('hospital', 'name themeColor');
-
-        if (!feedback) {
-            return res.status(404).json({ message: 'Feedback not found' });
-        }
-
-        res.json(feedback);
-    } catch (error) {
-        res.status(500).json({ message: 'Error tracking feedback' });
-    }
-});
 
 // @desc    Get all feedback (Admin)
 // @route   GET /api/feedback
 router.get('/', protect, admin, async (req, res) => {
     try {
         const filter = {};
-        if (req.user.role === 'Admin') {
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        if (isAdmin) {
             filter.hospital = req.user.hospital;
-        } else if (req.user.role === 'Super_Admin' && req.query.hospitalId) {
+        } else if (isSuperAdmin && req.query.hospitalId) {
             filter.hospital = req.query.hospitalId;
         }
         const feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
@@ -112,19 +71,70 @@ router.get('/', protect, admin, async (req, res) => {
     }
 });
 
+// @desc    Get feedback stats (Admin)
+// @route   GET /api/feedback/stats
+router.get('/stats', protect, admin, async (req, res) => {
+    try {
+        const filter = {};
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        if (isAdmin) {
+            filter.hospital = req.user.hospital;
+        } else if (isSuperAdmin && req.query.hospitalId) {
+            filter.hospital = req.query.hospitalId;
+        }
+
+        const total = await Feedback.countDocuments(filter);
+        const pending = await Feedback.countDocuments({ ...filter, status: 'Pending' });
+        const inProgress = await Feedback.countDocuments({ ...filter, status: 'IN PROGRESS' });
+        const completed = await Feedback.countDocuments({ ...filter, status: 'COMPLETED' });
+
+        // Calculate Average Rating / Positive Ratio
+        const allFeedbacks = await Feedback.find(filter).select('categories');
+        let positiveCount = 0;
+        let negativeCount = 0;
+        const deptDistribution = {};
+
+        allFeedbacks.forEach(fb => {
+            const cat = fb.categories?.[0] || {};
+            if (cat.reviewType === 'Positive') positiveCount++;
+            else if (cat.reviewType === 'Negative') negativeCount++;
+
+            if (cat.department) {
+                deptDistribution[cat.department] = (deptDistribution[cat.department] || 0) + 1;
+            }
+        });
+
+        res.json({
+            total,
+            pending,
+            inProgress,
+            completed,
+            positiveCount,
+            negativeCount,
+            deptDistribution
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching stats' });
+    }
+});
+
 // @desc    Get feedback for specific department (Dept Head)
 // @route   GET /api/feedback/department/:dept
 router.get('/department/:dept', protect, async (req, res) => {
     try {
         const deptName = req.params.dept?.trim();
 
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+
         // Only allow head of their own dept unless admin (case-insensitive check)
-        if (req.user.role !== 'Admin' && req.user.department?.trim().toLowerCase() !== deptName?.toLowerCase()) {
+        if (!isAdmin && req.user.department?.trim().toLowerCase() !== deptName?.toLowerCase()) {
             return res.status(403).json({ message: 'Not authorized for this department view' });
         }
         // Use regex to match the department name within a potentially comma-separated list
         const feedbacks = await Feedback.find({
-            assignedTo: { $regex: deptName, $options: 'i' }
+            assignedTo: { $regex: new RegExp(deptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
         }).sort({ createdAt: -1 });
         res.json(feedbacks);
     } catch (error) {
@@ -140,6 +150,10 @@ router.put('/:id', protect, async (req, res) => {
 
         if (!feedback) {
             return res.status(404).json({ message: 'Feedback not found' });
+        }
+
+        if (req.user.role !== 'Super_Admin' && feedback.hospital?.toString() !== req.user.hospital?.toString()) {
+            return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
         const isAdmin = req.user.role === 'Admin' || req.user.role === 'Super_Admin';
@@ -216,6 +230,10 @@ router.post('/:id/notes', protect, async (req, res) => {
         const feedback = await Feedback.findById(req.params.id);
         if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
 
+        if (req.user.role !== 'Super_Admin' && feedback.hospital?.toString() !== req.user.hospital?.toString()) {
+            return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
+        }
+
         const isAdmin = req.user.role === 'Admin' || req.user.role === 'Super_Admin';
         const isAssignedDeptHead = req.user.role === 'Dept_Head' && feedback.assignedTo === req.user.department;
 
@@ -246,12 +264,18 @@ router.delete('/:id', protect, admin, async (req, res) => {
     try {
         const feedback = await Feedback.findById(req.params.id);
 
-        if (feedback) {
-            await feedback.deleteOne();
-            res.json({ message: 'Feedback removed' });
-        } else {
-            res.status(404).json({ message: 'Feedback not found' });
+        if (!feedback) {
+            return res.status(404).json({ message: 'Feedback not found' });
         }
+
+        const isSuper = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        if (!isSuper && feedback.hospital?.toString() !== req.user.hospital?.toString()) {
+            return res.status(403).json({ message: 'Not authorized to delete this feedback' });
+        }
+
+        await feedback.deleteOne();
+        res.json({ message: 'Feedback removed' });
     } catch (error) {
         res.status(500).json({ message: 'Error removing feedback' });
     }

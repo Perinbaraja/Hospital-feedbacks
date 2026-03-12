@@ -28,6 +28,18 @@ const hospitalSchema = mongoose.Schema(
             type: String,
             default: '',
         },
+        state: {
+            type: String,
+            default: '',
+        },
+        district: {
+            type: String,
+            default: '',
+        },
+        feedbackBgUrl: {
+            type: String,
+            default: '',
+        },
         phone: {
             type: String,
             default: '',

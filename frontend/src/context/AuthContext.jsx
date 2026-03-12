@@ -1,24 +1,22 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useContext } from 'react';
 import API from '../api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
+    const [user, setUser] = useState(() => {
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
             try {
-                setUser(JSON.parse(userInfo));
+                return JSON.parse(userInfo);
             } catch (err) {
                 console.error('Invalid user session data found', err);
                 localStorage.removeItem('userInfo');
             }
         }
-        setLoading(false);
-    }, []);
+        return null;
+    });
+    const [loading] = useState(false);
 
     const login = async (email, password) => {
         const { data } = await API.post('/users/login', { email, password });
@@ -44,4 +42,5 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

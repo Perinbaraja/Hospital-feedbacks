@@ -22,7 +22,8 @@ const DeptDashboard = () => {
 
     const fetchDeptFeedbacks = async (retryCount = 0) => {
         try {
-            const { data } = await API.get(`/feedback/department/${user.department}`);
+            const encodedDept = encodeURIComponent(user.department);
+            const { data } = await API.get(`/feedback/department/${encodedDept}`);
             setFeedbacks(data);
             setLoading(false);
             if (selectedFeedback) {
@@ -45,6 +46,7 @@ const DeptDashboard = () => {
         if (user && user.department) {
             fetchDeptFeedbacks();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     const handleResolve = async (id) => {
@@ -52,7 +54,7 @@ const DeptDashboard = () => {
             await API.put(`/feedback/${id}`, { status: 'COMPLETED' });
             toast.success('Issue marked as Resolved!');
             fetchDeptFeedbacks();
-        } catch (error) {
+        } catch {
             toast.error('Error resolving issue');
         }
     };
@@ -66,7 +68,7 @@ const DeptDashboard = () => {
             toast.success('Internal note added');
             setNewNote('');
             fetchDeptFeedbacks();
-        } catch (error) {
+        } catch {
             toast.error('Failed to add note');
         } finally {
             setPostingNote(false);
@@ -95,7 +97,13 @@ const DeptDashboard = () => {
                 <button className="btn-outline" onClick={fetchDeptFeedbacks}>Refresh Tasks</button>
             </div>
 
-            {feedbacks.length === 0 && !loading ? (
+            {(!user?.department) ? (
+                <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', border: '2px dashed var(--danger)' }}>
+                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>⚠️</div>
+                    <h3 style={{ marginBottom: '0.5rem', color: 'var(--danger)' }}>Configuration Error</h3>
+                    <p style={{ color: 'var(--text-muted)' }}>This account is not assigned to any department. Please contact your Hospital Admin.</p>
+                </div>
+            ) : feedbacks.length === 0 && !loading ? (
                 <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
                     <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
                     <h3 style={{ marginBottom: '0.5rem' }}>Operations Clear</h3>

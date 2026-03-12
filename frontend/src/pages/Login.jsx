@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api';
@@ -14,23 +14,43 @@ const Login = () => {
     const [newPass, setNewPass] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
-    const { login } = useAuth();
+    const { login, user: authenticatedUser } = useAuth();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (authenticatedUser) {
+            const role = authenticatedUser.role?.toLowerCase();
+            if (['super_admin'].includes(role)) navigate('/super-admin');
+            else if (['admin', 'hospital_admin'].includes(role)) navigate('/admin');
+            else if (['dept_head'].includes(role)) navigate('/dept');
+        }
+    }, [authenticatedUser, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const userData = await login(email, password);
-            if (userData.role === 'Super_Admin') {
+            const cleanEmail = email.trim().toLowerCase();
+            const userData = await login(cleanEmail, password);
+            const role = userData.role?.toLowerCase();
+            console.log(`[LOGIN] User Logged In: ${cleanEmail}, role: ${userData.role}`);
+
+            if (['super_admin'].includes(role)) {
+                console.log('[LOGIN] Redirecting to /super-admin');
                 navigate('/super-admin');
-            } else if (userData.role === 'Admin') {
+            } else if (['admin', 'hospital_admin'].includes(role)) {
+                console.log('[LOGIN] Redirecting to /admin');
                 navigate('/admin');
-            } else {
+            } else if (['dept_head'].includes(role)) {
+                console.log('[LOGIN] Redirecting to /dept');
                 navigate('/dept');
+            } else {
+                console.log('[LOGIN] Unknown role, staying at /login');
+                navigate('/login');
             }
             toast.success('Welcome back!');
         } catch (error) {
+            console.error('[LOGIN] Process Failed:', error);
             toast.error(error.response?.data?.message || 'Invalid login credentials');
         } finally {
             setLoading(false);
