@@ -1,8 +1,30 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import API from '../api';
+import API, { getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
 import { Activity, CheckCircle, Clock, TrendingUp, AlertCircle, BarChart3, Users, LayoutDashboard, Settings } from 'lucide-react';
+
+const StatCard = ({ title, value, color, icon, trend }) => {
+    const Graphic = icon;
+    return (
+        <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'white', borderRadius: '1.25rem', border: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ width: '44px', height: '44px', background: `${color}15`, color, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Graphic size={22} />
+                </div>
+                {trend && (
+                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: trend > 0 ? '#10b981' : '#ef4444', background: trend > 0 ? '#ecfdf5' : '#fef2f2', padding: '4px 8px', borderRadius: '1rem' }}>
+                        {trend > 0 ? '↗' : '↘'} {Math.abs(trend)}%
+                    </span>
+                )}
+            </div>
+            <div style={{ marginTop: '0.5rem' }}>
+                <p style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: 'medium' }}>{title}</p>
+                <h3 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1e293b', margin: 0 }}>{value}</h3>
+            </div>
+        </div>
+    );
+};
 
 const AdminDashboard = () => {
     const [searchParams] = useSearchParams();
@@ -43,24 +65,6 @@ const AdminDashboard = () => {
         </div>
     );
 
-    const StatCard = ({ title, value, color, icon: Icon, trend }) => (
-        <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'white', borderRadius: '1.25rem', border: '1px solid #f1f5f9' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ width: '44px', height: '44px', background: `${color}15`, color, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={22} />
-                </div>
-                {trend && (
-                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: trend > 0 ? '#10b981' : '#ef4444', background: trend > 0 ? '#ecfdf5' : '#fef2f2', padding: '4px 8px', borderRadius: '1rem' }}>
-                        {trend > 0 ? '↗' : '↘'} {Math.abs(trend)}%
-                    </span>
-                )}
-            </div>
-            <div style={{ marginTop: '0.5rem' }}>
-                <p style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: 'medium' }}>{title}</p>
-                <h3 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1e293b', margin: 0 }}>{value}</h3>
-            </div>
-        </div>
-    );
 
     const positivePercent = stats?.total > 0 ? Math.round((stats.positiveCount / stats.total) * 100) : 0;
 
@@ -126,7 +130,7 @@ const AdminDashboard = () => {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 {deptObj?.imageUrl ? (
                                                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'white', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                        <img src={deptObj.imageUrl} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
+                                                        <img src={getAssetUrl(deptObj.imageUrl)} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
                                                     </div>
                                                 ) : (
                                                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -35,7 +35,7 @@ router.get('/', optionalProtect, async (req, res) => {
 });
 // @desc    Update hospital config
 router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
-    const { name, logoUrl, departments, themeColor, qrId, location, state, district, feedbackBgUrl } = req.body;
+    const { name, logoUrl, departments, themeColor, qrId, location, state, district, feedbackBgUrl, phone } = req.body;
     const { hospitalId } = req.query;
 
     try {
@@ -60,6 +60,7 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             if (state !== undefined) hospital.state = state;
             if (district !== undefined) hospital.district = district;
             if (feedbackBgUrl !== undefined) hospital.feedbackBgUrl = feedbackBgUrl;
+            if (phone !== undefined) hospital.phone = phone;
 
             const updatedHospital = await hospital.save();
             res.json(updatedHospital);

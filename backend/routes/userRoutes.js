@@ -190,6 +190,7 @@ router.put('/profile', protect, async (req, res) => {
         if (user) {
             user.name = req.body.name || user.name;
             user.email = req.body.email || user.email;
+            user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
             if (req.body.password) {
                 user.password = req.body.password;
             }

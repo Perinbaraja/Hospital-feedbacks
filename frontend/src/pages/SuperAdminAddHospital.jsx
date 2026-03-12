@@ -18,7 +18,10 @@ const SuperAdminAddHospital = () => {
         adminPhone: '', // Root Admin Mobile (for SMS/Notifications)
         departments: '', // List of departments (comma separated)
         logoUrl: '',
-        themeColor: '#4338ca'
+        themeColor: '#4338ca',
+        location: '',
+        district: '',
+        state: ''
     });
 
     const handleCreateHospital = async (e) => {
@@ -95,14 +98,52 @@ const SuperAdminAddHospital = () => {
 
 
                             <div className="form-group">
-                                <label className="form-label" style={{ fontWeight: 700 }}>Phone Number</label>
+                                <label className="form-label" style={{ fontWeight: 700 }}>Location / Street</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="e.g. MG Road, Civil Lines"
+                                    value={newHospital.location}
+                                    onChange={(e) => setNewHospital({ ...newHospital, location: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 700 }}>District</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="e.g. Mumbai"
+                                    value={newHospital.district}
+                                    onChange={(e) => setNewHospital({ ...newHospital, district: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 700 }}>State</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="e.g. Maharashtra"
+                                    value={newHospital.state}
+                                    onChange={(e) => setNewHospital({ ...newHospital, state: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 700 }}>Hospital Phone</label>
                                 <input
                                     type="text"
                                     className="form-control"
                                     required
-                                    placeholder="Hospital contact number"
+                                    maxLength={10}
+                                    pattern="\d{10}"
+                                    placeholder="Official contact number"
                                     value={newHospital.phone}
-                                    onChange={(e) => setNewHospital({ ...newHospital, phone: e.target.value })}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        if (val.length <= 10) setNewHospital({ ...newHospital, phone: val });
+                                    }}
                                 />
                             </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import API, { BASE_ASSET_URL } from '../api';
+import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
 import './AdminFeedback.css';
 
@@ -78,7 +78,7 @@ const AdminFeedback = () => {
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [hospitalId]);
 
     const handleAssign = async (id, departments, categoryUpdate, statusUpdate) => {
         try {
@@ -247,8 +247,7 @@ const AdminFeedback = () => {
                                     const actualStatus = fb.status;
                                     const isOverdue = fb.isOverdue; // From backend virtual
 
-                                    let rowClass = actualStatus === 'IN PROGRESS' ? 'row-assigned' : actualStatus === 'Pending' ? 'row-pending' : (isPositive ? 'row-positive' : 'row-negative');
-                                    if (isOverdue) rowClass += ' row-overdue';
+                                    const rowClass = actualStatus === 'COMPLETED' ? 'row-resolved' : (actualStatus === 'IN PROGRESS' ? 'row-assigned' : (actualStatus === 'Pending' ? 'row-pending' : (isPositive ? 'row-positive' : 'row-negative'))) + (isOverdue ? ' row-overdue' : '');
 
                                     return (
                                         <tr key={fb._id} className={rowClass}>
@@ -356,10 +355,10 @@ const AdminFeedback = () => {
                                             </td>
                                             <td>
                                                 {cat.image ? (
-                                                    <div style={{ display: 'block', width: 'fit-content', cursor: 'pointer' }} onClick={() => window.open(cat.image, '_blank')}>
+                                                    <div style={{ display: 'block', width: 'fit-content', cursor: 'pointer' }} onClick={() => window.open(getAssetUrl(cat.image), '_blank')}>
                                                         <div style={{ position: 'relative' }}>
                                                             <img
-                                                                src={cat.image.startsWith('data:') ? cat.image : (cat.image.startsWith('/') ? `${BASE_ASSET_URL}${cat.image}` : cat.image)}
+                                                                src={getAssetUrl(cat.image)}
                                                                 alt="attachment"
                                                                 style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', transition: 'var(--transitions)' }}
                                                                 onMouseOver={e => {
@@ -459,7 +458,6 @@ const AdminFeedback = () => {
 
                                                                                         setSelectedAssignment(nextAssignment);
 
-                                                                                        // Auto-update status based on assignment (unless manually completed)
                                                                                         if (tempStatus !== 'COMPLETED') {
                                                                                             setTempStatus(nextAssignment.length > 0 ? 'IN PROGRESS' : 'Pending');
                                                                                         }
@@ -472,6 +470,55 @@ const AdminFeedback = () => {
                                                                             </label>
                                                                         );
                                                                     })}
+                                                                </div>
+
+                                                                <div className="dropdown-section-title">Adjust Classification</div>
+                                                                <div className="adjust-classification">
+                                                                    <div className="form-group-sm">
+                                                                        <label>Department</label>
+                                                                        <select 
+                                                                            className="form-control-sm"
+                                                                            value={tempCategoryDept}
+                                                                            onChange={(e) => setTempCategoryDept(e.target.value)}
+                                                                        >
+                                                                            {hospital?.departments.map(d => (
+                                                                                <option key={d.name} value={d.name}>{d.name}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div className="form-group-sm">
+                                                                        <label>Feedback Type</label>
+                                                                        <select 
+                                                                            className="form-control-sm"
+                                                                            value={tempReviewType}
+                                                                            onChange={(e) => setTempReviewType(e.target.value)}
+                                                                        >
+                                                                            <option value="Positive">Positive ✨</option>
+                                                                            <option value="Negative">Negative ⚠️</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div className="form-group-sm">
+                                                                        <label>Detailed Issue</label>
+                                                                        <input 
+                                                                            type="text" 
+                                                                            className="form-control-sm" 
+                                                                            value={tempIssue} 
+                                                                            onChange={(e) => setTempIssue(e.target.value)}
+                                                                            placeholder="e.g. Long Wait"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="form-group-sm">
+                                                                        <label>Workflow Status</label>
+                                                                        <select 
+                                                                            className="form-control-sm"
+                                                                            value={tempStatus}
+                                                                            onChange={(e) => setTempStatus(e.target.value)}
+                                                                        >
+                                                                            <option value="Pending">Pending</option>
+                                                                            <option value="IN PROGRESS">In Progress</option>
+                                                                            <option value="COMPLETED">Completed/Resolved</option>
+                                                                        </select>
+                                                                    </div>
                                                                 </div>
 
                                                                 <div className="dropdown-footer">

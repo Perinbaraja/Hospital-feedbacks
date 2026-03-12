@@ -1,18 +1,32 @@
 import axios from 'axios';
 
-// Use environment variable if available, otherwise fallback based on environment
-// For local development (Vite), default to localhost:5000. For production, default to empty string (relative paths).
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '');
-export const BASE_URL = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
-export const BASE_ASSET_URL = BASE_URL;
+// Unified URL Configuration
+// Use environment variables if set, otherwise fallback to smart defaults
+const envApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
+export const API_BASE_URL = envApiUrl || '/api';
 
-// Create axios instance with proper baseURL for API calls
+// For assets like images: Dev uses localhost:5000, Prod uses relative paths
+const envAssetUrl = import.meta.env.VITE_ASSET_URL;
+export const BASE_ASSET_URL = envAssetUrl !== undefined ? envAssetUrl : (import.meta.env.DEV ? 'http://localhost:5000' : '');
+
+/**
+ * Robust helper to get full Asset URL
+ * Handles full URLs, Base64, and relative paths automatically
+ */
+export const getAssetUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${BASE_ASSET_URL}${cleanPath}`;
+};
+
+// Create axios instance
 const API = axios.create({
-    baseURL: `${BASE_URL}/api`,
-    timeout: 10000,
+    baseURL: API_BASE_URL,
+    timeout: 15000,
 });
 
-// Add token to requests
+// Request Interceptor: Add Authorization token
 API.interceptors.request.use((req) => {
     const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
@@ -22,21 +36,24 @@ API.interceptors.request.use((req) => {
                 req.headers.Authorization = `Bearer ${token}`;
             }
         } catch (error) {
-            console.error('Error parsing user info from localStorage:', error);
+            console.error('API Error: Auth token parsing failed', error);
             localStorage.removeItem('userInfo');
         }
     }
     return req;
 });
 
-// Handle response errors
+// Response Interceptor: Handle errors globally
 API.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Handle 401 Unauthorized errors (Token expired/invalid)
         if (error.response?.status === 401) {
-            // Token expired or invalid, clear storage
             localStorage.removeItem('userInfo');
-            window.location.href = '/login';
+            // Redirect to login if we're not already there
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

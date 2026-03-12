@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import API, { BASE_ASSET_URL } from '../api';
+import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Activity, Trash2, ShieldCheck } from 'lucide-react';
@@ -42,7 +42,17 @@ const SuperAdminDashboard = () => {
 
     // Removed handleCreateAdmin function as the Admin Creation modal is eliminated
 
-    // Removed handleConfigureHospital function in favor of direct navigation
+    const handleDeleteHospital = async (id, name) => {
+        if (!window.confirm(`CRITICAL: Are you sure you want to PERMANENTLY delete ${name}? This will remove all associated feedback and staff accounts. This action cannot be undone.`)) return;
+
+        try {
+            await API.delete(`/super-admin/hospitals/${id}`);
+            toast.success(`${name} removed successfully`);
+            fetchHospitals();
+        } catch {
+            toast.error('Failed to delete hospital');
+        }
+    };
 
     return (
         <div style={{ padding: '1rem', position: 'relative' }}>
@@ -58,7 +68,7 @@ const SuperAdminDashboard = () => {
                     <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Syncing Network...</span>
                 </div>
             )}
-            <Toaster />
+
 
             {/* Header Section */}
             <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -97,6 +107,7 @@ const SuperAdminDashboard = () => {
                         <tr>
                             <th style={{ paddingLeft: '2rem' }}>Hospital Facility</th>
                             <th>Unique ID</th>
+                            <th>Location</th>
                             <th>Depts</th>
                             <th>Feedbacks</th>
                             <th>Status</th>
@@ -114,7 +125,11 @@ const SuperAdminDashboard = () => {
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9'
                                             }}>
                                                 {hosp.logoUrl ? (
-                                                    <img src={hosp.logoUrl.startsWith('/') ? `${BASE_ASSET_URL}${hosp.logoUrl}` : hosp.logoUrl} alt="Logo" style={{ maxWidth: '70%', maxHeight: '70%', objectFit: 'contain' }} />
+                                                    <img 
+                                                        src={getAssetUrl(hosp.logoUrl)} 
+                                                        alt="Logo" 
+                                                        style={{ maxWidth: '70%', maxHeight: '70%', objectFit: 'contain' }} 
+                                                    />
                                                 ) : (
                                                     <Building2 size={24} color="#64748b" />
                                                 )}
@@ -129,6 +144,12 @@ const SuperAdminDashboard = () => {
                                         <code style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
                                             {hosp.uniqueId}
                                         </code>
+                                    </td>
+                                    <td>
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>
+                                            {hosp.location || 'N/A'}
+                                            {hosp.district && <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>{hosp.district}</div>}
+                                        </div>
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#475569' }}>
@@ -184,6 +205,22 @@ const SuperAdminDashboard = () => {
                                                 title={hosp.isActive ? "Deactivate" : "Activate"}
                                             >
                                                 <Power size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteHospital(hosp._id, hosp.name)}
+                                                style={{
+                                                    width: '32px', height: '32px',
+                                                    borderRadius: '8px',
+                                                    background: 'transparent',
+                                                    color: '#ef4444',
+                                                    border: '1px solid #fecaca',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                title="Permanently Delete Hospital"
+                                            >
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </td>

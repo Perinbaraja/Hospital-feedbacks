@@ -48,7 +48,15 @@ router.get('/hospitals/:id', protect, superAdmin, async (req, res) => {
 router.post('/hospitals', protect, superAdmin, async (req, res) => {
     const { name, location, state, district, phone, adminEmail, adminPassword, departments, adminName, adminPhone, logoUrl, themeColor } = req.body;
     try {
-        // Generate uniqueId
+        // 1. Check if admin email is already in use
+        if (adminEmail) {
+            const userExists = await User.findOne({ email: adminEmail });
+            if (userExists) {
+                return res.status(400).json({ message: 'Admin email already exists in the system' });
+            }
+        }
+
+        // 2. Generate uniqueId
         const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15);
         const random = Math.floor(Math.random() * 9000) + 1000;
         const uniqueId = `${slug}-${random}`;
@@ -58,10 +66,11 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             return res.status(400).json({ message: 'Hospital unique ID already exists' });
         }
 
+        // 3. Create Hospital
         const hospital = await Hospital.create({
             name,
             uniqueId,
-            qrId: uniqueId, // Setting qrId to uniqueId by default
+            qrId: uniqueId,
             location,
             state: state || '',
             district: district || '',
@@ -73,32 +82,24 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
                 : (departments || [])
         });
 
-        // Create Admin User for this hospital
+        // 4. Create Admin User
         if (adminEmail && adminPassword) {
-            const userExists = await User.findOne({ email: adminEmail });
-            if (!userExists) {
-                await User.create({
-                    name: adminName || `${name} Admin`,
-                    email: adminEmail,
-                    password: adminPassword,
-                    phone: adminPhone || '',
-                    role: 'hospital_admin',
-                    hospital: hospital._id
-                });
+            await User.create({
+                name: adminName || `${name} Admin`,
+                email: adminEmail,
+                password: adminPassword,
+                phone: adminPhone || '',
+                role: 'hospital_admin',
+                hospital: hospital._id
+            });
 
-                // Send Email Notification
-                await sendAdminCredentialsEmail(
-                    adminEmail,
-                    adminName || `${name} Admin`,
-                    adminEmail,
-                    adminPassword
-                );
-
-                // Mock SMS Sending Logic (Keep for logs)
-                console.log(`[SIMULATED SMS] To: ${adminPhone}`);
-                console.log(`Username: ${adminEmail}`);
-                console.log(`Password: ${adminPassword}`);
-            }
+            // Send Email Notification
+            await sendAdminCredentialsEmail(
+                adminEmail,
+                adminName || `${name} Admin`,
+                adminEmail,
+                adminPassword
+            );
         }
 
         res.status(201).json(hospital);

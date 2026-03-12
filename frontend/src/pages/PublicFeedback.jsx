@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import API, { BASE_ASSET_URL } from '../api';
+import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import './PublicFeedback.css';
 
-// ... (DEFAULT_ISSUES and DEPARTMENT_ISSUES remain unchanged)
+
 const DEFAULT_ISSUES = {
     positive: ['Professional Staff', 'Clean Environment', 'Quick Service', 'Clear Communication', 'Helpful Information'],
     negative: ['Long Waiting Time', 'Rude Behavior', 'Lack of Cleanliness', 'High Cost', 'Complex Process']
 };
 
 const DEPARTMENT_ISSUES = {
-    // ... copy all issues
+
     'Admission': {
         positive: ['Fast Process', 'Friendly Staff', 'Clear Instructions', 'Easy Documentation'],
         negative: ['Long Wait Time', 'Confusing Paperwork', 'Unhelpful Staff', 'Delay in Entry']
@@ -39,7 +39,7 @@ const DEPARTMENT_ISSUES = {
 };
 
 const PublicFeedback = () => {
-    // ... logic remains same ...
+
     const { qrId } = useParams();
     const [hospital, setHospital] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -169,7 +169,7 @@ const PublicFeedback = () => {
                     customText: '',
                     reviewType: '',
                     rating: '',
-                    imageFile: null,
+                    image: null,
                     imageUrl: dept.imageUrl
                 }];
             }
@@ -206,6 +206,8 @@ const PublicFeedback = () => {
     };
 
     const updateImageFile = (dept, fileOrBase64) => {
+        if (!fileOrBase64) return;
+
         if (typeof fileOrBase64 === 'string') {
             setSelectedCategories(prev => prev.map(c => {
                 if (c.department === dept) return { ...c, image: fileOrBase64 };
@@ -301,7 +303,7 @@ const PublicFeedback = () => {
 
     const containerStyle = hospital?.feedbackBgUrl
         ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${hospital.feedbackBgUrl.startsWith('/') ? `${BASE_ASSET_URL}${hospital.feedbackBgUrl}` : hospital.feedbackBgUrl})`,
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${getAssetUrl(hospital.feedbackBgUrl)})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundAttachment: 'fixed'
@@ -329,7 +331,7 @@ const PublicFeedback = () => {
                             </div>
                         ) : hospital?.logoUrl && (
                             <img
-                                src={hospital.logoUrl.startsWith('/') ? `${BASE_ASSET_URL}${hospital.logoUrl}` : hospital.logoUrl}
+                                src={getAssetUrl(hospital.logoUrl)}
                                 alt="Hospital Logo"
                                 className="feedback-logo"
                             />
@@ -390,7 +392,7 @@ const PublicFeedback = () => {
                                             {dept.imageUrl ? (
                                                 <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '0.5rem' }}>
                                                     <img
-                                                        src={dept.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${dept.imageUrl}` : dept.imageUrl}
+                                                        src={getAssetUrl(dept.imageUrl)}
                                                         alt={dept.name}
                                                         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                                     />
@@ -513,7 +515,7 @@ const PublicFeedback = () => {
                                                             <input type="file" accept="image/*" onChange={(e) => updateImageFile(cat.department, e.target.files[0])} style={{ display: 'none' }} />
                                                         </label>
                                                     </div>
-                                                    {cat.imageFile && <div className="photo-selection-status"><span>✓ {cat.imageFile.name}</span></div>}
+                                                    {cat.image && <div className="photo-selection-status"><span>✓ Photo Attached</span></div>}
                                                 </div>
 
                                                 <div className="form-group">

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import API, { BASE_ASSET_URL } from '../api';
+import API, { BASE_ASSET_URL, getAssetUrl, API_BASE_URL } from '../api';
 import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, ImageOff } from 'lucide-react';
+
 
 const AdminSettings = () => {
     const { updateUser } = useAuth();
@@ -17,7 +18,11 @@ const AdminSettings = () => {
         feedbackBgUrl: '',
         departments: [],
         themeColor: '#0ca678',
-        qrId: '1'
+        qrId: '1',
+        phone: '',
+        location: '',
+        state: '',
+        district: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -32,7 +37,7 @@ const AdminSettings = () => {
     });
     const [logoFile, setLogoFile] = useState(null);
     const [bgFile, setBgFile] = useState(null);
-    const [adminProfile, setAdminProfile] = useState({ name: '', email: '', password: '' });
+    const [adminProfile, setAdminProfile] = useState({ name: '', email: '', password: '', phone: '' });
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -66,7 +71,7 @@ const AdminSettings = () => {
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
             const parsed = JSON.parse(userInfo);
-            setAdminProfile(prev => ({ ...prev, name: parsed.name, email: parsed.email }));
+            setAdminProfile(prev => ({ ...prev, name: parsed.name, email: parsed.email, phone: parsed.phone || '' }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -224,6 +229,56 @@ const AdminSettings = () => {
                                     />
                                 </div>
 
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Contact Number (10 Digits)</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            maxLength={10}
+                                            placeholder="e.g. 9876543210"
+                                            value={hospital.phone}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                setHospital({ ...hospital, phone: val });
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Location / Address</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Street or Area"
+                                            value={hospital.location}
+                                            onChange={(e) => setHospital({ ...hospital, location: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">District</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="District Name"
+                                            value={hospital.district}
+                                            onChange={(e) => setHospital({ ...hospital, district: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">State</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="State Name"
+                                            value={hospital.state}
+                                            onChange={(e) => setHospital({ ...hospital, state: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
 
 
                                 <div className="form-group" style={{ marginTop: '1.5rem' }}>
@@ -254,7 +309,7 @@ const AdminSettings = () => {
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
                                                 }}>
                                                     <img
-                                                        src={logoFile ? URL.createObjectURL(logoFile) : (hospital.logoUrl?.startsWith('/') ? `${BASE_ASSET_URL}${hospital.logoUrl}` : hospital.logoUrl)}
+                                                        src={logoFile ? URL.createObjectURL(logoFile) : getAssetUrl(hospital.logoUrl)}
                                                         alt="Logo"
                                                         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                                     />
@@ -307,7 +362,7 @@ const AdminSettings = () => {
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
                                                 }}>
                                                     <img
-                                                        src={bgFile ? URL.createObjectURL(bgFile) : (hospital.feedbackBgUrl?.startsWith('/') ? `${BASE_ASSET_URL}${hospital.feedbackBgUrl}` : hospital.feedbackBgUrl)}
+                                                        src={bgFile ? URL.createObjectURL(bgFile) : getAssetUrl(hospital.feedbackBgUrl)}
                                                         alt="Background"
                                                         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
                                                     />
@@ -366,6 +421,11 @@ const AdminSettings = () => {
                                 </div>
                             </div>
 
+                            <div style={{ padding: '1rem 0', borderTop: '1px solid var(--border)', marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                                <button type="submit" className="btn-primary" disabled={saving} style={{ padding: '0.75rem 2rem' }}>
+                                    {saving ? 'Saving...' : 'Save Configuration'}
+                                </button>
+                            </div>
                         </form>
                     </div>
 
@@ -403,7 +463,7 @@ const AdminSettings = () => {
                             </div>
                             <div style={{ width: '100px', height: '100px', border: '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                                 {(newDept.imageFile || newDept.imageUrl) ? (
-                                    <img src={newDept.imageFile ? URL.createObjectURL(newDept.imageFile) : (newDept.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${newDept.imageUrl}` : newDept.imageUrl)} alt="Preview" style={{ maxWidth: '90%', maxHeight: '90%' }} />
+                                    <img src={newDept.imageFile ? URL.createObjectURL(newDept.imageFile) : getAssetUrl(newDept.imageUrl)} alt="Preview" style={{ maxWidth: '90%', maxHeight: '90%' }} />
                                 ) : <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>PREVIEW</span>}
                             </div>
                         </div>
@@ -417,7 +477,7 @@ const AdminSettings = () => {
                                 <div key={dept.name} className="card" style={{ padding: 0, position: 'relative', overflow: 'hidden', background: '#f8fafc', border: '1px solid var(--border)' }}>
                                     {dept.imageUrl && (
                                         <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', borderBottom: '1px solid var(--border)' }}>
-                                            <img src={dept.imageUrl.startsWith('/') ? `${BASE_ASSET_URL}${dept.imageUrl}` : dept.imageUrl} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
+                                            <img src={getAssetUrl(dept.imageUrl)} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
                                         </div>
                                     )}
                                     <div style={{ padding: '1rem' }}>
@@ -509,6 +569,21 @@ const AdminSettings = () => {
                                 <input type="email" className="form-control" style={{ background: 'white' }} value={adminProfile.email} onChange={e => setAdminProfile({ ...adminProfile, email: e.target.value })} />
                             </div>
                             <div className="form-group">
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e' }}>Phone Number</label>
+                                <input 
+                                    type="text" 
+                                    className="form-control" 
+                                    style={{ background: 'white' }} 
+                                    maxLength={10}
+                                    placeholder="10 digit number"
+                                    value={adminProfile.phone} 
+                                    onChange={e => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                        setAdminProfile({ ...adminProfile, phone: val });
+                                    }} 
+                                />
+                            </div>
+                            <div className="form-group">
                                 <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e' }}>New Password</label>
                                 <div className="password-wrapper">
                                     <input type={showPassword ? 'text' : 'password'} className="form-control" style={{ background: 'white' }} placeholder="Leave blank to keep same" value={adminProfile.password} onChange={e => setAdminProfile({ ...adminProfile, password: e.target.value })} />
@@ -523,8 +598,8 @@ const AdminSettings = () => {
 
                 </div>
 
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
 
