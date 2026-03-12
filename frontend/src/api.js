@@ -3,7 +3,8 @@ import axios from 'axios';
 // Unified URL Configuration
 // Use environment variables if set, otherwise fallback to smart defaults
 const envApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
-export const API_BASE_URL = envApiUrl || '/api';
+export const API_BASE_URL = envApiUrl || 
+  (import.meta.env.DEV ? '/api' : 'https://hospital-feedbacks.onrender.com/api');
 
 // For assets like images: Dev uses localhost:5000, Prod uses relative paths
 const envAssetUrl = import.meta.env.VITE_ASSET_URL;
