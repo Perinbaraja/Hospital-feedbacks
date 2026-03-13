@@ -75,7 +75,7 @@ const SuperAdminAddHospital = () => {
             </div>
 
             <div className="card" style={{ padding: '0', border: '1px solid #e2e8f0', background: 'white', borderRadius: '1.5rem', overflow: 'hidden' }}>
-                <form onSubmit={handleCreateHospital}>
+                <form onSubmit={handleCreateHospital} autoComplete="off">
                     <div style={{ padding: '3rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                             <div style={{ gridColumn: 'span 2' }}>
@@ -161,6 +161,7 @@ const SuperAdminAddHospital = () => {
                                     type="email"
                                     className="form-control"
                                     required
+                                    autoComplete="none"
                                     placeholder="admin@hospital.com"
                                     value={newHospital.adminEmail}
                                     onChange={(e) => setNewHospital({ ...newHospital, adminEmail: e.target.value })}
@@ -174,6 +175,7 @@ const SuperAdminAddHospital = () => {
                                         type={showPassword ? "text" : "password"}
                                         className="form-control"
                                         required
+                                        autoComplete="new-password"
                                         placeholder="Enter temporary password"
                                         value={newHospital.adminPassword}
                                         onChange={(e) => setNewHospital({ ...newHospital, adminPassword: e.target.value })}

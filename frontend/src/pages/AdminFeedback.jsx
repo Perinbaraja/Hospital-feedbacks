@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
@@ -34,7 +34,7 @@ const AdminFeedback = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
-    const fetchData = async (retryCount = 0) => {
+    const fetchData = useCallback(async (retryCount = 0) => {
         try {
             const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
 
@@ -65,7 +65,7 @@ const AdminFeedback = () => {
                 setLoading(false);
             }
         }
-    };
+    }, [hospitalId, selectedFeedbackForNotes]);
 
     useEffect(() => {
         fetchData();
@@ -77,8 +77,7 @@ const AdminFeedback = () => {
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hospitalId]);
+    }, [fetchData]);
 
     const handleAssign = async (id, departments, categoryUpdate, statusUpdate) => {
         try {

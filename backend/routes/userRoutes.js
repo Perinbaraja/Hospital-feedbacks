@@ -16,7 +16,23 @@ export const protect = async (req, res, next) => {
                 return res.status(500).json({ message: 'Server configuration error: JWT_SECRET not set' });
             }
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            req.user = await User.findById(decoded.id).select('-password');
+            const user = await User.findById(decoded.id).populate('hospital');
+            
+            if (!user) {
+                return res.status(401).json({ message: 'User not found' });
+            }
+
+            if (!user.isActive) {
+                return res.status(403).json({ message: 'Your account is deactivated.' });
+            }
+
+            // Block access if hospital is deactivated (except for Super Admins)
+            const role = user.role?.toLowerCase();
+            if (role !== 'super_admin' && user.hospital && !user.hospital.isActive) {
+                return res.status(403).json({ message: 'Access denied: Hospital is deactivated by Super Admin.' });
+            }
+
+            req.user = user;
             return next();
         } catch (error) {
             console.error('Token verification failed:', error.message);
@@ -35,7 +51,14 @@ export const optionalProtect = async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
             if (process.env.JWT_SECRET) {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                req.user = await User.findById(decoded.id).select('-password');
+                const user = await User.findById(decoded.id).populate('hospital');
+                if (user && user.isActive) {
+                    // Only set req.user if hospital is also active OR user is super admin
+                    const isSuper = user.role === 'Super_Admin' || user.role === 'super_admin';
+                    if (isSuper || (user.hospital && user.hospital.isActive)) {
+                        req.user = user;
+                    }
+                }
             }
         } catch (error) {
             console.error('Optional token verification failed:', error.message);
@@ -84,7 +107,7 @@ router.post('/login', validateUserInput, async (req, res) => {
 
     try {
         console.log(`[LOGIN] Attempt for email: ${email}`);
-        const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } }).populate('hospital');
+        const user = await User.findOne({ email: email.toLowerCase() }).populate('hospital');
 
         if (user && (await user.matchPassword(password))) {
             if (!user.isActive) {
@@ -92,7 +115,8 @@ router.post('/login', validateUserInput, async (req, res) => {
                 return res.status(403).json({ message: 'Your account is deactivated. Contact Super Admin.' });
             }
 
-            if (user.role !== 'Super_Admin' && user.hospital && !user.hospital.isActive) {
+            const loginRole = user.role?.toLowerCase();
+            if (loginRole !== 'super_admin' && user.hospital && !user.hospital.isActive) {
                 console.warn(`[LOGIN] Denied: Hospital for ${email} is restricted.`);
                 return res.status(403).json({ message: 'Super Admin restricted your access' });
             }
@@ -125,7 +149,7 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
 
     try {
         const userExists = await User.findOne({
-            email: { $regex: new RegExp(`^${email?.trim()}$`, 'i') }
+            email: email?.trim().toLowerCase()
         });
 
         if (userExists) {
@@ -227,7 +251,9 @@ router.delete('/:id', protect, admin, async (req, res) => {
         const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
 
         if (isAdmin) {
-            if (isSuperAdmin || (user.hospital?.toString() !== req.user.hospital?.toString())) {
+            // Normal Hospital Admins can only delete users in their own hospital.
+            // Super Admins skip this check.
+            if (!isSuperAdmin && (user.hospital?.toString() !== req.user.hospital?.toString())) {
                 return res.status(403).json({ message: 'Not authorized to delete this user' });
             }
         }
@@ -282,19 +308,62 @@ router.post('/:id/reset-password', protect, admin, async (req, res) => {
     }
 });
 
-// @desc    Self Reset password (Public)
+// @desc    Update user role (Admin only)
+// @route   PUT /api/users/:id/role
+router.put('/:id/role', protect, admin, async (req, res) => {
+    const { role } = req.body;
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+
+        // Authorization check
+        if (isAdmin) {
+            if (user.hospital?.toString() !== req.user.hospital?.toString()) {
+                return res.status(403).json({ message: 'Not authorized to manage this user' });
+            }
+        }
+
+        // Restrict role changes (cannot promote to Super Admin)
+        if (['Super_Admin', 'super_admin'].includes(role) && !isSuperAdmin) {
+            return res.status(403).json({ message: 'Not authorized to assign Super Admin role' });
+        }
+
+        user.role = role;
+        await user.save();
+        res.json({ message: `Role for ${user.email} updated to ${role}.` });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error updating role' });
+    }
+});
+
+// @desc    Self Reset password (Requires old password verification)
 // @route   POST /api/users/reset-password
 router.post('/reset-password', async (req, res) => {
-    const { email, newPassword } = req.body;
+    const { email, oldPassword, newPassword } = req.body;
     try {
-        const user = await User.findOne({ email: { $regex: new RegExp(`^${email?.trim()}$`, 'i') } });
-        if (user) {
-            user.password = newPassword;
-            await user.save();
-            res.json({ message: 'Password updated successfully' });
-        } else {
-            res.status(404).json({ message: 'User not found' });
+        if (!email || !newPassword) {
+            return res.status(400).json({ message: 'Email and new password are required' });
         }
+        const user = await User.findOne({ email: email?.trim().toLowerCase() });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Require old password for verification
+        if (!oldPassword) {
+            return res.status(400).json({ message: 'Current password is required for verification' });
+        }
+        const isMatch = await user.matchPassword(oldPassword);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Current password is incorrect' });
+        }
+
+        user.password = newPassword;
+        await user.save();
+        res.json({ message: 'Password updated successfully' });
     } catch (error) {
         console.error('[RESET PASSWORD] Server Error:', error);
         res.status(500).json({ message: 'Server error during password reset' });

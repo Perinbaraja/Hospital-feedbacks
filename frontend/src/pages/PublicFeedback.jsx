@@ -43,6 +43,7 @@ const PublicFeedback = () => {
     const { qrId } = useParams();
     const [hospital, setHospital] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [deactivationMessage, setDeactivationMessage] = useState(null);
 
     const [currentStep, setCurrentStep] = useState(1);
     const [patientName, setPatientName] = useState('');
@@ -90,6 +91,14 @@ const PublicFeedback = () => {
                 setLoading(false);
             } catch (error) {
                 console.error('Config fetch error:', error);
+                
+                // Check if hospital is deactivated (403 from backend)
+                if (error.response?.status === 403 && error.response?.data?.isDeactivated) {
+                    setDeactivationMessage(error.response.data.message);
+                    setLoading(false);
+                    return;
+                }
+
                 if (retryCount < 2) {
                     setTimeout(() => fetchConfig(retryCount + 1), 2000);
                 } else {
@@ -161,9 +170,11 @@ const PublicFeedback = () => {
         setSelectedCategories(prev => {
             const exists = prev.find(c => c.department === dept.name);
             if (exists) {
-                return prev.filter(c => c.department !== dept.name);
+                // If it's already selected, clicking it again de-selects it
+                return [];
             } else {
-                return [...prev, {
+                // Select only the current department, removing any others
+                return [{
                     department: dept.name,
                     issue: [],
                     customText: '',
@@ -273,14 +284,41 @@ const PublicFeedback = () => {
             toast.success('Submitted!');
         } catch (error) {
             console.error('Submission error:', error);
-            toast.error('Submission failed.');
+            const msg = error.response?.data?.message || 'Submission failed.';
+            toast.error(msg);
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Removed blocking optimization/loading screen to ensure immediate render
-    // if (loading) return <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}><div className="loader">Loading Form...</div></div>;
+    if (loading) return (
+        <div className="feedback-container" style={{ background: '#F3F4F6', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1.5rem' }}>
+            <div className="loader" style={{ width: '48px', height: '48px', border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <p style={{ color: '#6B7280', fontWeight: 600 }}>Loading feedback portal...</p>
+        </div>
+    );
+
+    if (deactivationMessage) {
+        return (
+            <div className="feedback-container" style={{
+                background: '#F3F4F6',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                padding: '1.5rem'
+            }}>
+                <div className="feedback-card card shadow-premium animate-pop" style={{ maxWidth: '32rem', textAlign: 'center', borderTop: `6px solid #EF4444` }}>
+                    <div style={{ fontSize: '4rem', color: '#EF4444', marginBottom: '1rem' }}>⚠️</div>
+                    <h2 style={{ marginBottom: '1rem', color: '#111827' }}>Notice</h2>
+                    <p style={{ color: '#4B5563', fontSize: '1.1rem', marginBottom: '2rem', lineHeight: '1.5' }}>
+                        {deactivationMessage}
+                    </p>
+                    <button className="btn-outline" onClick={() => window.location.href = '/'}>
+                        Return Home
+                    </button>
+                    <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#9CA3AF' }}>Powered by PatientLink HQ</p>
+                </div>
+            </div>
+        );
+    }
 
     if (submitted) {
         return (
@@ -545,8 +583,20 @@ const PublicFeedback = () => {
                     <div style={{ width: '90%', maxWidth: '500px', background: '#000', borderRadius: '1rem', overflow: 'hidden' }}>
                         <video ref={videoRef} autoPlay playsInline style={{ width: '100%' }} />
                         <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-                            <button onClick={stopCamera} className="btn-outline" style={{ color: 'white' }}>Cancel</button>
-                            <button onClick={capturePhoto} className="btn-primary">Capture</button>
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                className="camera-btn-cancel"
+                                onClick={stopCamera}
+                                onKeyDown={(e) => e.key === 'Enter' && stopCamera()}
+                            >Cancel</span>
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                className="camera-btn-capture"
+                                onClick={capturePhoto}
+                                onKeyDown={(e) => e.key === 'Enter' && capturePhoto()}
+                            >Capture</span>
                         </div>
                     </div>
                 </div>

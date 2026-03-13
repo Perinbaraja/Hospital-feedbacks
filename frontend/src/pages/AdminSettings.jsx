@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API, { BASE_ASSET_URL, getAssetUrl, API_BASE_URL } from '../api';
 import QRCode from 'react-qr-code';
@@ -7,7 +7,8 @@ import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, E
 
 
 const AdminSettings = () => {
-    const { updateUser } = useAuth();
+    const { user, updateUser } = useAuth();
+    const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
     const { search } = window.location;
     const queryParams = new URLSearchParams(search);
     const hospitalId = queryParams.get('hospitalId');
@@ -41,7 +42,7 @@ const AdminSettings = () => {
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const fetchConfig = async (retryCount = 0) => {
+    const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
             const url = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
             const { data } = await API.get(url);
@@ -64,7 +65,7 @@ const AdminSettings = () => {
                 setLoading(false);
             }
         }
-    };
+    }, [hospitalId]);
 
     useEffect(() => {
         fetchConfig();
@@ -73,8 +74,7 @@ const AdminSettings = () => {
             const parsed = JSON.parse(userInfo);
             setAdminProfile(prev => ({ ...prev, name: parsed.name, email: parsed.email, phone: parsed.phone || '' }));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchConfig]);
 
     useEffect(() => {
         if (hospital.themeColor) {
@@ -230,55 +230,59 @@ const AdminSettings = () => {
                                     />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Contact Number (10 Digits)</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            maxLength={10}
-                                            placeholder="e.g. 9876543210"
-                                            value={hospital.phone}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                                setHospital({ ...hospital, phone: val });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Location / Address</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="Street or Area"
-                                            value={hospital.location}
-                                            onChange={(e) => setHospital({ ...hospital, location: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
+                                {isSuperAdmin && (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                            <div className="form-group">
+                                                <label className="form-label">Contact Number (10 Digits)</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    maxLength={10}
+                                                    placeholder="e.g. 9876543210"
+                                                    value={hospital.phone}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                        setHospital({ ...hospital, phone: val });
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Location / Address</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    placeholder="Street or Area"
+                                                    value={hospital.location}
+                                                    onChange={(e) => setHospital({ ...hospital, location: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">District</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="District Name"
-                                            value={hospital.district}
-                                            onChange={(e) => setHospital({ ...hospital, district: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">State</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="State Name"
-                                            value={hospital.state}
-                                            onChange={(e) => setHospital({ ...hospital, state: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                            <div className="form-group">
+                                                <label className="form-label">District</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    placeholder="District Name"
+                                                    value={hospital.district}
+                                                    onChange={(e) => setHospital({ ...hospital, district: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">State</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    placeholder="State Name"
+                                                    value={hospital.state}
+                                                    onChange={(e) => setHospital({ ...hospital, state: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
 
 

@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import API, { getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
-import { Activity, CheckCircle, Clock, TrendingUp, AlertCircle, BarChart3, Users, LayoutDashboard, Settings } from 'lucide-react';
+import { Activity, CheckCircle, Clock, TrendingUp, BarChart3, Users, LayoutDashboard, Settings } from 'lucide-react';
 
 const StatCard = ({ title, value, color, icon, trend }) => {
-    const Graphic = icon;
+    const Icon = icon;
     return (
         <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'white', borderRadius: '1.25rem', border: '1px solid #f1f5f9' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ width: '44px', height: '44px', background: `${color}15`, color, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Graphic size={22} />
+                    <Icon size={22} />
                 </div>
                 {trend && (
                     <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: trend > 0 ? '#10b981' : '#ef4444', background: trend > 0 ? '#ecfdf5' : '#fef2f2', padding: '4px 8px', borderRadius: '1rem' }}>
@@ -37,7 +37,7 @@ const AdminDashboard = () => {
 
     const hQuery = hospitalId ? `?hospitalId=${hospitalId}` : '';
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
             const [statsRes, hospRes] = await Promise.all([
@@ -52,12 +52,11 @@ const AdminDashboard = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [hospitalId]);
 
     useEffect(() => {
         fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hospitalId]);
+    }, [fetchData]);
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

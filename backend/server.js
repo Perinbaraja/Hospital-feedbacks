@@ -81,9 +81,6 @@ const connectDB = async (retryCount = 5) => {
         });
         console.log('✅ MongoDB Connected');
 
-        // One-time cleanup: Remove "My Hospital" placeholder as requested
-        await Hospital.deleteMany({ name: 'My Hospital' });
-
         app.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);
         });

@@ -62,9 +62,7 @@ const feedbackSchema = mongoose.Schema(
     }
 );
 
-const Feedback = mongoose.model('Feedback', feedbackSchema);
-
-// To ensure virtuals are included in JSON responses
+// Set virtuals before model creation
 feedbackSchema.set('toJSON', { virtuals: true });
 feedbackSchema.set('toObject', { virtuals: true });
 
@@ -73,5 +71,7 @@ feedbackSchema.virtual('isOverdue').get(function () {
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     return this.createdAt < fortyEightHoursAgo;
 });
+
+const Feedback = mongoose.model('Feedback', feedbackSchema);
 
 export default Feedback;

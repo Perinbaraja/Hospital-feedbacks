@@ -58,7 +58,7 @@ const Sidebar = ({ hospital }) => {
                 </div>
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {['Admin', 'hospital_admin'].includes(user?.role) && (
+                    {['admin', 'hospital_admin'].includes(user?.role?.toLowerCase()) && (
                         <>
                             <NavLink to={`/admin${hQuery}`} style={getLinkStyle} end>
                                 <LayoutDashboard size={20} /> Dashboard
@@ -75,11 +75,8 @@ const Sidebar = ({ hospital }) => {
                         </>
                     )}
 
-                    {['Super_Admin', 'super_admin'].includes(user?.role) && (
+                    {['super_admin'].includes(user?.role?.toLowerCase()) && (
                         <>
-                            <NavLink to={`/admin/staff${hQuery}`} style={getLinkStyle}>
-                                <UserPlus size={20} /> Manage Staff
-                            </NavLink>
                             <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
                                 <Settings size={20} /> Hospital Settings
                             </NavLink>

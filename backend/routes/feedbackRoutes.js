@@ -1,5 +1,6 @@
 import express from 'express';
 import Feedback from '../models/Feedback.js';
+import Hospital from '../models/Hospital.js';
 import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
 import { protect, admin } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
@@ -13,6 +14,13 @@ const router = express.Router();
 router.post('/', validateFeedbackInput, async (req, res) => {
     try {
         const { patientName, patientEmail, categories, comments, hospital } = req.body;
+
+        // Verify hospital is active before accepting feedback
+        const targetHospital = await Hospital.findById(hospital);
+        if (!targetHospital || targetHospital.isActive === false) {
+            console.warn(`[Feedback Submission] Denied: Hospital ${hospital} is inactive or not found.`);
+            return res.status(403).json({ message: 'Feedback submission is currently disabled for this facility.' });
+        }
 
         const createdFeedbacks = [];
 
@@ -56,8 +64,9 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 router.get('/', protect, admin, async (req, res) => {
     try {
         const filter = {};
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const userRole = req.user.role?.toLowerCase();
+        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
+        const isSuperAdmin = ['super_admin'].includes(userRole);
 
         if (isAdmin) {
             filter.hospital = req.user.hospital;
@@ -76,8 +85,9 @@ router.get('/', protect, admin, async (req, res) => {
 router.get('/stats', protect, admin, async (req, res) => {
     try {
         const filter = {};
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const userRole = req.user.role?.toLowerCase();
+        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
+        const isSuperAdmin = ['super_admin'].includes(userRole);
 
         if (isAdmin) {
             filter.hospital = req.user.hospital;
@@ -126,16 +136,24 @@ router.get('/department/:dept', protect, async (req, res) => {
     try {
         const deptName = req.params.dept?.trim();
 
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
+        const userRole = req.user.role?.toLowerCase();
+        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
 
         // Only allow head of their own dept unless admin (case-insensitive check)
-        if (!isAdmin && req.user.department?.trim().toLowerCase() !== deptName?.toLowerCase()) {
+        const myDept = req.user.department?.trim().toLowerCase();
+        if (!isAdmin && myDept !== deptName?.toLowerCase()) {
             return res.status(403).json({ message: 'Not authorized for this department view' });
         }
-        // Use regex to match the department name within a potentially comma-separated list
-        const feedbacks = await Feedback.find({
+
+        // Scope query to the user's hospital to prevent cross-hospital data leaks
+        const filter = {
             assignedTo: { $regex: new RegExp(deptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
-        }).sort({ createdAt: -1 });
+        };
+        if (req.user.hospital) {
+            filter.hospital = req.user.hospital;
+        }
+
+        const feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
         res.json(feedbacks);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching feedback' });
@@ -152,13 +170,23 @@ router.put('/:id', protect, async (req, res) => {
             return res.status(404).json({ message: 'Feedback not found' });
         }
 
-        if (req.user.role !== 'Super_Admin' && feedback.hospital?.toString() !== req.user.hospital?.toString()) {
+        // Correct hospital check: compare IDs
+        const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
+        const feedbackHospId = feedback.hospital?.toString();
+
+        const userRole = req.user.role?.toLowerCase();
+
+        // Hospital Access Check: Ensure staff only access their own hospital's data
+        if (userRole !== 'super_admin' && feedbackHospId !== userHospId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'Super_Admin';
-        const isAssignedDeptHead = req.user.role === 'Dept_Head' &&
-            feedback.assignedTo?.toLowerCase().trim() === req.user.department?.toLowerCase().trim();
+        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
+        
+        const myDept = req.user.department?.trim().toLowerCase();
+        const assignedDept = feedback.assignedTo?.trim().toLowerCase();
+        
+        const isAssignedDeptHead = userRole === 'dept_head' && assignedDept === myDept;
 
         if (!isAdmin && !isAssignedDeptHead) {
             return res.status(403).json({ message: 'Not authorized to update this feedback' });
@@ -230,12 +258,18 @@ router.post('/:id/notes', protect, async (req, res) => {
         const feedback = await Feedback.findById(req.params.id);
         if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
 
-        if (req.user.role !== 'Super_Admin' && feedback.hospital?.toString() !== req.user.hospital?.toString()) {
+        const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
+        const feedbackHospId = feedback.hospital?.toString();
+
+        const userRole = req.user.role?.toLowerCase();
+        if (['admin', 'hospital_admin', 'dept_head'].includes(userRole) && feedbackHospId !== userHospId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'Super_Admin';
-        const isAssignedDeptHead = req.user.role === 'Dept_Head' && feedback.assignedTo === req.user.department;
+        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
+        const myDept = req.user.department?.trim().toLowerCase();
+        const assignedDept = feedback.assignedTo?.trim().toLowerCase();
+        const isAssignedDeptHead = userRole === 'dept_head' && assignedDept === myDept;
 
         if (!isAdmin && !isAssignedDeptHead) {
             return res.status(403).json({ message: 'Not authorized to add notes to this feedback' });
@@ -268,10 +302,18 @@ router.delete('/:id', protect, admin, async (req, res) => {
             return res.status(404).json({ message: 'Feedback not found' });
         }
 
-        const isSuper = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const userRole = req.user.role?.toLowerCase();
+        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
 
-        if (!isSuper && feedback.hospital?.toString() !== req.user.hospital?.toString()) {
-            return res.status(403).json({ message: 'Not authorized to delete this feedback' });
+        const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
+        const feedbackHospId = feedback.hospital?.toString();
+
+        if (userRole !== 'super_admin' && feedbackHospId !== userHospId) {
+            return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
+        }
+
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Not authorized to delete feedback' });
         }
 
         await feedback.deleteOne();

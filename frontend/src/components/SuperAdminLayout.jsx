@@ -1,7 +1,7 @@
 // No React hooks needed here
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Building2, ShieldCheck, LogOut, Settings, BarChart3, Plus } from 'lucide-react';
+import { Building2, ShieldCheck, LogOut, Plus } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 const SuperSidebar = () => {
@@ -62,6 +62,8 @@ const SuperSidebar = () => {
                     >
                         <Plus size={20} /> Enroll Hospital
                     </Link>
+
+                    {/* Context-aware links for the selected hospital removed for centralized dashboard management */}
                 </nav>
             </div>
 

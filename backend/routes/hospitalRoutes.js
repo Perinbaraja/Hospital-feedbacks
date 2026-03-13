@@ -24,7 +24,22 @@ router.get('/', optionalProtect, async (req, res) => {
 
         // If no hospital found, return error with appropriate status
         if (!hospital) {
+            console.warn(`[Hospital Config] Hospital not found for qrId: ${qrId} or hospitalId: ${hospitalId}`);
             return res.status(404).json({ message: 'Hospital not found. Please ensure hospital is initialized.' });
+        }
+
+        // If deactivated, block access. 
+        // Note: We block even Super Admins from the PUBLIC feedback view if it's deactivated 
+        // to avoid confusion, but protected admin routes remain accessible via their own routes.
+        // If deactivated, block access for everyone except Super Admins
+        const isSuperAdmin = req.user && ['Super_Admin', 'super_admin'].includes(req.user.role);
+        
+        if (hospital.isActive === false && !isSuperAdmin) {
+            console.log(`[Hospital Config] Access denied: ${hospital.name} is deactivated.`);
+            return res.status(403).json({ 
+                message: 'This hospital\'s feedback portal is currently deactivated by the network administrator.',
+                isDeactivated: true 
+            });
         }
 
         res.json(hospital);

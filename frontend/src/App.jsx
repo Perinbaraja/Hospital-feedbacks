@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Layouts
 import DashboardLayout from './components/DashboardLayout';
@@ -18,12 +18,27 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SuperAdminHospitalDetail from './pages/SuperAdminHospitalDetail';
 import SuperAdminAddHospital from './pages/SuperAdminAddHospital';
 
+const HomeRedirect = () => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return null;
+  
+  if (!user) return <Navigate to="/login" replace />;
+  
+  const role = user.role?.toLowerCase();
+  if (['super_admin'].includes(role)) return <Navigate to="/super-admin" replace />;
+  if (['admin', 'hospital_admin'].includes(role)) return <Navigate to="/admin" replace />;
+  if (['dept_head'].includes(role)) return <Navigate to="/dept" replace />;
+  
+  return <Navigate to="/login" replace />;
+};
+
 function App() {
   return (
     <AuthProvider>
       <Routes>
         {/* Public Routes */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<HomeRedirect />} />
         <Route path="/feedback/:qrId" element={<PublicFeedback />} />
         <Route path="/login" element={<Login />} />
 

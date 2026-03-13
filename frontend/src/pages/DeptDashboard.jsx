@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../api';
 import toast from 'react-hot-toast';
@@ -20,8 +20,9 @@ const DeptDashboard = () => {
     const [newNote, setNewNote] = useState('');
     const [postingNote, setPostingNote] = useState(false);
 
-    const fetchDeptFeedbacks = async (retryCount = 0) => {
+    const fetchDeptFeedbacks = useCallback(async (retryCount = 0) => {
         try {
+            if (!user?.department) return;
             const encodedDept = encodeURIComponent(user.department);
             const { data } = await API.get(`/feedback/department/${encodedDept}`);
             setFeedbacks(data);
@@ -40,14 +41,13 @@ const DeptDashboard = () => {
                 setLoading(false);
             }
         }
-    };
+    }, [user, selectedFeedback]);
 
     useEffect(() => {
         if (user && user.department) {
             fetchDeptFeedbacks();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]);
+    }, [fetchDeptFeedbacks, user]);
 
     const handleResolve = async (id) => {
         try {
@@ -94,7 +94,7 @@ const DeptDashboard = () => {
                     <h2 className="page-title">Department Ops console</h2>
                     <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Active investigations for: <b style={{ color: 'var(--primary-dark)' }}>{user?.department}</b></p>
                 </div>
-                <button className="btn-outline" onClick={fetchDeptFeedbacks}>Refresh Tasks</button>
+                <button className="btn-outline" onClick={() => window.location.reload()}>Refresh Tasks</button>
             </div>
 
             {(!user?.department) ? (
@@ -170,15 +170,9 @@ const DeptDashboard = () => {
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             {!isCompleted ? (
-                                                <button
-                                                    onClick={() => handleResolve(fb._id)}
-                                                    className="btn-primary"
-                                                    style={{ background: 'var(--secondary)', fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
-                                                >
-                                                    Mark Resolved
-                                                </button>
+                                                <button className="btn-success" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} onClick={() => handleResolve(fb._id)}>Mark Resolved</button>
                                             ) : (
-                                                <span style={{ color: 'var(--secondary)', fontWeight: 700, fontSize: '0.75rem' }}>✓ Closed</span>
+                                                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>✓ Closed</span>
                                             )}
                                         </td>
                                     </tr>

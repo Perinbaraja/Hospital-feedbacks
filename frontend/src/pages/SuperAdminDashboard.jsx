@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Activity, Trash2, ShieldCheck } from 'lucide-react';
+import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Activity, Trash2, ShieldCheck, LayoutDashboard } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
     const navigate = useNavigate();
@@ -110,8 +110,9 @@ const SuperAdminDashboard = () => {
                             <th>Location</th>
                             <th>Depts</th>
                             <th>Feedbacks</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: 'right', paddingRight: '2rem' }}>Actions</th>
+                            <th style={{ textAlign: 'center' }}>Status</th>
+                            <th style={{ textAlign: 'center' }}>Actions</th>
+                            <th style={{ textAlign: 'right', paddingRight: '2rem' }}>Delete</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -181,12 +182,12 @@ const SuperAdminDashboard = () => {
                                             {hosp.isActive ? 'Active' : 'Restricted'}
                                         </span>
                                     </td>
-                                    <td style={{ textAlign: 'right', paddingRight: '2rem' }}>
-                                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <td style={{ textAlign: 'right', paddingRight: '1rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
                                             <button
                                                 className="btn-outline"
                                                 onClick={() => navigate(`/super-admin/hospital/${hosp._id}`)}
-                                                style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 700, borderRadius: '8px' }}
+                                                style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: '700', borderRadius: '8px' }}
                                             >
                                                 Manage
                                             </button>
@@ -206,29 +207,39 @@ const SuperAdminDashboard = () => {
                                             >
                                                 <Power size={16} />
                                             </button>
-                                            <button
-                                                onClick={() => handleDeleteHospital(hosp._id, hosp.name)}
-                                                style={{
-                                                    width: '32px', height: '32px',
-                                                    borderRadius: '8px',
-                                                    background: 'transparent',
-                                                    color: '#ef4444',
-                                                    border: '1px solid #fecaca',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                title="Permanently Delete Hospital"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
                                         </div>
+                                    </td>
+                                    <td style={{ textAlign: 'right', paddingRight: '2rem' }}>
+                                        <button
+                                            onClick={() => handleDeleteHospital(hosp._id, hosp.name)}
+                                            style={{
+                                                width: '32px', height: '32px',
+                                                borderRadius: '8px',
+                                                background: 'transparent',
+                                                color: '#ef4444',
+                                                border: '1px solid #fee2e2',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseOver={e => {
+                                                e.currentTarget.style.background = '#fef2f2';
+                                                e.currentTarget.style.borderColor = '#fca5a5';
+                                            }}
+                                            onMouseOut={e => {
+                                                e.currentTarget.style.background = 'transparent';
+                                                e.currentTarget.style.borderColor = '#fee2e2';
+                                            }}
+                                            title="Permanently Delete Hospital"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', padding: '5rem 0' }}>
+                                <td colSpan="8" style={{ textAlign: 'center', padding: '5rem 0' }}>
                                     <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🌐</div>
                                     <h3 style={{ color: '#1e1b4b', marginBottom: '0.5rem' }}>Network Empty</h3>
                                     <p style={{ color: '#64748b' }}>No hospital facilities have been registered in the system yet.</p>

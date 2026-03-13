@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import API from '../api';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const AdminStaff = () => {
+    const { user } = useAuth();
     const { search } = window.location;
     const queryParams = new URLSearchParams(search);
     const hospitalId = queryParams.get('hospitalId');
@@ -15,11 +18,18 @@ const AdminStaff = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [role, setRole] = useState('Dept_Head'); // Default to Dept Head
     const [department, setDepartment] = useState('');
     const [creating, setCreating] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const fetchData = async () => {
+    // CRITICAL: Block Super Admin from accessing staff management
+    if (user?.role?.toLowerCase() === 'super_admin') {
+        const redirPath = hospitalId ? `/admin/settings?hospitalId=${hospitalId}` : '/super-admin';
+        return <Navigate to={redirPath} replace />;
+    }
+
+    const fetchData = useCallback(async () => {
         try {
             const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
             const [hospRes, staffRes] = await Promise.all([
@@ -27,24 +37,25 @@ const AdminStaff = () => {
                 API.get(`/users${hIdParam}`)
             ]);
             setHospital(hospRes.data);
-            setStaffList(staffRes.data.filter(u => u.role === 'Dept_Head'));
+            // Show only clinical/department staff (Dept Heads) in the directory
+            setStaffList(staffRes.data.filter(u => ['Dept_Head'].includes(u.role)));
         } catch {
             toast.error('Failed to load staff data');
         } finally {
             setLoading(false);
         }
-    };
+    }, [hospitalId]);
 
     useEffect(() => {
         fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchData]);
 
     const handleCreateStaff = async (e) => {
         e.preventDefault();
 
-        if (!department) {
-            toast.error('Please select a department to assign');
+        // If Dept Head, department is mandatory
+        if (role === 'Dept_Head' && !department) {
+            toast.error('Please select a department for the Dept Head');
             return;
         }
 
@@ -55,12 +66,12 @@ const AdminStaff = () => {
                 name,
                 email,
                 password,
-                role: 'Dept_Head',
-                department,
+                role,
+                department: role === 'Dept_Head' ? department : '',
                 hospitalId
             });
 
-            toast.success('Dept Head account created successfully!');
+            toast.success(`${role.replace('_', ' ')} account created successfully!`);
             setName('');
             setEmail('');
             setPassword('');
@@ -96,6 +107,21 @@ const AdminStaff = () => {
         }
     };
 
+    const handleToggleRole = async (staff) => {
+        const newRole = ['Admin', 'hospital_admin'].includes(staff.role) ? 'Dept_Head' : 'Admin';
+        const confirmMsg = `Do you want to change ${staff.name}'s role to ${newRole.replace('_', ' ')}?`;
+        
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            await API.put(`/users/${staff._id}/role`, { role: newRole });
+            toast.success(`Role updated successfully for ${staff.name}`);
+            fetchData();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error updating role');
+        }
+    };
+
     return (
         <div style={{ position: 'relative' }}>
             {loading && (
@@ -113,7 +139,7 @@ const AdminStaff = () => {
             <div className="page-header">
                 <div>
                     <h2 className="page-title">Staff Management</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Manage department heads and their access credentials.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Manage and provision access codes for department heads.</p>
                 </div>
             </div>
 
@@ -121,7 +147,7 @@ const AdminStaff = () => {
 
                 {/* Create Staff Form */}
                 <div className="card">
-                    <h3 style={{ marginBottom: '1.5rem', borderBottom: '2px solid var(--background)', paddingBottom: '1rem' }}>Add Dept Head</h3>
+                    <h3 style={{ marginBottom: '1.5rem', borderBottom: '2px solid var(--background)', paddingBottom: '1rem' }}>Add New Member</h3>
 
                     <form onSubmit={handleCreateStaff} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         <div className="form-group">
@@ -169,23 +195,36 @@ const AdminStaff = () => {
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
-
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Assign Department</label>
+                            <label className="form-label">Access Level</label>
                             <select
                                 className="form-control"
-                                required
-                                value={department}
-                                onChange={(e) => setDepartment(e.target.value)}
+                                value={role}
+                                onChange={(e) => setRole(e.target.value)}
                             >
-                                <option value="" disabled>-- Select Department --</option>
-                                {hospital?.departments?.map(dept => (
-                                    <option key={dept.name} value={dept.name}>{dept.name}</option>
-                                ))}
+                                <option value="Dept_Head">Department Head</option>
+                                <option value="Admin">Hospital Administrator</option>
                             </select>
                         </div>
+
+                        {role === 'Dept_Head' && (
+                            <div className="form-group fade-in">
+                                <label className="form-label">Assign Department</label>
+                                <select
+                                    className="form-control"
+                                    required
+                                    value={department}
+                                    onChange={(e) => setDepartment(e.target.value)}
+                                >
+                                    <option value="" disabled>-- Select Department --</option>
+                                    {hospital?.departments?.map(dept => (
+                                        <option key={dept.name} value={dept.name}>{dept.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         <button type="submit" className="btn-primary" disabled={creating} style={{ marginTop: '0.5rem', width: '100%' }}>
                             {creating ? 'Creating Account...' : 'Add Account'}
@@ -197,12 +236,12 @@ const AdminStaff = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0 }}>Active Department Heads</h3>
-                            <span className="badge badge-assigned">{staffList.length} Active</span>
+                            <h3 style={{ margin: 0 }}>Registered Staff</h3>
+                            <span className="badge badge-assigned">{staffList.length} Active Accounts</span>
                         </div>
 
                         {staffList.length === 0 ? (
-                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>No department heads registered yet.</p>
+                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>No staff registered yet.</p>
                         ) : (
                             <div className="table-container" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
                                 <table className="modern-table">
@@ -210,7 +249,7 @@ const AdminStaff = () => {
                                         <tr>
                                             <th>Name</th>
                                             <th>Email</th>
-                                            <th>Department</th>
+                                            <th>Account Type</th>
                                             <th style={{ textAlign: 'right' }}>Actions</th>
                                         </tr>
                                     </thead>
@@ -220,47 +259,52 @@ const AdminStaff = () => {
                                                 <td>
                                                     <div style={{ fontWeight: 600 }}>{staff.name}</div>
                                                 </td>
-                                                <td>{staff.email}</td>
+                                                <td style={{ fontSize: '0.8rem' }}>{staff.email}</td>
                                                 <td>
-                                                    <span style={{
-                                                        padding: '0.25rem 0.6rem',
-                                                        backgroundColor: '#f1f5f9',
-                                                        color: 'var(--primary-dark)',
-                                                        borderRadius: '0.5rem',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 600,
-                                                        border: '1px solid #e2e8f0'
-                                                    }}>
-                                                        {staff.department}
-                                                    </span>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                        <span style={{
+                                                            padding: '0.2rem 0.5rem',
+                                                            backgroundColor: ['Admin', 'hospital_admin'].includes(staff.role) ? '#ede9fe' : '#f1f5f9',
+                                                            color: ['Admin', 'hospital_admin'].includes(staff.role) ? '#6d28d9' : '#475569',
+                                                            borderRadius: '0.4rem',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 700,
+                                                            width: 'fit-content',
+                                                            textTransform: 'uppercase'
+                                                        }}>
+                                                            {['Admin', 'hospital_admin'].includes(staff.role) ? 'Admin' : 'Staff'}
+                                                        </span>
+                                                        {staff.role === 'Dept_Head' && (
+                                                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{staff.department}</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+
                                                         <button
                                                             onClick={() => handleResetPassword(staff._id, staff.name)}
                                                             className="btn-outline"
                                                             style={{
-                                                                padding: '0.35rem 0.75rem',
-                                                                fontSize: '0.75rem',
+                                                                padding: '0.3rem 0.6rem',
+                                                                fontSize: '0.7rem',
                                                                 color: 'var(--primary)',
                                                                 borderColor: '#e2e8f0'
                                                             }}
                                                         >
-                                                            Reset Pwd
+                                                            Pwd
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteStaff(staff._id)}
                                                             className="btn-outline"
                                                             style={{
-                                                                padding: '0.35rem 0.75rem',
-                                                                fontSize: '0.75rem',
+                                                                padding: '0.3rem 0.6rem',
+                                                                fontSize: '0.7rem',
                                                                 color: 'var(--danger)',
                                                                 borderColor: '#fee2e2'
                                                             }}
-                                                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                                         >
-                                                            Remove
+                                                            X
                                                         </button>
                                                     </div>
                                                 </td>
