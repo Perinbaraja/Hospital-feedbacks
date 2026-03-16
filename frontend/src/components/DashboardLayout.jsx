@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API, { getAssetUrl } from '../api';
-import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft, Monitor } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 const Sidebar = ({ hospital }) => {
@@ -68,6 +68,9 @@ const Sidebar = ({ hospital }) => {
                             </NavLink>
                             <NavLink to={`/admin/staff${hQuery}`} style={getLinkStyle}>
                                 <UserPlus size={20} /> Manage Staff
+                            </NavLink>
+                            <NavLink to={`/admin/tv-monitor${hQuery}`} style={getLinkStyle}>
+                                <Monitor size={20} /> TV Monitor
                             </NavLink>
                             <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
                                 <Settings size={20} /> Settings

@@ -4,6 +4,7 @@ import Hospital from '../models/Hospital.js';
 import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
 import { protect, admin } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
+import { generateFeedbackId } from '../utils/idGenerator.js';
 
 
 const router = express.Router();
@@ -28,7 +29,10 @@ router.post('/', validateFeedbackInput, async (req, res) => {
             const cat = categories[i];
             const issueList = Array.isArray(cat.issue) ? cat.issue : [];
 
+            const fId = await generateFeedbackId();
+
             const feedback = await Feedback.create({
+                feedbackId: fId,
                 patientName,
                 patientEmail,
                 hospital,
@@ -157,6 +161,21 @@ router.get('/department/:dept', protect, async (req, res) => {
         res.json(feedbacks);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching feedback' });
+    }
+});
+
+// @desc    Get feedback for TV Display (Public)
+// @route   GET /api/feedback/tv/:hospitalId
+router.get('/tv/:hospitalId', async (req, res) => {
+    try {
+        const hId = req.params.hospitalId;
+        const feedbacks = await Feedback.find({ 
+            hospital: hId,
+            status: 'IN PROGRESS' 
+        }).sort({ createdAt: -1 });
+        res.json(feedbacks);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching TV feedback' });
     }
 });
 

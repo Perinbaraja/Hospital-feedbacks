@@ -13,10 +13,12 @@ import AdminSettings from './pages/AdminSettings';
 import AdminStaff from './pages/AdminStaff';
 import AdminFeedback from './pages/AdminFeedback';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminTvMonitor from './pages/AdminTvMonitor';
 import DeptDashboard from './pages/DeptDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SuperAdminHospitalDetail from './pages/SuperAdminHospitalDetail';
 import SuperAdminAddHospital from './pages/SuperAdminAddHospital';
+import TvDashboard from './pages/TvDashboard';
 
 const HomeRedirect = () => {
   const { user, loading } = useAuth();
@@ -56,9 +58,13 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/feedbacks" element={<AdminFeedback />} />
           <Route path="/admin/staff" element={<AdminStaff />} />
+          <Route path="/admin/tv-monitor" element={<AdminTvMonitor />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/dept" element={<DeptDashboard />} />
         </Route>
+
+        {/* Full Screen Pages */}
+        <Route path="/tv-dashboard" element={<TvDashboard />} />
 
 
         <Route path="*" element={<Navigate to="/login" replace />} />

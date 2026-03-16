@@ -21,6 +21,10 @@ const categorySchema = mongoose.Schema({
 
 const feedbackSchema = mongoose.Schema(
     {
+        feedbackId: {
+            type: String,
+            unique: true
+        },
         patientName: {
             type: String,
             // Optional as requested

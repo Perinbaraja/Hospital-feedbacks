@@ -226,6 +226,7 @@ const AdminFeedback = () => {
                             <thead>
                                 <tr>
                                     <th style={{ width: '40px' }}>#</th>
+                                    <th style={{ minWidth: '120px' }}>FEEDBACK ID</th>
                                     <th style={{ minWidth: '120px' }}>PATIENT</th>
                                     <th style={{ minWidth: '150px' }}>EMAIL</th>
                                     <th style={{ width: '100px' }}>TYPE</th>
@@ -264,6 +265,11 @@ const AdminFeedback = () => {
                                                     color: '#64748b'
                                                 }}>
                                                     {index + 1}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                                                    {fb.feedbackId || 'Generating...'}
                                                 </div>
                                             </td>
                                             <td>

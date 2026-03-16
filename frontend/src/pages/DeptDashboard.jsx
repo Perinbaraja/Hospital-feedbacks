@@ -168,13 +168,21 @@ const DeptDashboard = () => {
                                                 💬 {fb.notes?.length || 0} Notes
                                             </button>
                                         </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            {!isCompleted ? (
-                                                <button className="btn-success" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} onClick={() => handleResolve(fb._id)}>Mark Resolved</button>
-                                            ) : (
-                                                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>✓ Closed</span>
-                                            )}
-                                        </td>
+                                         <td style={{ textAlign: 'right' }}>
+                                             {!isCompleted ? (
+                                                 <button 
+                                                    className="btn-success" 
+                                                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', gap: '4px' }} 
+                                                    onClick={() => handleResolve(fb._id)}
+                                                >
+                                                    <span style={{ fontSize: '0.9rem' }}>✓</span> Mark Resolved
+                                                </button>
+                                             ) : (
+                                                 <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                                    <span style={{ fontSize: '1rem' }}>✓</span> Closed
+                                                 </span>
+                                             )}
+                                         </td>
                                     </tr>
                                 );
                             })}
