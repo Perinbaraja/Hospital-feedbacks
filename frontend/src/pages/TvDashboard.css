@@ -107,7 +107,6 @@
 
 .tv-table-header {
     display: grid;
-    grid-template-columns: 200px 220px 220px 1fr 200px 180px 180px;
     padding: 2rem 2.5rem;
     background: #1e293b;
     border-radius: 1.5rem 1.5rem 0 0;
@@ -124,8 +123,23 @@
     flex: 1;
     background: rgba(15, 23, 42, 0.5);
     border-radius: 0 0 1.5rem 1.5rem;
-    overflow: hidden; /* Hide the overflow for ticker effect */
+    overflow: hidden;
     position: relative;
+    min-width: 1200px; /* Ensure content doesn't squash too much */
+}
+
+.tv-table-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 2rem;
+    position: relative;
+    overflow-x: auto; /* Allow horizontal scroll on small screens */
+    scrollbar-width: none; /* Hide scrollbar Firefox */
+}
+
+.tv-table-main::-webkit-scrollbar {
+    display: none; /* Hide scrollbar Chrome/Safari */
 }
 
 .tv-rows-wrapper {
@@ -140,7 +154,6 @@
 
 .tv-row {
     display: grid;
-    grid-template-columns: 200px 220px 220px 1fr 200px 180px 180px;
     padding: 1.75rem 2.5rem;
     align-items: center;
     border-bottom: 2px solid rgba(51, 65, 85, 0.4);
@@ -163,15 +176,30 @@
     background: rgba(239, 68, 68, 0.03) !important;
 }
 
-/* .col-sno removed */
-.col-fid { color: #38bdf8; font-weight: 800; font-size: 1.3rem; }
+.col-sno {
+    color: #64748b;
+    text-align: center;
+    font-weight: 800;
+}
+
+.col-fid {
+    color: #38bdf8;
+    font-weight: 800;
+    font-size: 1.35rem;
+}
+
 .col-dept { 
     color: #f1f5f9; 
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-right: 1rem;
+    padding-right: 1.5rem;
+    font-size: 1.45rem;
+}
+.col-type {
+    display: flex;
+    justify-content: flex-start;
 }
 .col-comment { 
     color: #cbd5e1; 
@@ -183,7 +211,7 @@
     text-overflow: ellipsis;
     padding-right: 2rem;
 }
-.col-date, .col-time { 
+.col-date, .col-time, .col-date-time { 
     color: #94a3b8; 
     font-size: 1.35rem; 
     white-space: nowrap;
@@ -284,4 +312,21 @@
     font-size: 2.5rem;
     color: #64748b;
     font-weight: 700;
+}
+/* Responsive Adjustments for Tablets */
+@media (max-width: 1280px) {
+    .tv-title { font-size: 2.2rem; }
+    .tv-hospital-name { font-size: 1.5rem; }
+    .tv-time { font-size: 2.5rem; }
+    .tv-row { font-size: 1.25rem; height: 90px; padding: 1rem 2rem; }
+    .tv-table-header { font-size: 1.1rem; padding: 1.5rem 2rem; }
+    .col-dept { font-size: 1.2rem; }
+    .col-comment { font-size: 1.2rem; }
+    .type-tag { font-size: 1rem; padding: 6px 12px; }
+    .tv-badge-live { font-size: 0.85rem; }
+}
+
+@media (max-width: 1024px) {
+    .tv-header { padding: 1rem 1.5rem; }
+    .tv-table-main { padding: 0 1rem; }
 }

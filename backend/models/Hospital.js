@@ -63,6 +63,20 @@ const hospitalSchema = mongoose.Schema(
             unique: true,
             index: true,
         },
+        tvFilters: {
+            feedbackIds: { type: [String], default: [] },
+            departments: { type: [String], default: [] },
+            type: { type: String, default: '' }, // Positive / Negative
+            comment: { type: String, default: '' },
+            dateFrom: { type: String, default: '' },
+            dateTo: { type: String, default: '' },
+            status: { type: String, default: 'IN PROGRESS' },
+            showFeedbackId: { type: Boolean, default: false },
+            visibleColumns: { 
+                type: [String], 
+                default: ['sno', 'department', 'feedbackType', 'comment', 'date', 'time', 'status'] 
+            }
+        },
     },
     {
         timestamps: true,

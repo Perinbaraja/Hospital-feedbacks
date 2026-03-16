@@ -20,41 +20,40 @@ const TvDashboard = () => {
 
     const fetchData = useCallback(async () => {
         try {
-            const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
-            
-            if (!hospital && hospitalId) {
-                const hospRes = await API.get(`/hospital?hospitalId=${hospitalId}`);
-                setHospital(hospRes.data);
+            // Requirement 1 & 8: Public access via hospitalId parameter
+            if (!hospitalId) {
+                setLoading(false);
+                return;
             }
 
+            // Fetch hospital config periodically to pick up filter changes from Admin
+            const hospRes = await API.get(`/hospital?hospitalId=${hospitalId}`);
+            setHospital(hospRes.data);
+
+            // Requirement 3 & 5: Fetch filtered feedback from the backend
             const { data } = await API.get(`/feedback/tv/${hospitalId}`);
             
-            // Requirements 2 & 5: Only IN_PROGRESS
-            feedbacksRef.current = data;
-            
-            if (feedbacks.length === 0 && data.length > 0) {
-                setFeedbacks(data);
-                setVisibleFeedbacks(data.slice(0, 8)); // Start with first 8
-            } else {
-                setFeedbacks(data);
-            }
-            
+            setFeedbacks(data);
             setLastUpdated(new Date());
             setLoading(false);
         } catch (error) {
             console.error('TV Dashboard refresh error:', error);
+            // Don't set loading false here so it keeps trying if it's a transient error
         }
-    }, [hospitalId, hospital, feedbacks.length]);
+    }, [hospitalId]);
 
     useEffect(() => {
         if (hospitalId) {
             fetchData();
+            // Requirement 5: Automatic Data Refresh every 10 seconds
             const refreshTimer = setInterval(fetchData, 10000);
             const clockTimer = setInterval(() => setCurrentTime(new Date()), 1000);
             return () => {
                 clearInterval(refreshTimer);
                 clearInterval(clockTimer);
             };
+        } else {
+            setLoading(false);
         }
     }, [fetchData, hospitalId]);
 
@@ -90,6 +89,51 @@ const TvDashboard = () => {
         return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
+    // Column Metadata for dynamic rendering
+    const COLUMN_MAP = [
+        { id: 'sno', label: 'S.No', class: 'col-sno', width: '80px' },
+        { id: 'feedbackId', label: 'ID', class: 'col-fid', width: '150px' },
+        { id: 'department', label: 'Department', class: 'col-dept', width: '200px' },
+        { id: 'feedbackType', label: 'Type', class: 'col-type', width: '180px' },
+        { id: 'comment', label: 'Comment', class: 'col-comment', width: 'minmax(300px, 1fr)' },
+        { id: 'date', label: 'Date', class: 'col-date', width: '140px' },
+        { id: 'time', label: 'Time', class: 'col-time', width: '130px' },
+        { id: 'status', label: 'Status', class: 'col-status', width: '160px' }
+    ];
+
+    const activeColumns = COLUMN_MAP.filter(col => {
+        const fallbacks = ['sno', 'department', 'feedbackType', 'comment', 'date', 'time', 'status'];
+        const visible = hospital?.tvFilters?.visibleColumns && hospital.tvFilters.visibleColumns.length > 0
+            ? hospital.tvFilters.visibleColumns
+            : fallbacks;
+        return visible.includes(col.id);
+    });
+
+    const gridStyle = {
+        gridTemplateColumns: activeColumns.map(c => c.width).join(' ')
+    };
+
+    const renderCell = (col, fb, index) => {
+        const cat = fb.categories?.[0] || {};
+        const isPositive = cat.reviewType === 'Positive';
+
+        switch(col.id) {
+            case 'sno': return index + 1;
+            case 'feedbackId': return fb.feedbackId || '—';
+            case 'department': return cat.department || '—';
+            case 'feedbackType': return (
+                <span className={`type-tag ${isPositive ? 'tag-pos' : 'tag-neg'}`}>
+                    {isPositive ? '✨ Positive' : '⚠️ Negative'}
+                </span>
+            );
+            case 'comment': return fb.comments ? `"${fb.comments}"` : cat.issue?.join(', ') || '—';
+            case 'date': return formatDate(fb.createdAt);
+            case 'time': return formatTime(fb.createdAt);
+            case 'status': return <span className="status-label">{fb.status}</span>;
+            default: return null;
+        }
+    };
+
     return (
         <div className="tv-dashboard-root">
             <header className="tv-header">
@@ -108,18 +152,22 @@ const TvDashboard = () => {
             </header>
 
             <main className="tv-table-main">
-                <div className="tv-table-header">
-                    <div className="col-fid">Feedback ID</div>
-                    <div className="col-dept">Department</div>
-                    <div className="col-type">Feedback Type</div>
-                    <div className="col-comment">Comment</div>
-                    <div className="col-date">Date Submitted</div>
-                    <div className="col-time">Time</div>
-                    <div className="col-status">Status</div>
+                <div className="tv-table-header" style={gridStyle}>
+                    {activeColumns.map(col => (
+                        <div key={col.id} className={`${col.class} ${col.id === 'sno' ? 'text-center' : ''}`}>
+                            {col.label}
+                        </div>
+                    ))}
                 </div>
 
                 <div className="tv-rows-container">
-                    {feedbacks.length === 0 && !loading ? (
+                    {!hospitalId ? (
+                         <div className="tv-empty">
+                            <div className="tv-empty-icon">⚠️</div>
+                            <div className="tv-empty-text">No Hospital ID Provided</div>
+                            <p style={{ color: '#94a3b8', fontSize: '1.25rem' }}>Please access this dashboard via the link provided in the Admin Panel.</p>
+                        </div>
+                    ) : feedbacks.length === 0 && !loading ? (
                         <div className="tv-empty">
                             <div className="tv-empty-icon">✓</div>
                             <div className="tv-empty-text">No Active Feedback Investigations</div>
@@ -130,22 +178,12 @@ const TvDashboard = () => {
                                 const cat = fb.categories?.[0] || {};
                                 const isPositive = cat.reviewType === 'Positive';
                                 return (
-                                    <div key={fb._id} className={`tv-row ${isPositive ? 'pos-row' : 'neg-row'}`}>
-                                        <div className="col-fid">{fb.feedbackId || '—'}</div>
-                                        <div className="col-dept">{cat.department}</div>
-                                        <div className="col-type">
-                                            <span className={`type-tag ${isPositive ? 'tag-pos' : 'tag-neg'}`}>
-                                                {isPositive ? '✨ Positive' : '⚠️ Negative'}
-                                            </span>
-                                        </div>
-                                        <div className="col-comment">
-                                            {fb.comments ? `"${fb.comments}"` : fb.categories[0]?.issue?.join(', ') || '—'}
-                                        </div>
-                                        <div className="col-date">{formatDate(fb.createdAt)}</div>
-                                        <div className="col-time">{formatTime(fb.createdAt)}</div>
-                                        <div className="col-status">
-                                            <span className="status-label">{fb.status}</span>
-                                        </div>
+                                    <div key={fb._id} className={`tv-row ${isPositive ? 'pos-row' : 'neg-row'}`} style={gridStyle}>
+                                        {activeColumns.map(col => (
+                                            <div key={col.id} className={`${col.class} ${col.id === 'sno' ? 'text-center' : ''}`}>
+                                                {renderCell(col, fb, index)}
+                                            </div>
+                                        ))}
                                     </div>
                                 );
                             })}

@@ -44,13 +44,20 @@ const AdminSettings = () => {
 
     const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
-            const url = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
-            const { data } = await API.get(url);
-            if (data) {
+            const hUrl = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
+            const dUrl = hospitalId ? `/departments?hospitalId=${hospitalId}` : '/departments';
+            
+            const [hRes, dRes] = await Promise.all([
+                API.get(hUrl),
+                API.get(dUrl)
+            ]);
+
+            if (hRes.data) {
                 setHospital({
                     themeColor: '#0ca678',
                     qrId: '1',
-                    ...data
+                    ...hRes.data,
+                    departments: dRes.data || hRes.data.departments || []
                 });
             } else {
                 toast.error('Hospital configuration not found');
@@ -135,31 +142,51 @@ const AdminSettings = () => {
             }
 
             if (!hospital.departments.some(d => d.name === newDept.name)) {
-                const updatedDepts = [...hospital.departments, {
+                const deptPayload = {
                     name: newDept.name,
                     imageUrl: finalImageUrl,
                     description: newDept.description,
                     positiveIssues: newDept.positiveIssues.split(',').map(i => i.trim()).filter(i => i),
                     negativeIssues: newDept.negativeIssues.split(',').map(i => i.trim()).filter(i => i)
-                }];
-                setHospital({ ...hospital, departments: updatedDepts });
+                };
+                
+                const query = hospitalId ? `?hospitalId=${hospitalId}` : '';
+                const { data } = await API.post(`/departments${query}`, deptPayload);
+                
+                setHospital(prev => ({ 
+                    ...prev, 
+                    departments: [...prev.departments, data] 
+                }));
                 setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positiveIssues: '', negativeIssues: '' });
-                toast.success('Dept added. Click "Save Configuration" to apply changes.');
+                toast.success('Department added successfully.');
             } else {
                 toast.error('Department already exists');
             }
-        } catch {
+        } catch (error) {
+            console.error(error);
             toast.error('Failed to add department');
         } finally {
             setSaving(false);
         }
     };
 
-    const handleRemoveDept = (name) => {
-        setHospital({
-            ...hospital,
-            departments: hospital.departments.filter(d => d.name !== name)
-        });
+    const handleRemoveDept = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to remove ${name}?`)) return;
+        
+        try {
+            setSaving(true);
+            await API.delete(`/departments/${id}`);
+            setHospital(prev => ({
+                ...prev,
+                departments: prev.departments.filter(d => d._id !== id)
+            }));
+            toast.success('Department removed successfully.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to remove department');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleUpdateProfile = async (e) => {
@@ -491,7 +518,7 @@ const AdminSettings = () => {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => handleRemoveDept(dept.name)}
+                                        onClick={() => handleRemoveDept(dept._id, dept.name)}
                                         style={{ position: 'absolute', top: '8px', right: '8px', background: 'white', border: '1px solid #fee2e2', borderRadius: '50%', color: '#ef4444', height: '28px', width: '28px', cursor: 'pointer' }}
                                     >✕</button>
                                 </div>

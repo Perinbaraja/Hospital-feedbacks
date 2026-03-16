@@ -1,6 +1,7 @@
 import express from 'express';
 import Feedback from '../models/Feedback.js';
 import Hospital from '../models/Hospital.js';
+import Department from '../models/Department.js';
 import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
 import { protect, admin } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
@@ -67,19 +68,52 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 // @route   GET /api/feedback
 router.get('/', protect, admin, async (req, res) => {
     try {
-        const filter = {};
+        const query = {};
         const userRole = req.user.role?.toLowerCase();
         const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
         const isSuperAdmin = ['super_admin'].includes(userRole);
 
         if (isAdmin) {
-            filter.hospital = req.user.hospital;
+            query.hospital = req.user.hospital;
         } else if (isSuperAdmin && req.query.hospitalId) {
-            filter.hospital = req.query.hospitalId;
+            query.hospital = req.query.hospitalId;
         }
-        const feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
+
+        // Apply additional filters from query parameters
+        const { feedbackId, department, type, comment, status, dateFrom, dateTo } = req.query;
+
+        if (feedbackId) {
+            query.feedbackId = { $regex: new RegExp(feedbackId, 'i') };
+        }
+        if (department) {
+            query['categories.department'] = { $regex: new RegExp(department, 'i') };
+        }
+        if (type) {
+            query['categories.reviewType'] = type;
+        }
+        if (comment) {
+            query.comments = { $regex: new RegExp(comment, 'i') };
+        }
+        if (status) {
+            query.status = status;
+        }
+
+        if (dateFrom || dateTo) {
+            query.createdAt = {};
+            if (dateFrom) {
+                query.createdAt.$gte = new Date(dateFrom);
+            }
+            if (dateTo) {
+                const endDay = new Date(dateTo);
+                endDay.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = endDay;
+            }
+        }
+
+        const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
         res.json(feedbacks);
     } catch (error) {
+        console.error('Feedback fetch error:', error);
         res.status(500).json({ message: 'Error fetching feedback' });
     }
 });
@@ -169,12 +203,45 @@ router.get('/department/:dept', protect, async (req, res) => {
 router.get('/tv/:hospitalId', async (req, res) => {
     try {
         const hId = req.params.hospitalId;
-        const feedbacks = await Feedback.find({ 
-            hospital: hId,
-            status: 'IN PROGRESS' 
-        }).sort({ createdAt: -1 });
+        const hospital = await Hospital.findById(hId);
+        
+        if (!hospital) {
+            return res.status(404).json({ message: 'Hospital not found' });
+        }
+
+        const { tvFilters } = hospital;
+        const query = { hospital: hId };
+
+        // Fetch existing departments for this hospital
+        const existingDepts = await Department.find({ hospital: hId });
+        const existingDeptNames = existingDepts.map(d => d.name);
+
+        if (tvFilters) {
+            let filterDepts = tvFilters.departments && tvFilters.departments.length > 0 
+                ? tvFilters.departments 
+                : existingDeptNames;
+            
+            // Only include departments that still exist in the database
+            const validDepts = filterDepts.filter(d => existingDeptNames.includes(d));
+            query['categories.department'] = { $in: validDepts };
+
+            if (tvFilters.type) {
+                query['categories.reviewType'] = tvFilters.type;
+            }
+            if (tvFilters.status) {
+                query.status = tvFilters.status;
+            } else {
+                query.status = 'IN PROGRESS';
+            }
+        } else {
+            query['categories.department'] = { $in: existingDeptNames };
+            query.status = 'IN PROGRESS';
+        }
+
+        const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
         res.json(feedbacks);
     } catch (error) {
+        console.error('TV Feedback filter error:', error);
         res.status(500).json({ message: 'Error fetching TV feedback' });
     }
 });

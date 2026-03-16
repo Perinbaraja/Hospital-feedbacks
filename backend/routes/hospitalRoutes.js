@@ -1,5 +1,6 @@
 import express from 'express';
 import Hospital from '../models/Hospital.js';
+import Department from '../models/Department.js';
 import { protect, admin, optionalProtect } from './userRoutes.js';
 import { validateHospitalInput } from '../middleware/validation.js';
 
@@ -40,6 +41,20 @@ router.get('/', optionalProtect, async (req, res) => {
                 message: 'This hospital\'s feedback portal is currently deactivated by the network administrator.',
                 isDeactivated: true 
             });
+        }
+
+        // Auto-migration check
+        const deptCount = await Department.countDocuments({ hospital: hospital._id });
+        if (deptCount === 0 && hospital.departments && hospital.departments.length > 0) {
+            const deptsToCreate = hospital.departments.map(d => ({
+                name: d.name,
+                hospital: hospital._id,
+                imageUrl: d.imageUrl,
+                description: d.description,
+                positiveIssues: d.positiveIssues,
+                negativeIssues: d.negativeIssues
+            }));
+            await Department.insertMany(deptsToCreate);
         }
 
         res.json(hospital);
@@ -85,6 +100,44 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error updating hospital settings' });
+    }
+});
+
+// @desc    Update TV Dashboard Filters
+// @route   PUT /api/hospital/tv-filters
+router.put('/tv-filters', protect, admin, async (req, res) => {
+    const { feedbackIds, departments, type, comment, dateFrom, dateTo, status, visibleColumns } = req.body;
+    const { hospitalId } = req.query;
+
+    try {
+        let hospital;
+        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        if (isSuperAdmin && hospitalId) {
+            hospital = await Hospital.findById(hospitalId);
+        } else {
+            hospital = await Hospital.findById(req.user.hospital);
+        }
+
+        if (hospital) {
+            hospital.tvFilters = {
+                feedbackIds: Array.isArray(feedbackIds) ? feedbackIds : [],
+                departments: Array.isArray(departments) ? departments : [],
+                type: type || '',
+                comment: comment || '',
+                dateFrom: dateFrom || '',
+                dateTo: dateTo || '',
+                status: status || 'IN PROGRESS',
+                visibleColumns: Array.isArray(visibleColumns) ? visibleColumns : []
+            };
+
+            const updatedHospital = await hospital.save();
+            res.json(updatedHospital.tvFilters);
+        } else {
+            res.status(404).json({ message: 'Hospital not found' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error updating TV filters' });
     }
 });
 
