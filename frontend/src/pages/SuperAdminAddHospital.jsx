@@ -168,9 +168,10 @@ const SuperAdminAddHospital = () => {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         className="form-control"
+                                        minLength={6}
                                         required
                                         autoComplete="new-password"
-                                        placeholder="Enter temporary password"
+                                        placeholder="Minimum 6 characters"
                                         value={newHospital.adminPassword}
                                         onChange={(e) => setNewHospital({ ...newHospital, adminPassword: e.target.value })}
                                     />

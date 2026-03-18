@@ -226,22 +226,31 @@ router.get('/tv/:hospitalId', async (req, res) => {
         console.log(`[TV Dashboard] Hospital resolved: ${hospital.name} (${hId})`);
 
         const { tvFilters } = hospital;
+        const { deptId } = req.query; // New optional filter
         const query = { hospital: hId };
 
         // Fetch existing departments for this hospital
         const existingDepts = await Department.find({ hospital: hId });
         const existingDeptNames = existingDepts.map(d => d.name);
 
-        if (tvFilters) {
+        // Department-specific filtering (Highest Priority)
+        if (deptId) {
+            const targetDept = existingDepts.find(d => d._id.toString() === deptId);
+            if (targetDept) {
+                query['categories.department'] = targetDept.name;
+            }
+        } else if (tvFilters) {
             const filterDepts = tvFilters.departments || [];
             const validDepts = filterDepts.filter(d => existingDeptNames.includes(d));
             
             if (validDepts.length > 0) {
                 query['categories.department'] = { $in: validDepts };
             }
+        }
 
+        if (tvFilters) {
             if (tvFilters.type && tvFilters.type !== 'All Types') {
-                query['categories.reviewType'] = tvFilters.type;
+                query['categories.ratingType'] = tvFilters.type;
             }
             
             query.status = tvFilters.status || 'IN PROGRESS';
@@ -250,7 +259,10 @@ router.get('/tv/:hospitalId', async (req, res) => {
         }
 
         console.log(`[TV Dashboard] Query:`, JSON.stringify(query, null, 2));
-        const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
+        const feedbacks = await Feedback.find(query)
+            .sort({ createdAt: -1 })
+            .populate('hospital')
+            .lean();
         console.log(`[TV Dashboard] Found ${feedbacks.length} feedbacks`);
         res.json(feedbacks);
     } catch (error) {

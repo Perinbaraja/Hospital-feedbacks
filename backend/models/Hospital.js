@@ -85,12 +85,10 @@ const hospitalSchema = mongoose.Schema(
 
 // Add a default set if none provided (can be changed via seed or admin)
 hospitalSchema.path('departments').default(() => [
-    { name: 'Admission', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063224.png', description: 'Patient admission process' },
-    { name: 'Waiting Room', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2965/2965279.png', description: 'Patient waiting area' },
-    { name: 'Pharmacy', imageUrl: 'https://cdn-icons-png.flaticon.com/512/883/883407.png', description: 'Medicine and pharmacy services' },
-    { name: 'Nurse/Doctor', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3774/3774299.png', description: 'Medical staff behavior' },
+    { name: 'Canteen', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2082/2082045.png', description: 'Dining and canteen services' },
+    { name: 'Doctor', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3774/3774299.png', description: 'Healthcare staff and doctor services' },
+    { name: 'Medicine', imageUrl: 'https://cdn-icons-png.flaticon.com/512/883/883407.png', description: 'Pharmacy and medical services' },
     { name: 'Parking', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2830/2830175.png', description: 'Hospital parking facilities' },
-    { name: 'Internet', imageUrl: 'https://cdn-icons-png.flaticon.com/512/159/159599.png', description: 'WiFi and internet connectivity' },
 ]);
 
 const Hospital = mongoose.model('Hospital', hospitalSchema);

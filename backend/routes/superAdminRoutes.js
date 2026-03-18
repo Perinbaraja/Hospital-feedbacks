@@ -70,12 +70,10 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
 
         // Prepare departments for hospital and Department collection
         const defaultDepts = [
-            { name: 'Admission', description: 'Patient admission process', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063224.png' },
-            { name: 'Waiting Room', description: 'Patient waiting area', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2965/2965279.png' },
-            { name: 'Pharmacy', description: 'Medicine and pharmacy services', imageUrl: 'https://cdn-icons-png.flaticon.com/512/883/883407.png' },
-            { name: 'Nurse/Doctor', description: 'Medical staff behavior', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3774/3774299.png' },
+            { name: 'Canteen', description: 'Dining and canteen services', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2082/2082045.png' },
+            { name: 'Doctor', description: 'Healthcare staff and doctor services', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3774/3774299.png' },
+            { name: 'Medicine', description: 'Pharmacy and medical services', imageUrl: 'https://cdn-icons-png.flaticon.com/512/883/883407.png' },
             { name: 'Parking', description: 'Hospital parking facilities', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2830/2830175.png' },
-            { name: 'Internet', description: 'WiFi and internet connectivity', imageUrl: 'https://cdn-icons-png.flaticon.com/512/159/159599.png' },
         ];
 
         const depts = (typeof departments === 'string' && departments.trim() !== '')
@@ -114,23 +112,19 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             await User.create({
                 name: adminName || `${name} Admin`,
                 email: adminEmail?.trim().toLowerCase(),
-                password: adminPassword,
+                password: adminPassword, // Password validation (minLength 6) should be handled by the User model schema
                 phone: adminPhone || '',
                 role: 'hospital_admin',
                 hospital: hospital._id
             });
 
-            // Send Email Notification
-            try {
-                await sendAdminCredentialsEmail(
-                    adminEmail,
-                    adminName || `${name} Admin`,
-                    adminEmail,
-                    adminPassword
-                );
-            } catch (err) {
-                console.error('Email notification failed but user was created:', err);
-            }
+            // Send Email Notification - Non-blocking to prevent frontend timeouts
+            sendAdminCredentialsEmail(
+                adminEmail,
+                adminName || `${name} Admin`,
+                adminEmail,
+                adminPassword
+            ).catch(err => console.error('Background Email Failed:', err.message));
         }
 
         res.status(201).json(hospital);
