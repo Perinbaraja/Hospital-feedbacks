@@ -44,6 +44,7 @@ const PublicFeedback = () => {
     const [hospital, setHospital] = useState(null);
     const [loading, setLoading] = useState(true);
     const [deactivationMessage, setDeactivationMessage] = useState(null);
+    const [error, setError] = useState(null);
 
     const [currentStep, setCurrentStep] = useState(1);
     const [patientName, setPatientName] = useState('');
@@ -91,18 +92,24 @@ const PublicFeedback = () => {
                 setLoading(false);
             } catch (error) {
                 console.error('Config fetch error:', error);
-                
-                // Check if hospital is deactivated (403 from backend)
+                // Handle specific errors
                 if (error.response?.status === 403 && error.response?.data?.isDeactivated) {
                     setDeactivationMessage(error.response.data.message);
                     setLoading(false);
                     return;
                 }
 
-                if (retryCount < 2) {
+                if (error.response?.status === 404) {
+                    setError('Invalid QR Code. Please ensure you have scanned the correct code or the hospital has saved their configuration.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Retry only for potential network issues (not for 4xx)
+                if (retryCount < 2 && (!error.response || error.response.status >= 500)) {
                     setTimeout(() => fetchConfig(retryCount + 1), 2000);
                 } else {
-                    toast.error('Connection issue: Unable to load the feedback form.');
+                    setError('Connection issue: Unable to load the feedback form.');
                     setLoading(false);
                 }
             }
@@ -379,22 +386,37 @@ const PublicFeedback = () => {
                         )}
                         <h1 className="feedback-title" style={{ fontSize: '1.875rem' }}>{hospital?.name || 'Hospital'}</h1>
 
-                        <div className="stepper-container">
-                            {[1, 2, 3].map(step => (
-                                <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <div className="step-circle" style={{
-                                        backgroundColor: step === currentStep ? 'var(--primary)' : step < currentStep ? '#10B981' : '#E5E7EB',
-                                        color: step <= currentStep ? 'white' : '#6B7280'
-                                    }}>
-                                        {step < currentStep ? '✓' : step}
+                        {(loading || error || deactivationMessage) && (
+                            <div style={{ height: '2rem' }} /> 
+                        )}
+
+                        {!loading && !error && !deactivationMessage && (
+                            <div className="stepper-container">
+                                {[1, 2, 3].map(step => (
+                                    <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div className="step-circle" style={{
+                                            backgroundColor: step === currentStep ? 'var(--primary)' : step < currentStep ? '#10B981' : '#E5E7EB',
+                                            color: step <= currentStep ? 'white' : '#6B7280'
+                                        }}>
+                                            {step < currentStep ? '✓' : step}
+                                        </div>
+                                        {step < 3 && <div className="step-line" style={{ backgroundColor: step < currentStep ? '#10B981' : '#E5E7EB' }} />}
                                     </div>
-                                    {step < 3 && <div className="step-line" style={{ backgroundColor: step < currentStep ? '#10B981' : '#E5E7EB' }} />}
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    {currentStep === 1 && (
+                    {error && (
+                        <div className="fade-in" style={{ textAlign: 'center', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                            <div style={{ fontSize: '4rem' }}>📡</div>
+                            <h3 style={{ color: '#ef4444' }}>Service Unavailable</h3>
+                            <p style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>{error}</p>
+                            <button onClick={() => window.location.reload()} className="btn-outline">Retry Connection</button>
+                        </div>
+                    )}
+
+                    {!loading && !error && !deactivationMessage && currentStep === 1 && (
                         <div className="fade-in">
                             <h3 style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Step 1: Contact Detail</h3>
                             <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>You can skip this if you prefer to remain anonymous.</p>

@@ -135,7 +135,19 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
 
         res.status(201).json(hospital);
     } catch (error) {
-        res.status(500).json({ message: 'Error creating hospital' });
+        console.error('Hospital Enrollment Error:', error);
+        let message = 'Error creating hospital';
+        
+        // Handle MongoDB duplicate key errors (11000)
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern)[0];
+            message = `Duplicate Error: A record already exists with this ${field}.`;
+            if (field === 'adminEmail' || field === 'email') message = 'This administrator email is already associated with another hospital.';
+            if (field === 'qrId' || field === 'uniqueId') message = 'This hospital identifier is already in use. Please try a different name.';
+            return res.status(400).json({ message });
+        }
+
+        res.status(500).json({ message: error.message || message });
     }
 });
 

@@ -39,7 +39,7 @@ export const getAssetUrl = (path) => {
 // Create axios instance
 const API = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 15000,
+    timeout: 30000, // Increased to 30s to handle email sending latency (Enrollment)
 });
 
 // Request Interceptor: Add Authorization token & Normalize URLs

@@ -90,7 +90,13 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             hospital.logoUrl = logoUrl !== undefined ? logoUrl : hospital.logoUrl;
             hospital.departments = departments !== undefined ? departments : hospital.departments;
             if (themeColor !== undefined) hospital.themeColor = themeColor;
-            if (qrId !== undefined) hospital.qrId = qrId;
+            if (qrId !== undefined && qrId !== hospital.qrId) {
+                const qrExists = await Hospital.findOne({ qrId });
+                if (qrExists) {
+                    return res.status(400).json({ message: 'QR ID already in use. Please generate a different one.' });
+                }
+                hospital.qrId = qrId;
+            }
 
             // New metadata fields
             if (location !== undefined) hospital.location = location;

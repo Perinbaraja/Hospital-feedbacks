@@ -41,6 +41,7 @@ const AdminSettings = () => {
     const [adminProfile, setAdminProfile] = useState({ name: '', email: '', password: '', phone: '' });
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [qrModified, setQrModified] = useState(false);
 
     const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
@@ -122,6 +123,7 @@ const AdminSettings = () => {
             setHospital(updatedHospital);
             setLogoFile(null);
             setBgFile(null);
+            setQrModified(false);
             toast.success('Settings updated successfully');
         } catch {
             toast.error('Error saving settings');
@@ -207,6 +209,7 @@ const AdminSettings = () => {
     const handleGenerateNewQR = () => {
         const newId = Math.random().toString(36).substr(2, 8);
         setHospital({ ...hospital, qrId: newId });
+        setQrModified(true);
         toast.success('New QR ID generated! Save to apply.');
     };
 
@@ -576,13 +579,18 @@ const AdminSettings = () => {
                         </button>
 
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(feedbackUrl); toast.success('Link Copied!'); }} className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText(feedbackUrl); toast.success('Link Copied!'); }} className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: qrModified ? 0.6 : 1 }}>
                                 <ClipboardCopy size={16} /> Copy
                             </button>
-                            <a href={feedbackUrl} target="_blank" rel="noreferrer" className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            <a href={feedbackUrl} target="_blank" rel="noreferrer" className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: qrModified ? 0.6 : 1 }}>
                                 <ExternalLink size={16} /> View
                             </a>
                         </div>
+                        {qrModified && (
+                            <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '8px', color: '#c2410c', fontSize: '0.75rem', fontWeight: 600 }}>
+                                ⚠️ This new QR ID is not active yet. You must click "Finalize & Save" below to enable it.
+                            </div>
+                        )}
 
                     </div>
 
