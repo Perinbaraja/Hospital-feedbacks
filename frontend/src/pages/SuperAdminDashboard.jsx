@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Activity, Trash2, ShieldCheck, LayoutDashboard } from 'lucide-react';
 

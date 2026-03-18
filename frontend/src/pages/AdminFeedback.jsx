@@ -322,7 +322,7 @@ const AdminFeedback = () => {
                                                     <div style={{ fontWeight: 600, color: '#334155', marginBottom: '0.2rem', fontSize: '0.8125rem' }}>
                                                         {Array.isArray(cat.issue) ? cat.issue.join(' • ') : cat.issue}
                                                     </div>
-                                                    {fb.comments && (
+                                                    {(cat.customText || fb.comments) && (
                                                         <div style={{
                                                             fontSize: '0.75rem',
                                                             color: '#64748b',
@@ -334,7 +334,7 @@ const AdminFeedback = () => {
                                                             lineHeight: '1.4'
                                                         }}>
                                                             <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginRight: '0.4rem' }}>Note:</span>
-                                                            "{fb.comments}"
+                                                             "{cat.customText || fb.comments}"
                                                         </div>
                                                     )}
                                                 </div>

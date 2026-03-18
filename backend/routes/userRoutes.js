@@ -81,10 +81,15 @@ export const admin = (req, res, next) => {
 
 // Super Admin middleware
 export const superAdmin = (req, res, next) => {
-    if (req.user && (req.user.role === 'Super_Admin' || req.user.role === 'super_admin')) {
+    const role = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (role === 'superadmin') {
         next();
     } else {
-        res.status(403).json({ message: 'Not authorized as a Super Admin' });
+        const actualRole = req.user?.role || 'UNDEFINED';
+        console.warn(`[SUPER_ADMIN] Access Denied: User ${req.user?.email} has role ${actualRole}`);
+        res.status(403).json({ 
+            message: `Not authorized as a Super Admin (Your role: ${actualRole})` 
+        });
     }
 };
 

@@ -45,6 +45,11 @@ const AdminTvMonitor = () => {
                     departments: depts
                 });
 
+                // Construct more readable URL if uniqueId is available
+                const baseUrl = window.location.origin;
+                const hIdForUrl = data.uniqueId || effectiveHospitalId;
+                setTvUrl(`${baseUrl}/tv-dashboard?hospitalId=${hIdForUrl}`);
+
                 if (data.tvFilters) {
                     setTvFilters(prev => ({
                         ...prev,
@@ -59,6 +64,7 @@ const AdminTvMonitor = () => {
         };
         fetchHospital();
         
+        // Initial construction
         const baseUrl = window.location.origin;
         if (effectiveHospitalId) {
             setTvUrl(`${baseUrl}/tv-dashboard?hospitalId=${effectiveHospitalId}`);
@@ -245,7 +251,6 @@ const AdminTvMonitor = () => {
                                     onChange={handleFilterChange}
                                     style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                                 >
-                                    <option value="Pending">Pending</option>
                                     <option value="IN PROGRESS">In Progress</option>
                                     <option value="COMPLETED">Completed/Resolved</option>
                                 </select>

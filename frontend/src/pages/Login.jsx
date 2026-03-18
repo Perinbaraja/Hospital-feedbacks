@@ -91,7 +91,24 @@ const Login = () => {
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                             <label className="form-label">Current Password</label>
-                            <input type="password" className="form-control" required value={oldPass} onChange={(e) => setOldPass(e.target.value)} placeholder="Enter current password" />
+                            <div className="password-wrapper">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    className="form-control"
+                                    required
+                                    value={oldPass}
+                                    onChange={(e) => setOldPass(e.target.value)}
+                                    placeholder="Enter current password"
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    title={showPassword ? "Hide Password" : "Show Password"}
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                             <label className="form-label">New Password</label>
@@ -108,6 +125,7 @@ const Login = () => {
                                     type="button"
                                     className="password-toggle"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    title={showPassword ? "Hide Password" : "Show Password"}
                                 >
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>

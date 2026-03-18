@@ -51,7 +51,7 @@ export const validateHospitalInput = (req, res, next) => {
         return res.status(400).json({ message: 'Hospital name must be a string' });
     }
 
-    if (themeColor && !/^#[0-9A-F]{6}$/i.test(themeColor)) {
+    if (themeColor && !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(themeColor)) {
         return res.status(400).json({ message: 'Invalid theme color format (must be hex color)' });
     }
 

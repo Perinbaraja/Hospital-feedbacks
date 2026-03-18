@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../api';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { ChevronLeft, ShieldCheck, Settings, Activity, ExternalLink } from 'lucide-react';
 
 const SuperAdminHospitalDetail = () => {
@@ -57,7 +57,6 @@ const SuperAdminHospitalDetail = () => {
                 </div>
             ) : hospital && (
                 <>
-                    <Toaster />
 
                     {/* Breadcrumbs */}
                     <button

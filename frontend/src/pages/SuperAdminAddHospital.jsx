@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import API from '../api';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronLeft, Save, X, ShieldCheck, User, Mail, Phone, Lock, Smartphone, Eye, EyeOff } from 'lucide-react';
 
@@ -16,8 +16,6 @@ const SuperAdminAddHospital = () => {
         adminEmail: '', // Root Admin Email
         adminPassword: '', // Root Admin Initial Password
         adminPhone: '', // Root Admin Mobile (for SMS/Notifications)
-        departments: '', // List of departments (comma separated)
-        logoUrl: '',
         location: '',
         district: '',
         state: ''
@@ -41,7 +39,6 @@ const SuperAdminAddHospital = () => {
 
     return (
         <div style={{ maxWidth: '850px', margin: '0 auto', padding: '1rem' }}>
-            <Toaster />
 
             {/* Header */}
             <div style={{ marginBottom: '3rem' }}>
@@ -145,9 +142,6 @@ const SuperAdminAddHospital = () => {
                                     }}
                                 />
                             </div>
-
-
-
                             <div style={{ gridColumn: 'span 2', marginTop: '1.5rem' }}>
                                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '0.5rem' }}>Hospital Admin Credentials</h3>
                                 <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>

@@ -1,14 +1,16 @@
 import axios from 'axios';
 
 // Unified URL Configuration
-// Use environment variables if set, otherwise fallback to smart defaults
 const envApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
 let resolvedApiUrl = envApiUrl || (import.meta.env.DEV ? '/api' : 'https://hospital-feedbacks.onrender.com/api');
 
-// Auto-fix: Ensure full URLs end with /api if they don't already
-if (resolvedApiUrl.startsWith('http') && !resolvedApiUrl.toLowerCase().endsWith('/api')) {
-    console.warn(`[API] Base URL is missing '/api' suffix. Appending it automatically: ${resolvedApiUrl} -> ${resolvedApiUrl}/api`);
-    resolvedApiUrl = `${resolvedApiUrl.replace(/\/$/, '')}/api`;
+// Auto-fix: Ensure full URLs end with /api/ if they don't already
+// For Axios to correctly handle relative paths without stripping the /api suffix,
+// the baseURL MUST end with a trailing slash.
+if (resolvedApiUrl.toLowerCase().endsWith('/api')) {
+    resolvedApiUrl = `${resolvedApiUrl}/`;
+} else if (!resolvedApiUrl.toLowerCase().endsWith('/api/')) {
+    resolvedApiUrl = `${resolvedApiUrl.replace(/\/$/, '')}/api/`;
 }
 
 export const API_BASE_URL = resolvedApiUrl;
@@ -31,9 +33,6 @@ export const getAssetUrl = (path) => {
     // Use the determined BASE_ASSET_URL
     const fullUrl = `${BASE_ASSET_URL}${cleanPath}`;
     
-    // Optional: Log for debugging if needed (will show in browser console)
-    // console.log(`[Asset] Resolving ${path} -> ${fullUrl}`);
-    
     return fullUrl;
 };
 
@@ -45,9 +44,10 @@ const API = axios.create({
 
 // Request Interceptor: Add Authorization token & Normalize URLs
 API.interceptors.request.use((req) => {
-    // Axios Bugfix: If baseURL has a path (like /api) and request has leading slash (like /users), 
-    // the baseURL path is often stripped. We remove the leading slash to preserve the baseURL path.
-    if (req.baseURL?.endsWith('/api') && req.url?.startsWith('/')) {
+    // Axios Logic: If req.url starts with a slash, it overrides the entire path in baseURL.
+    // Example: baseURL='.../api/' and url='/users' -> '.../users' (strips /api/)
+    // Re-fix: Always remove the leading slash from the request URL so it's treated as relative to the /api/ base.
+    if (req.url?.startsWith('/')) {
         req.url = req.url.substring(1);
     }
 

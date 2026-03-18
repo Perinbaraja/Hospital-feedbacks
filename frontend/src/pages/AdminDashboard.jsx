@@ -110,43 +110,65 @@ const AdminDashboard = () => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-                {/* Secondary: Service Matrix */}
-                <div className="card" style={{ padding: '2rem', borderRadius: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b' }}>Facility Service Matrix</h3>
-                        <Activity size={20} color="#94a3b8" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* Facility Info */}
+                    <div className="card" style={{ padding: '1.5rem', borderRadius: '1.5rem', display: 'flex', gap: '2rem', alignItems: 'center', background: 'linear-gradient(90deg, #ffffff 0%, #f8fafc 100%)' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '1rem', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'white', fontWeight: 800 }}>
+                            {hospital?.name?.charAt(0) || 'H'}
+                        </div>
+                        <div style={{ display: 'flex', flex: 1, gap: '2.5rem' }}>
+                            <div>
+                                <p style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Location</p>
+                                <p style={{ fontWeight: 700, color: '#334155' }}>{hospital?.location || 'Not Specified'}</p>
+                                <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{hospital?.district}{hospital?.district && ', '}{hospital?.state}</p>
+                            </div>
+                            <div style={{ width: '1px', background: '#e2e8f0' }}></div>
+                            <div>
+                                <p style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Contact</p>
+                                <p style={{ fontWeight: 700, color: '#334155' }}>{hospital?.phone || 'No Phone Set'}</p>
+                                <p style={{ fontSize: '0.75rem', color: '#64748b' }}>Technical ID: {hospital?.uniqueId}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {Object.entries(stats?.deptDistribution || {}).length === 0 ? (
-                            <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No data available for departments.</p>
-                        ) : (
-                            Object.entries(stats.deptDistribution).sort((a, b) => b[1] - a[1]).map(([deptName, count]) => {
-                                const percentage = Math.round((count / stats.total) * 100);
-                                const deptObj = hospital?.departments?.find(d => d.name === deptName);
-                                return (
-                                    <div key={deptName}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                {deptObj?.imageUrl ? (
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'white', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                        <img src={getAssetUrl(deptObj.imageUrl)} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Activity size={16} color="#94a3b8" />
-                                                    </div>
-                                                )}
-                                                <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem' }}>{deptName}</span>
+
+                    {/* Secondary: Service Matrix */}
+                    <div className="card" style={{ padding: '2rem', borderRadius: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b' }}>Facility Service Matrix</h3>
+                            <Activity size={20} color="#94a3b8" />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {!hospital?.departments || hospital.departments.length === 0 ? (
+                                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No departments configured for this hospital.</p>
+                            ) : (
+                                hospital.departments.map((dept) => {
+                                    const count = stats?.deptDistribution?.[dept.name] || 0;
+                                    const percentage = stats?.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+                                    return (
+                                        <div key={dept.name} style={{ opacity: count === 0 ? 0.6 : 1 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    {dept?.imageUrl ? (
+                                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'white', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                            <img src={getAssetUrl(dept.imageUrl)} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Activity size={16} color="#94a3b8" />
+                                                        </div>
+                                                    )}
+                                                    <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem' }}>{dept.name}</span>
+                                                </div>
+                                                <span style={{ color: '#64748b', fontWeight: 700, fontSize: '0.8rem' }}>{count} feedback</span>
                                             </div>
-                                            <span style={{ color: '#64748b', fontWeight: 700, fontSize: '0.8rem' }}>{count} feedback</span>
+                                            <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                <div style={{ width: `${percentage}%`, height: '100%', background: count > 0 ? 'var(--primary)' : '#e2e8f0', borderRadius: '10px' }}></div>
+                                            </div>
                                         </div>
-                                        <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--primary)', borderRadius: '10px' }}></div>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
                 </div>
 

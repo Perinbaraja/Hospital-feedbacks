@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Hospital from '../models/Hospital.js';
 import Department from '../models/Department.js';
 import { protect, admin, optionalProtect } from './userRoutes.js';
@@ -14,13 +15,17 @@ router.get('/', optionalProtect, async (req, res) => {
         if (qrId) {
             hospital = await Hospital.findOne({ qrId });
         } else if (hospitalId) {
-            hospital = await Hospital.findById(hospitalId);
+            if (mongoose.Types.ObjectId.isValid(hospitalId)) {
+                hospital = await Hospital.findById(hospitalId);
+            } else {
+                // If not an ObjectId, assume it's a uniqueId slug
+                hospital = await Hospital.findOne({ uniqueId: hospitalId });
+            }
         } else if (req.user && req.user.hospital) {
             // Priority: Authenticated Admin's assigned hospital
             hospital = await Hospital.findById(req.user.hospital);
         } else {
-            // Fallback for public access (QR scan) or when ID is omitted
-            hospital = await Hospital.findOne({});
+            return res.status(400).json({ message: 'Hospital ID or QR ID required' });
         }
 
         // If no hospital found, return error with appropriate status
@@ -43,8 +48,10 @@ router.get('/', optionalProtect, async (req, res) => {
             });
         }
 
-        // Auto-migration check
-        const deptCount = await Department.countDocuments({ hospital: hospital._id });
+        // Auto-migrate departments if they don't exist in the Department collection
+        const deptCount = mongoose.Types.ObjectId.isValid(hospital._id) 
+            ? await Department.countDocuments({ hospital: hospital._id })
+            : 0;
         if (deptCount === 0 && hospital.departments && hospital.departments.length > 0) {
             const deptsToCreate = hospital.departments.map(d => ({
                 name: d.name,
@@ -93,6 +100,24 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             if (phone !== undefined) hospital.phone = phone;
 
             const updatedHospital = await hospital.save();
+
+            // Sync nested departments to the Department collection (Important for TV Dashboard consistency)
+            if (departments !== undefined && Array.isArray(departments)) {
+                // Clear existing records for this hospital in the Department collection
+                await Department.deleteMany({ hospital: hospital._id });
+
+                // Bulk insert the new set from the nested array
+                if (departments.length > 0) {
+                    const deptDocs = departments.map(d => ({
+                        hospital: hospital._id,
+                        name: d.name,
+                        imageUrl: d.imageUrl || '',
+                        description: d.description || ''
+                    }));
+                    await Department.insertMany(deptDocs);
+                }
+            }
+            
             res.json(updatedHospital);
         } else {
             res.status(404).json({ message: 'Hospital not found' });

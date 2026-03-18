@@ -38,7 +38,7 @@ const AdminStaff = () => {
             ]);
             setHospital(hospRes.data);
             // Show only clinical/department staff (Dept Heads) in the directory
-            setStaffList(staffRes.data.filter(u => ['Dept_Head'].includes(u.role)));
+            setStaffList(staffRes.data.filter(u => ['Dept_Head', 'Admin', 'hospital_admin'].includes(u.role)));
         } catch {
             toast.error('Failed to load staff data');
         } finally {

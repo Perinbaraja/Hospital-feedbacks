@@ -10,7 +10,16 @@ import dotenv from 'dotenv';
 import User from './models/User.js';
 import Hospital from './models/Hospital.js';
 
+import path from 'path';
+
+// Load environment variables
 dotenv.config();
+if (!process.env.MONGO_URI) {
+    dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+}
+if (!process.env.MONGO_URI) {
+    dotenv.config({ path: path.join(path.resolve(), '.env') });
+}
 
 const initializeDatabase = async () => {
     try {

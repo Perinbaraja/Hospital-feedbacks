@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Hospital from '../models/Hospital.js';
 import User from '../models/User.js';
 import Feedback from '../models/Feedback.js';
+import Department from '../models/Department.js';
 import { protect, superAdmin } from './userRoutes.js';
 import { sendAdminCredentialsEmail } from '../services/emailService.js';
 
@@ -50,7 +51,8 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
     try {
         // 1. Check if admin email is already in use
         if (adminEmail) {
-            const userExists = await User.findOne({ email: adminEmail });
+            const cleanEmail = adminEmail.trim().toLowerCase();
+            const userExists = await User.findOne({ email: cleanEmail });
             if (userExists) {
                 return res.status(400).json({ message: 'Admin email already exists in the system' });
             }
@@ -66,27 +68,52 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             return res.status(400).json({ message: 'Hospital unique ID already exists' });
         }
 
-        // 3. Create Hospital
+        // Prepare departments for hospital and Department collection
+        const defaultDepts = [
+            { name: 'Admission', description: 'Patient admission process', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063224.png' },
+            { name: 'Waiting Room', description: 'Patient waiting area', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2965/2965279.png' },
+            { name: 'Pharmacy', description: 'Medicine and pharmacy services', imageUrl: 'https://cdn-icons-png.flaticon.com/512/883/883407.png' },
+            { name: 'Nurse/Doctor', description: 'Medical staff behavior', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3774/3774299.png' },
+            { name: 'Parking', description: 'Hospital parking facilities', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2830/2830175.png' },
+            { name: 'Internet', description: 'WiFi and internet connectivity', imageUrl: 'https://cdn-icons-png.flaticon.com/512/159/159599.png' },
+        ];
+
+        const depts = (typeof departments === 'string' && departments.trim() !== '')
+            ? departments.split(',').map(d => ({ name: d.trim().toUpperCase() }))
+            : (departments && departments.length > 0 ? departments : defaultDepts);
+
+        // Final Creation
         const hospital = await Hospital.create({
             name,
             uniqueId,
             qrId: uniqueId,
-            location,
+            location: location || '',
             state: state || '',
             district: district || '',
-            phone,
+            phone: phone || '',
+            adminEmail: adminEmail ? adminEmail.trim().toLowerCase() : '', // Link admin email to hospital record
             logoUrl: logoUrl || '',
             themeColor: themeColor || '#4338ca',
-            departments: typeof departments === 'string'
-                ? departments.split(',').map(d => d.trim()).filter(d => d !== '')
-                : (departments || [])
+            departments: depts
         });
+
+        // 3a. Create individual Department documents in the Department collection
+        if (depts.length > 0) {
+            await Promise.all(depts.map(d => 
+                Department.create({
+                    name: d.name,
+                    hospital: hospital._id,
+                    description: d.description || `Standard ${d.name} department`,
+                    imageUrl: d.imageUrl || ''
+                })
+            ));
+        }
 
         // 4. Create Admin User
         if (adminEmail && adminPassword) {
             await User.create({
                 name: adminName || `${name} Admin`,
-                email: adminEmail,
+                email: adminEmail?.trim().toLowerCase(),
                 password: adminPassword,
                 phone: adminPhone || '',
                 role: 'hospital_admin',
@@ -94,12 +121,16 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             });
 
             // Send Email Notification
-            await sendAdminCredentialsEmail(
-                adminEmail,
-                adminName || `${name} Admin`,
-                adminEmail,
-                adminPassword
-            );
+            try {
+                await sendAdminCredentialsEmail(
+                    adminEmail,
+                    adminName || `${name} Admin`,
+                    adminEmail,
+                    adminPassword
+                );
+            } catch (err) {
+                console.error('Email notification failed but user was created:', err);
+            }
         }
 
         res.status(201).json(hospital);
@@ -185,10 +216,14 @@ router.delete('/hospitals/:id', protect, superAdmin, async (req, res) => {
         console.log(`- Deleted ${fbResult.deletedCount} feedback records for ${hName}`);
 
         // 2. Delete associated Users (Admins, Dept Heads)
-        const userResult = await User.deleteMany({ hospital: id });
+        const userResult = await User.deleteMany({ hospital: id, role: { $ne: 'Super_Admin' } });
         console.log(`- Deleted ${userResult.deletedCount} staff accounts for ${hName}`);
 
-        // 3. Finally delete the Hospital itself
+        // 3. Delete associated Departments
+        const deptResult = await Department.deleteMany({ hospital: id });
+        console.log(`- Deleted ${deptResult.deletedCount} departments for ${hName}`);
+
+        // 4. Finally delete the Hospital itself
         await Hospital.findByIdAndDelete(id);
         console.log(`- Successfully removed hospital: ${hName}`);
 

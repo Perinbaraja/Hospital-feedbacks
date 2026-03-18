@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Feedback from '../models/Feedback.js';
 import Hospital from '../models/Hospital.js';
 import Department from '../models/Department.js';
@@ -202,12 +203,27 @@ router.get('/department/:dept', protect, async (req, res) => {
 // @route   GET /api/feedback/tv/:hospitalId
 router.get('/tv/:hospitalId', async (req, res) => {
     try {
-        const hId = req.params.hospitalId;
-        const hospital = await Hospital.findById(hId);
+        let hId = req.params.hospitalId;
+        console.log(`[TV Dashboard] Request for hospitalId: ${hId}`);
+        let hospital;
+
+        if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
+            hospital = await Hospital.findOne({ uniqueId: hId });
+            if (!hospital) {
+                console.warn(`[TV Dashboard] Hospital not found by slug: ${hId}`);
+                return res.status(404).json({ message: 'Hospital not found by slug' });
+            }
+            hId = hospital._id;
+        } else {
+            hospital = await Hospital.findById(hId);
+        }
         
         if (!hospital) {
+            console.warn(`[TV Dashboard] Hospital not found for ID: ${hId}`);
             return res.status(404).json({ message: 'Hospital not found' });
         }
+
+        console.log(`[TV Dashboard] Hospital resolved: ${hospital.name} (${hId})`);
 
         const { tvFilters } = hospital;
         const query = { hospital: hId };
@@ -217,31 +233,28 @@ router.get('/tv/:hospitalId', async (req, res) => {
         const existingDeptNames = existingDepts.map(d => d.name);
 
         if (tvFilters) {
-            let filterDepts = tvFilters.departments && tvFilters.departments.length > 0 
-                ? tvFilters.departments 
-                : existingDeptNames;
-            
-            // Only include departments that still exist in the database
+            const filterDepts = tvFilters.departments || [];
             const validDepts = filterDepts.filter(d => existingDeptNames.includes(d));
-            query['categories.department'] = { $in: validDepts };
+            
+            if (validDepts.length > 0) {
+                query['categories.department'] = { $in: validDepts };
+            }
 
-            if (tvFilters.type) {
+            if (tvFilters.type && tvFilters.type !== 'All Types') {
                 query['categories.reviewType'] = tvFilters.type;
             }
-            if (tvFilters.status) {
-                query.status = tvFilters.status;
-            } else {
-                query.status = 'IN PROGRESS';
-            }
+            
+            query.status = tvFilters.status || 'IN PROGRESS';
         } else {
-            query['categories.department'] = { $in: existingDeptNames };
             query.status = 'IN PROGRESS';
         }
 
+        console.log(`[TV Dashboard] Query:`, JSON.stringify(query, null, 2));
         const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
+        console.log(`[TV Dashboard] Found ${feedbacks.length} feedbacks`);
         res.json(feedbacks);
     } catch (error) {
-        console.error('TV Feedback filter error:', error);
+        console.error('[TV Dashboard] Filter error:', error);
         res.status(500).json({ message: 'Error fetching TV feedback' });
     }
 });

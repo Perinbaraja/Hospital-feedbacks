@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Department from '../models/Department.js';
 import Hospital from '../models/Hospital.js';
 import { protect, admin } from './userRoutes.js';
@@ -10,16 +11,21 @@ const router = express.Router();
 router.get('/', async (req, res) => {
     const { hospitalId } = req.query;
     try {
-        let query = {};
-        if (hospitalId) {
-            query.hospital = hospitalId;
-        } else {
-            // If no hospitalId, find the first hospital as fallback
-            const hospital = await Hospital.findOne({});
-            if (hospital) query.hospital = hospital._id;
+        let hId = hospitalId;
+
+        if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
+            // It's a slug, find the ID!
+            const hospital = await Hospital.findOne({ uniqueId: hId });
+            hId = hospital ? hospital._id : null;
         }
 
-        const departments = await Department.find(query);
+        if (!hId) {
+            // If still no hId, fallback to first hospital's ID
+            const hospital = await Hospital.findOne({});
+            hId = hospital ? hospital._id : null;
+        }
+
+        const departments = await Department.find({ hospital: hId });
         // User requested a list of names in the example, but for the UI we need objects.
         // I will return objects to maintain compatibility with existing frontend logic.
         res.json(departments);
@@ -36,8 +42,8 @@ router.post('/', protect, admin, async (req, res) => {
     const { hospitalId } = req.query;
 
     try {
-        const hId = hospitalId || req.user.hospital;
-        if (!hId) return res.status(400).json({ message: 'Hospital ID required' });
+        const hId = (hospitalId && req.user.role === 'Super_Admin') ? hospitalId : req.user.hospital;
+        if (!hId) return res.status(400).json({ message: 'Hospital ID not authorized or missing' });
 
         const exists = await Department.findOne({ name, hospital: hId });
         if (exists) return res.status(400).json({ message: 'Department already exists' });
@@ -80,6 +86,11 @@ router.delete('/:id', protect, admin, async (req, res) => {
 
         const hId = dept.hospital;
         const deptName = dept.name;
+
+        // Security check: Only Super Admin OR the owner admin can delete
+        if (req.user.role !== 'Super_Admin' && hId.toString() !== req.user.hospital?.toString()) {
+            return res.status(403).json({ message: 'Not authorized to manage this hospital department' });
+        }
 
         await Department.findByIdAndDelete(req.params.id);
 

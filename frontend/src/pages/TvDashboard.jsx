@@ -20,25 +20,25 @@ const TvDashboard = () => {
 
     const fetchData = useCallback(async () => {
         try {
-            // Requirement 1 & 8: Public access via hospitalId parameter
             if (!hospitalId) {
                 setLoading(false);
                 return;
             }
 
-            // Fetch hospital config periodically to pick up filter changes from Admin
             const hospRes = await API.get(`/hospital?hospitalId=${hospitalId}`);
             setHospital(hospRes.data);
 
-            // Requirement 3 & 5: Fetch filtered feedback from the backend
             const { data } = await API.get(`/feedback/tv/${hospitalId}`);
             
-            setFeedbacks(data);
+            setFeedbacks(Array.isArray(data) ? data : []);
             setLastUpdated(new Date());
             setLoading(false);
         } catch (error) {
-            console.error('TV Dashboard refresh error:', error);
-            // Don't set loading false here so it keeps trying if it's a transient error
+            console.error('[TV Dashboard] Sync error:', error.message);
+            // Critical! If it's a 404 or 400, stop loading so we show error states
+            if (error.response?.status >= 400) {
+                setLoading(false);
+            }
         }
     }, [hospitalId]);
 
