@@ -1,4 +1,10 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force Node to prefer IPv4 over IPv6 to fix ENETUNREACH on cloud platforms (Render/DigitalOcean)
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 import dotenv from 'dotenv';
 
 import path from 'path';
@@ -12,15 +18,16 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
+    port: 465,
+    secure: true, // Use SSL
+    pool: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
     },
-    connectionTimeout: 15000, 
-    greetingTimeout: 15000,
-    socketTimeout: 30000
+    connectionTimeout: 20000, 
+    greetingTimeout: 20000,
+    socketTimeout: 40000,
 });
 
 // Verify email configuration on startup
