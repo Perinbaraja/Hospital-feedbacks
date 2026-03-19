@@ -21,9 +21,13 @@ const transporter = nodemailer.createTransport({
     port: 465,
     secure: true, // Use SSL
     pool: true,
+    family: 4, // Force IPv4 ONLY to bypass Render IPv6 routing issues
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
+    },
+    tls: {
+       rejectUnauthorized: false // Bypass some cloud certificate issues
     },
     connectionTimeout: 20000, 
     greetingTimeout: 20000,
