@@ -18,8 +18,8 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Use SSL
+    port: 587,
+    secure: false, // STARTTLS
     pool: true,
     family: 4, // Force IPv4 ONLY to bypass Render IPv6 routing issues
     auth: {
