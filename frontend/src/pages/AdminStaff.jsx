@@ -14,6 +14,7 @@ const AdminStaff = () => {
     const [hospital, setHospital] = useState(null);
     const [staffList, setStaffList] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [apiVersion, setApiVersion] = useState('Checking...');
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -48,6 +49,15 @@ const AdminStaff = () => {
 
     useEffect(() => {
         fetchData();
+        const fetchVersion = async () => {
+            try {
+                const { data } = await API.get('/users/version');
+                setApiVersion(data.version);
+            } catch {
+                setApiVersion('Unknown (API Error or Older Server)');
+            }
+        };
+        fetchVersion();
     }, [fetchData]);
 
     const handleCreateStaff = async (e) => {
@@ -90,8 +100,15 @@ const AdminStaff = () => {
             await API.delete(`/users/${id}`);
             toast.success('Staff account removed');
             fetchData();
-        } catch {
-            toast.error('Error removing staff account');
+        } catch (error) {
+            const msg = error.response?.data?.message || 'Error removing staff account';
+            toast.error(msg);
+            console.error('Delete Failure Context:', {
+                errorMsg: msg,
+                adminRole: user?.role,
+                adminHosp: user?.hospital?._id,
+                targetHosp: staffList.find(s => s._id === id)?.hospital
+            });
         }
     };
 
@@ -139,7 +156,12 @@ const AdminStaff = () => {
             <div className="page-header">
                 <div>
                     <h2 className="page-title">Staff Management</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Manage and provision access codes for department heads.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                        Manage and provision access codes for department heads.
+                        <span style={{ marginLeft: '1rem', fontStyle: 'italic', fontSize: '0.75rem', opacity: 0.6 }}>
+                            API: {apiVersion}
+                        </span>
+                    </p>
                 </div>
             </div>
 

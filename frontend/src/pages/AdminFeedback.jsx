@@ -29,6 +29,7 @@ const AdminFeedback = () => {
     const [selectedFeedbackForNotes, setSelectedFeedbackForNotes] = useState(null);
     const [newNote, setNewNote] = useState('');
     const [postingNote, setPostingNote] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
 
     const [filterDept, setFilterDept] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -360,7 +361,7 @@ const AdminFeedback = () => {
                                             </td>
                                             <td>
                                                 {cat.image ? (
-                                                    <div style={{ display: 'block', width: 'fit-content', cursor: 'pointer' }} onClick={() => window.open(getAssetUrl(cat.image), '_blank')}>
+                                                    <div style={{ display: 'block', width: 'fit-content', cursor: 'pointer' }} onClick={() => setSelectedImage(getAssetUrl(cat.image))}>
                                                         <div style={{ position: 'relative' }}>
                                                             <img
                                                                 src={getAssetUrl(cat.image)}
@@ -603,6 +604,39 @@ const AdminFeedback = () => {
                             {postingNote ? 'Saving...' : 'Add Note'}
                         </button>
                     </form>
+                </div>
+            )}
+
+            {/* Image Preview Modal */}
+            {selectedImage && (
+                <div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)', zIndex: 2000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '2rem'
+                    }}
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+                        <button 
+                            onClick={() => setSelectedImage(null)}
+                            style={{
+                                position: 'absolute', top: '-40px', right: 0,
+                                background: 'transparent', border: 'none', color: 'white',
+                                fontSize: '2rem', cursor: 'pointer'
+                            }}
+                        >✕</button>
+                        <img 
+                            src={selectedImage} 
+                            alt="Preview" 
+                            style={{ 
+                                maxWidth: '100%', maxHeight: '85vh', 
+                                borderRadius: '1rem', boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+                                background: 'white'
+                            }} 
+                        />
+                    </div>
                 </div>
             )}
         </div>

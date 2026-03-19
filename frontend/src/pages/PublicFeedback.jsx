@@ -120,6 +120,7 @@ const PublicFeedback = () => {
     const videoRef = useRef(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [cameraDept, setCameraDept] = useState(null);
+    const [facingMode, setFacingMode] = useState('environment'); // Default to back camera
 
     const startCamera = async (dept) => {
         setCameraDept(dept);
@@ -159,10 +160,13 @@ const PublicFeedback = () => {
         if (isCameraOpen && videoRef.current) {
             const setupCamera = async () => {
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: facingMode } 
+                    });
                     videoRef.current.srcObject = stream;
-                } catch {
-                    toast.error("Camera access denied.");
+                } catch (err) {
+                    console.error("Camera error:", err);
+                    toast.error("Camera access denied or not available.");
                     setIsCameraOpen(false);
                 }
             };
@@ -171,7 +175,11 @@ const PublicFeedback = () => {
         return () => {
             if (stream) stream.getTracks().forEach(track => track.stop());
         };
-    }, [isCameraOpen]);
+    }, [isCameraOpen, facingMode]);
+
+    const toggleCamera = () => {
+        setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    };
 
     const toggleDepartment = (dept) => {
         setSelectedCategories(prev => {
@@ -603,21 +611,35 @@ const PublicFeedback = () => {
             {isCameraOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: '90%', maxWidth: '500px', background: '#000', borderRadius: '1rem', overflow: 'hidden' }}>
-                        <video ref={videoRef} autoPlay playsInline style={{ width: '100%' }} />
-                        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-                            <span
+                        <video ref={videoRef} autoPlay playsInline style={{ width: '100%', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
+                        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                            <span 
                                 role="button"
-                                tabIndex={0}
                                 className="camera-btn-cancel"
                                 onClick={stopCamera}
-                                onKeyDown={(e) => e.key === 'Enter' && stopCamera()}
+                                style={{ minWidth: '100px', textAlign: 'center' }}
                             >Cancel</span>
-                            <span
+                            <span 
                                 role="button"
-                                tabIndex={0}
+                                className="camera-btn-rotate"
+                                onClick={toggleCamera}
+                                style={{ 
+                                    minWidth: '100px', 
+                                    textAlign: 'center',
+                                    background: 'rgba(255,255,255,0.2)',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    borderRadius: '50px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '600'
+                                }}
+                            >🔄 Rotate</span>
+                            <span 
+                                role="button"
                                 className="camera-btn-capture"
                                 onClick={capturePhoto}
-                                onKeyDown={(e) => e.key === 'Enter' && capturePhoto()}
+                                style={{ minWidth: '100px', textAlign: 'center' }}
                             >Capture</span>
                         </div>
                     </div>

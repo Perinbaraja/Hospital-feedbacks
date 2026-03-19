@@ -24,16 +24,22 @@ const Sidebar = ({ hospital }) => {
         backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'flex-start',
         gap: '12px',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         fontWeight: isActive ? '700' : '500',
         fontSize: '0.925rem',
-        boxShadow: isActive ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none'
+        boxShadow: isActive ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        width: '100%',
+        position: 'relative'
     });
 
     return (
         <div style={{
             width: '280px',
+            minWidth: '280px',
             background: 'var(--grad-header)',
             color: 'white',
             padding: '2.5rem 1.25rem',
@@ -41,12 +47,14 @@ const Sidebar = ({ hospital }) => {
             flexDirection: 'column',
             justifyContent: 'space-between',
             boxShadow: '4px 0 20px rgba(0, 0, 0, 0.1)',
-            zIndex: 100
+            zIndex: 100,
+            transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            position: 'relative'
         }}>
             <div>
-                <div style={{ paddingLeft: '0.75rem', marginBottom: '3rem' }}>
-                    <h2 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                        <div style={{ background: 'white', padding: '6px', borderRadius: '10px', display: 'flex', width: '40px', height: '40px', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ paddingLeft: '0.75rem', marginBottom: '3rem', display: 'flex', justifyContent: 'flex-start' }}>
+                    <h2 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em', overflow: 'hidden' }}>
+                        <div style={{ background: 'white', padding: '6px', borderRadius: '10px', display: 'flex', width: '40px', height: '40px', minWidth: '40px', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                             {hospital?.logoUrl ? (
                                 <img src={getAssetUrl(hospital.logoUrl)} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                             ) : (
@@ -60,38 +68,38 @@ const Sidebar = ({ hospital }) => {
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {['admin', 'hospital_admin'].includes(user?.role?.toLowerCase()) && (
                         <>
-                            <NavLink to={`/admin${hQuery}`} style={getLinkStyle} end>
-                                <LayoutDashboard size={20} /> Dashboard
+                            <NavLink title="Dashboard" to={`/admin${hQuery}`} style={getLinkStyle} end>
+                                <LayoutDashboard size={20} style={{ minWidth: '20px' }} /> Dashboard
                             </NavLink>
-                            <NavLink to={`/admin/feedbacks${hQuery}`} style={getLinkStyle}>
-                                <ClipboardList size={20} /> All Feedback
+                            <NavLink title="All Feedback" to={`/admin/feedbacks${hQuery}`} style={getLinkStyle}>
+                                <ClipboardList size={20} style={{ minWidth: '20px' }} /> Feedback
                             </NavLink>
-                            <NavLink to={`/admin/staff${hQuery}`} style={getLinkStyle}>
-                                <UserPlus size={20} /> Manage Staff
+                            <NavLink title="Staff" to={`/admin/staff${hQuery}`} style={getLinkStyle}>
+                                <UserPlus size={20} style={{ minWidth: '20px' }} /> Staff
                             </NavLink>
-                            <NavLink to={`/admin/tv-monitor${hQuery}`} style={getLinkStyle}>
-                                <Monitor size={20} /> TV Monitor
+                            <NavLink title="TV Monitor" to={`/admin/tv-monitor${hQuery}`} style={getLinkStyle}>
+                                <Monitor size={20} style={{ minWidth: '20px' }} /> TV
                             </NavLink>
-                            <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
-                                <Settings size={20} /> Settings
+                            <NavLink title="Settings" to={`/admin/settings${hQuery}`} style={getLinkStyle}>
+                                <Settings size={20} style={{ minWidth: '20px' }} /> Settings
                             </NavLink>
                         </>
                     )}
 
                     {['super_admin'].includes(user?.role?.toLowerCase()) && (
                         <>
-                            <NavLink to={`/admin/settings${hQuery}`} style={getLinkStyle}>
-                                <Settings size={20} /> Hospital Settings
+                            <NavLink title="Hospital Settings" to={`/admin/settings${hQuery}`} style={getLinkStyle}>
+                                <Settings size={20} style={{ minWidth: '20px' }} /> Hospital Settings
                             </NavLink>
-                            <NavLink to="/super-admin" style={getLinkStyle}>
-                                <ChevronLeft size={20} /> Return to Network
+                            <NavLink title="Return to Network" to="/super-admin" style={getLinkStyle}>
+                                <ChevronLeft size={20} style={{ minWidth: '20px' }} /> Return
                             </NavLink>
                         </>
                     )}
 
                     {['Dept_Head', 'dept_head'].includes(user?.role) && (
-                        <NavLink to="/dept" style={getLinkStyle}>
-                            <Users size={20} /> Dept Tasks
+                        <NavLink title="Dept Tasks" to="/dept" style={getLinkStyle}>
+                            <Users size={20} style={{ minWidth: '20px' }} /> Dept Tasks
                         </NavLink>
                     )}
                 </nav>
@@ -101,7 +109,10 @@ const Sidebar = ({ hospital }) => {
                 background: 'rgba(0, 0, 0, 0.2)',
                 padding: '1.5rem',
                 borderRadius: '1.25rem',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch'
             }}>
                 <div style={{ marginBottom: '1.25rem' }}>
                     <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Account</p>
@@ -110,8 +121,10 @@ const Sidebar = ({ hospital }) => {
                 </div>
                 <button
                     onClick={handleLogout}
+                    title="Logout"
                     style={{
                         width: '100%',
+                        height: 'auto',
                         padding: '0.75rem 1rem',
                         background: 'rgba(239, 68, 68, 0.15)',
                         color: '#ff8080',
@@ -119,6 +132,7 @@ const Sidebar = ({ hospital }) => {
                         textAlign: 'left',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'flex-start',
                         gap: '10px',
                         border: '1px solid rgba(239, 68, 68, 0.2)',
                         transition: 'all 0.2s',
@@ -144,7 +158,6 @@ const DashboardLayout = ({ allowedRoles }) => {
                 const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
                 const { data } = await API.get(`/hospital${hIdParam}`);
                 setHospital(data);
-                // Removed global theme override to decouple Admin UI from public branding
             } catch (error) {
                 console.error('Failed to load hospital data', error);
             }
@@ -164,10 +177,10 @@ const DashboardLayout = ({ allowedRoles }) => {
     }
 
     return (
-        <div className="layout-container">
+        <div className="layout-container" style={{ display: 'flex', minHeight: '100vh' }}>
             <Toaster position="top-right" />
             <Sidebar hospital={hospital} />
-            <main className="main-content">
+            <main className="main-content" style={{ flex: 1, padding: '2rem' }}>
                 <Outlet />
             </main>
         </div>

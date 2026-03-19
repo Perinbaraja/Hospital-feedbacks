@@ -18,12 +18,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables
-dotenv.config(); // Load from root
+dotenv.config({ path: path.join(__dirname, '.env') });
 if (!process.env.MONGO_URI) {
-    dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
-}
-if (!process.env.MONGO_URI) {
-    dotenv.config({ path: path.join(path.resolve(), '.env') });
+    dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 }
 
 const app = express();

@@ -27,8 +27,8 @@ export const protect = async (req, res, next) => {
             }
 
             // Block access if hospital is deactivated (except for Super Admins)
-            const role = user.role?.toLowerCase();
-            if (role !== 'super_admin' && user.hospital && !user.hospital.isActive) {
+            const normalizedRole = (user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+            if (normalizedRole !== 'superadmin' && user.hospital && !user.hospital.isActive) {
                 return res.status(403).json({ message: 'Access denied: Hospital is deactivated by Super Admin.' });
             }
 
@@ -54,7 +54,8 @@ export const optionalProtect = async (req, res, next) => {
                 const user = await User.findById(decoded.id).populate('hospital');
                 if (user && user.isActive) {
                     // Only set req.user if hospital is also active OR user is super admin
-                    const isSuper = user.role === 'Super_Admin' || user.role === 'super_admin';
+                    const normalizedRole = (user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+                    const isSuper = normalizedRole === 'superadmin';
                     if (isSuper || (user.hospital && user.hospital.isActive)) {
                         req.user = user;
                     }
@@ -69,8 +70,9 @@ export const optionalProtect = async (req, res, next) => {
 
 // Admin middleware
 export const admin = (req, res, next) => {
-    const isHospitalAdmin = req.user && (req.user.role === 'Admin' || req.user.role === 'hospital_admin');
-    const isSuperAdmin = req.user && (req.user.role === 'Super_Admin' || req.user.role === 'super_admin');
+    const role = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+    const isHospitalAdmin = ['admin', 'hospitaladmin'].includes(role);
+    const isSuperAdmin = role === 'superadmin';
 
     if (isHospitalAdmin || isSuperAdmin) {
         next();
@@ -104,8 +106,17 @@ const generateToken = (id) => {
     });
 };
 
+const getHospitalIdString = (hospital) => {
+    if (!hospital) return null;
+    if (hospital._id) return hospital._id.toString().trim();
+    return hospital.toString().trim();
+};
+
+router.get('/version', (req, res) => {
+    res.json({ version: '2026-03-19-v3-robust-id-checks' });
+});
+
 // @desc    Auth user & get token
-// @route   POST /api/users/login
 router.post('/login', validateUserInput, async (req, res) => {
     const email = req.body.email?.trim();
     const { password } = req.body;
@@ -120,8 +131,10 @@ router.post('/login', validateUserInput, async (req, res) => {
                 return res.status(403).json({ message: 'Your account is deactivated. Contact Super Admin.' });
             }
 
-            const loginRole = user.role?.toLowerCase();
-            if (loginRole !== 'super_admin' && user.hospital && !user.hospital.isActive) {
+            const normalizedRole = (user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+            const isSuper = normalizedRole === 'superadmin';
+
+            if (!isSuper && user.hospital && !user.hospital.isActive) {
                 console.warn(`[LOGIN] Denied: Hospital for ${email} is restricted.`);
                 return res.status(403).json({ message: 'Super Admin restricted your access' });
             }
@@ -134,7 +147,7 @@ router.post('/login', validateUserInput, async (req, res) => {
                 email: user.email,
                 role: user.role,
                 department: user.department || '',
-                hospital: user.role === 'Super_Admin' ? null : user.hospital,
+                hospital: isSuper ? null : user.hospital,
                 token: generateToken(user._id),
             });
         } else {
@@ -162,7 +175,10 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
         }
 
         const { hospitalId } = req.body;
-        const targetHospital = (hospitalId && req.user.role === 'Super_Admin') ? hospitalId : req.user.hospital;
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuper = normalizedAuthRole === 'superadmin';
+        
+        const targetHospital = (hospitalId && isSuper) ? hospitalId : req.user.hospital;
 
         const user = await User.create({
             name: name?.trim(),
@@ -195,8 +211,9 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
 router.get('/', protect, async (req, res) => {
     try {
         const filter = {};
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin'].includes(normalizedAuthRole);
+        const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
         if (isAdmin) {
             filter.hospital = req.user.hospital;
@@ -252,15 +269,21 @@ router.delete('/:id', protect, admin, async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin'].includes(normalizedAuthRole);
+        const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
-        if (isAdmin) {
-            // Normal Hospital Admins can only delete users in their own hospital.
-            // Super Admins skip this check.
-            if (!isSuperAdmin && (user.hospital?.toString() !== req.user.hospital?.toString())) {
-                return res.status(403).json({ message: 'Not authorized to delete this user' });
+        if (isAdmin || isSuperAdmin) {
+            if (!isSuperAdmin) {
+                const userHospId = getHospitalIdString(user.hospital);
+                const adminHospId = getHospitalIdString(req.user.hospital);
+
+                if (userHospId !== adminHospId) {
+                    return res.status(403).json({ message: `Not authorized to delete this user (facility mismatch: ${userHospId} vs ${adminHospId})` });
+                }
             }
+        } else {
+            return res.status(403).json({ message: 'Not authorized: Admin privileges required' });
         }
 
         await user.deleteOne();
@@ -295,14 +318,21 @@ router.post('/:id/reset-password', protect, admin, async (req, res) => {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin'].includes(normalizedAuthRole);
+        const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
-        // Authorization check
-        if (isAdmin) {
-            if (user.hospital?.toString() !== req.user.hospital?.toString()) {
-                return res.status(403).json({ message: 'Not authorized to manage this user' });
+        if (isAdmin || isSuperAdmin) {
+            if (!isSuperAdmin) {
+                const userHospId = getHospitalIdString(user.hospital);
+                const adminHospId = getHospitalIdString(req.user.hospital);
+
+                if (userHospId !== adminHospId) {
+                    return res.status(403).json({ message: `Not authorized to manage this user (facility mismatch: ${userHospId} vs ${adminHospId})` });
+                }
             }
+        } else {
+            return res.status(403).json({ message: 'Not authorized: Admin privileges required' });
         }
 
         user.password = newPassword || 'password123';
@@ -321,18 +351,26 @@ router.put('/:id/role', protect, admin, async (req, res) => {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const isAdmin = req.user.role === 'Admin' || req.user.role === 'hospital_admin';
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin'].includes(normalizedAuthRole);
+        const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
-        // Authorization check
-        if (isAdmin) {
-            if (user.hospital?.toString() !== req.user.hospital?.toString()) {
-                return res.status(403).json({ message: 'Not authorized to manage this user' });
+        if (isAdmin || isSuperAdmin) {
+            if (!isSuperAdmin) {
+                const userHospId = getHospitalIdString(user.hospital);
+                const adminHospId = getHospitalIdString(req.user.hospital);
+
+                if (userHospId !== adminHospId) {
+                    return res.status(403).json({ message: `Not authorized to manage this user (facility mismatch: ${userHospId} vs ${adminHospId})` });
+                }
             }
+        } else {
+            return res.status(403).json({ message: 'Not authorized: Admin privileges required' });
         }
 
         // Restrict role changes (cannot promote to Super Admin)
-        if (['Super_Admin', 'super_admin'].includes(role) && !isSuperAdmin) {
+        const targetRoleNormalized = (role || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (targetRoleNormalized === 'superadmin' && !isSuperAdmin) {
             return res.status(403).json({ message: 'Not authorized to assign Super Admin role' });
         }
 

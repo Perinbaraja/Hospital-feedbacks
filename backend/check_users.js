@@ -16,9 +16,9 @@ if (!process.env.MONGO_URI) {
 const checkUsers = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        const users = await User.find({}).select('email role department isActive');
+        const users = await User.find({}).select('email role department isActive hospital');
         console.log('--- Current Users in Database ---');
-        users.forEach(u => console.log(`${u.email} (${u.role}) - Dept: ${u.department}`));
+        users.forEach(u => console.log(`${u.email} (${u.role}) - Dept: ${u.department} - Hospital: ${u.hospital}`));
         process.exit();
     } catch (error) {
         console.error('Error:', error);

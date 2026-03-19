@@ -1,22 +1,20 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure .env is loaded from the backend directory
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-        // Do not fail on invalid certs (useful for some network environments)
-        rejectUnauthorized: false,
-        // Ensure connection doesn't hang
-        timeout: 10000
     }
 });
 
