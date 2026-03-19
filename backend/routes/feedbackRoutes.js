@@ -250,7 +250,7 @@ router.get('/tv/:hospitalId', async (req, res) => {
 
         if (tvFilters) {
             if (tvFilters.type && tvFilters.type !== 'All Types') {
-                query['categories.ratingType'] = tvFilters.type;
+                query['categories.reviewType'] = tvFilters.type;
             }
             
             query.status = tvFilters.status || 'IN PROGRESS';

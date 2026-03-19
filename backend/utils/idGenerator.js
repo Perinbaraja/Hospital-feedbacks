@@ -7,7 +7,7 @@ export const generateFeedbackId = async () => {
     const counter = await Counter.findOneAndUpdate(
         { id: counterId },
         { $inc: { seq: 1 } },
-        { new: true, upsert: true }
+        { returnDocument: 'after', upsert: true }
     );
 
     const sequenceNumber = counter.seq.toString().padStart(3, '0');

@@ -38,7 +38,8 @@ router.get('/', optionalProtect, async (req, res) => {
         // Note: We block even Super Admins from the PUBLIC feedback view if it's deactivated 
         // to avoid confusion, but protected admin routes remain accessible via their own routes.
         // If deactivated, block access for everyone except Super Admins
-        const isSuperAdmin = req.user && ['Super_Admin', 'super_admin'].includes(req.user.role);
+        const normalizedRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedRole === 'superadmin';
         
         if (hospital.isActive === false && !isSuperAdmin) {
             console.log(`[Hospital Config] Access denied: ${hospital.name} is deactivated.`);
@@ -77,7 +78,8 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
 
     try {
         let hospital;
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const normalizedRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedRole === 'superadmin';
         if (isSuperAdmin && hospitalId) {
             hospital = await Hospital.findById(hospitalId);
         } else {
@@ -118,7 +120,9 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
                         hospital: hospital._id,
                         name: d.name,
                         imageUrl: d.imageUrl || '',
-                        description: d.description || ''
+                        description: d.description || '',
+                        positiveIssues: d.positiveIssues || [],
+                        negativeIssues: d.negativeIssues || []
                     }));
                     await Department.insertMany(deptDocs);
                 }
@@ -142,7 +146,8 @@ router.put('/tv-filters', protect, admin, async (req, res) => {
 
     try {
         let hospital;
-        const isSuperAdmin = req.user.role === 'Super_Admin' || req.user.role === 'super_admin';
+        const normalizedRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedRole === 'superadmin';
         if (isSuperAdmin && hospitalId) {
             hospital = await Hospital.findById(hospitalId);
         } else {
