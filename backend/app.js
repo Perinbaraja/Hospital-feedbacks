@@ -38,21 +38,6 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-const isNetlify = process.env.NETLIFY || process.env.NETLIFY_DEV;
-
-// Static uploads (for local use, in serverless this is ephemeral)
-if (!isNetlify) {
-  const uploadsDir = path.join(__appDirname, 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir);
-  }
-  app.use('/uploads', express.static(uploadsDir));
-} else {
-  // Serverless: use /tmp for temporary file handling, avoid /var/task write
-  app.use('/uploads', express.static('/tmp'));
-}
-
-
 // API routes
 app.use('/api/users', userRoutes);
 app.use('/api/hospital', hospitalRoutes);
