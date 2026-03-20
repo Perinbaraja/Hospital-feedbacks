@@ -5,11 +5,17 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-import userRoutes from './routes/userRoutes.js';
-import hospitalRoutes from './routes/hospitalRoutes.js';
-import feedbackRoutes from './routes/feedbackRoutes.js';
-import superAdminRoutes from './routes/superAdminRoutes.js';
-import departmentRoutes from './routes/departmentRoutes.js';
+import _userRoutes from './routes/userRoutes.js';
+import _hospitalRoutes from './routes/hospitalRoutes.js';
+import _feedbackRoutes from './routes/feedbackRoutes.js';
+import _superAdminRoutes from './routes/superAdminRoutes.js';
+import _departmentRoutes from './routes/departmentRoutes.js';
+
+const userRoutes = _userRoutes?.default || _userRoutes;
+const hospitalRoutes = _hospitalRoutes?.default || _hospitalRoutes;
+const feedbackRoutes = _feedbackRoutes?.default || _feedbackRoutes;
+const superAdminRoutes = _superAdminRoutes?.default || _superAdminRoutes;
+const departmentRoutes = _departmentRoutes?.default || _departmentRoutes;
 
 let __appDirname;
 if (typeof __dirname !== 'undefined') {
