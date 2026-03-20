@@ -2,7 +2,16 @@ import axios from 'axios';
 
 // Unified URL Configuration
 const envApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
-let resolvedApiUrl = envApiUrl || (import.meta.env.DEV ? '/api' : 'https://hospital-feedbacks.onrender.com/api');
+let resolvedApiUrl;
+
+if (envApiUrl) {
+    resolvedApiUrl = envApiUrl;
+} else if (import.meta.env.DEV) {
+    resolvedApiUrl = '/api';
+} else {
+    // In production with Netlify functions, use the same domain via /api proxy
+    resolvedApiUrl = '/api';
+}
 
 // Auto-fix: Ensure full URLs end with /api/ if they don't already
 // For Axios to correctly handle relative paths without stripping the /api suffix,
