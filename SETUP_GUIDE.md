@@ -31,14 +31,6 @@ cd ..
 Create `.env` file in the `backend/` directory (copy from `.env.example`):
 
 ```bash
-# Backend/.env
-MONGO_URI=mongodb+srv://your-username:your-password@cluster.mongodb.net/hospital-feedback
-JWT_SECRET=your-super-secret-key-change-this-in-production-min-32-characters
-PORT=5000
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-specific-password
-NODE_ENV=development
-```
 
 **MongoDB Setup:**
 - Local: `mongodb://localhost:27017/hospital-feedback`
