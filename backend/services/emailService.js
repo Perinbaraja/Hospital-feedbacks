@@ -10,11 +10,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __emailFilename = fileURLToPath(import.meta.url);
+const __emailDirname = path.dirname(__emailFilename);
 
 // Ensure .env is loaded from the backend directory
-dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+dotenv.config({ path: path.resolve(__emailDirname, '..', '.env') });
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',

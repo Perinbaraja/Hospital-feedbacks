@@ -11,11 +11,11 @@ import feedbackRoutes from './routes/feedbackRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __appFilename = fileURLToPath(import.meta.url);
+const __appDirname = path.dirname(__appFilename);
 
 // Load .env for local development (Netlify provides env vars in deployed runtime)
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__appDirname, '.env') });
 if (!process.env.MONGO_URI) {
   dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 }
@@ -32,7 +32,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Static uploads (for local use, in serverless this is ephemeral)
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = path.join(__appDirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }

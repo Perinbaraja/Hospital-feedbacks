@@ -5,10 +5,10 @@ import User from './models/User.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __resetAdminFilename = fileURLToPath(import.meta.url);
+const __resetAdminDirname = path.dirname(__resetAdminFilename);
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__resetAdminDirname, '.env') });
 
 const resetAdmin = async () => {
     try {
