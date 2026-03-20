@@ -44,15 +44,17 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// API routes
-app.use('/api/users', userRoutes);
-app.use('/api/hospital', hospitalRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/super-admin', superAdminRoutes);
-app.use('/api/departments', departmentRoutes);
+const apiPrefix = process.env.NETLIFY || process.env.NETLIFY_DEV ? '' : '/api';
 
-// health check path for Netlify
-app.get('/api', (req, res) => {
+// API routes
+app.use(`${apiPrefix}/users`, userRoutes);
+app.use(`${apiPrefix}/hospital`, hospitalRoutes);
+app.use(`${apiPrefix}/feedback`, feedbackRoutes);
+app.use(`${apiPrefix}/super-admin`, superAdminRoutes);
+app.use(`${apiPrefix}/departments`, departmentRoutes);
+
+// health check path
+app.get(apiPrefix || '/', (req, res) => {
   res.json({ status: 'ok', message: 'Hospital Feedback API (serverless) is running' });
 });
 
