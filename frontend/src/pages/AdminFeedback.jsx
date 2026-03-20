@@ -116,7 +116,7 @@ const AdminFeedback = () => {
     const filteredFeedbacks = feedbacks.filter(fb => {
         const target = filterDept.toLowerCase().trim();
         const matchesDept = filterDept === '' ||
-            fb.categories?.some(c => c.department && c.department.toLowerCase().includes(target)) ||
+            fb.categories?.some(c => c.department && c.department.trim().toLowerCase() === target) ||
             (fb.assignedTo && fb.assignedTo.toLowerCase().includes(target));
 
         // Match local date parts to YYYY-MM-DD for accurate local filtering

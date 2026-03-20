@@ -4,7 +4,7 @@ import Feedback from '../models/Feedback.js';
 import Hospital from '../models/Hospital.js';
 import Department from '../models/Department.js';
 import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
-import { protect, admin } from './userRoutes.js';
+import { protect, admin, staff } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
 import { generateFeedbackId } from '../utils/idGenerator.js';
 
@@ -53,8 +53,22 @@ router.post('/', validateFeedbackInput, async (req, res) => {
             createdFeedbacks.push(feedback);
         }
 
-        if (patientEmail) {
-            sendThankYouEmail(patientEmail, patientName);
+        console.log(`[Feedback Submission] Received from: ${patientName || 'Anonymous'}, Email: ${patientEmail || 'None'}`);
+
+        if (patientEmail && patientEmail.trim() !== '') {
+            console.log(`[Feedback Submission] Triggering Thank You email to: ${patientEmail}`);
+            // Fire and forget, but with catch for logging
+            sendThankYouEmail(patientEmail.trim(), patientName || 'User')
+                .then(result => {
+                    if (result.success) {
+                        console.log(`[Feedback Submission] Email success: ${patientEmail}`);
+                    } else {
+                        console.error(`[Feedback Submission] Email failed: ${result.error || result.reason}`);
+                    }
+                })
+                .catch(err => console.error(`[Feedback Submission] Email error: ${err.message}`));
+        } else {
+            console.log('[Feedback Submission] No valid email provided, skipping notification.');
         }
 
         res.status(201).json(createdFeedbacks);
@@ -67,15 +81,15 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 
 // @desc    Get all feedback (Admin)
 // @route   GET /api/feedback
-router.get('/', protect, admin, async (req, res) => {
+router.get('/', protect, staff, async (req, res) => {
     try {
         const query = {};
-        const userRole = req.user.role?.toLowerCase();
-        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
-        const isSuperAdmin = ['super_admin'].includes(userRole);
+        const normalizedRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedRole === 'superadmin';
+        const isAdminOrHospitalAdmin = ['admin', 'hospitaladmin'].includes(normalizedRole);
 
-        if (isAdmin) {
-            query.hospital = req.user.hospital;
+        if (isAdminOrHospitalAdmin || normalizedRole === 'depthead') {
+            query.hospital = req.user.hospital?._id || req.user.hospital;
         } else if (isSuperAdmin && req.query.hospitalId) {
             query.hospital = req.query.hospitalId;
         }
@@ -121,15 +135,15 @@ router.get('/', protect, admin, async (req, res) => {
 
 // @desc    Get feedback stats (Admin)
 // @route   GET /api/feedback/stats
-router.get('/stats', protect, admin, async (req, res) => {
+router.get('/stats', protect, staff, async (req, res) => {
     try {
         const filter = {};
-        const userRole = req.user.role?.toLowerCase();
-        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
-        const isSuperAdmin = ['super_admin'].includes(userRole);
+        const userRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin'].includes(userRole);
+        const isSuperAdmin = userRole === 'superadmin';
 
-        if (isAdmin) {
-            filter.hospital = req.user.hospital;
+        if (isAdmin || userRole === 'depthead') {
+            filter.hospital = req.user.hospital?._id || req.user.hospital;
         } else if (isSuperAdmin && req.query.hospitalId) {
             filter.hospital = req.query.hospitalId;
         }
@@ -175,8 +189,8 @@ router.get('/department/:dept', protect, async (req, res) => {
     try {
         const deptName = req.params.dept?.trim();
 
-        const userRole = req.user.role?.toLowerCase();
-        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
+        const userRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin'].includes(userRole);
 
         // Only allow head of their own dept unless admin (case-insensitive check)
         const myDept = req.user.department?.trim().toLowerCase();
@@ -188,8 +202,9 @@ router.get('/department/:dept', protect, async (req, res) => {
         const filter = {
             assignedTo: { $regex: new RegExp(deptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
         };
-        if (req.user.hospital) {
-            filter.hospital = req.user.hospital;
+        const hId = req.user.hospital?._id || req.user.hospital;
+        if (hId) {
+            filter.hospital = hId;
         }
 
         const feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
@@ -253,8 +268,17 @@ router.get('/tv/:hospitalId', async (req, res) => {
                 query['categories.reviewType'] = tvFilters.type;
             }
             
-            query.status = tvFilters.status || 'IN PROGRESS';
+            // Handle status filtering: If status filter is defined and not empty, use it.
+            // Otherwise, default to IN PROGRESS + Pending (usually for active monitoring).
+            if (tvFilters.status) {
+                query.status = tvFilters.status;
+            } else {
+                // If "All Statuses" or no filter, we show both Pending and In Progress usually
+                // but let's make it show everything except maybe COMPLETED if that's the goal.
+                // For now, let's just make it NOT filter by status if set to empty.
+            }
         } else {
+            // Default behavior when no filters configured
             query.status = 'IN PROGRESS';
         }
 
@@ -285,21 +309,20 @@ router.put('/:id', protect, async (req, res) => {
         const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
         const feedbackHospId = feedback.hospital?.toString();
 
-        const userRole = req.user.role?.toLowerCase();
+        const userRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = userRole === 'superadmin';
 
         // Hospital Access Check: Ensure staff only access their own hospital's data
-        if (userRole !== 'super_admin' && feedbackHospId !== userHospId) {
+        if (!isSuperAdmin && feedbackHospId !== userHospId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
-        
+        const isAdmin = ['admin', 'hospitaladmin'].includes(userRole);
         const myDept = req.user.department?.trim().toLowerCase();
         const assignedDept = feedback.assignedTo?.trim().toLowerCase();
-        
-        const isAssignedDeptHead = userRole === 'dept_head' && assignedDept === myDept;
+        const isAssignedDeptHead = userRole === 'depthead' && assignedDept === myDept;
 
-        if (!isAdmin && !isAssignedDeptHead) {
+        if (!isAdmin && !isSuperAdmin && !isAssignedDeptHead) {
             return res.status(403).json({ message: 'Not authorized to update this feedback' });
         }
 
@@ -307,7 +330,7 @@ router.put('/:id', protect, async (req, res) => {
 
         // 1. Updating 'assignedTo' and 'categories' is ONLY for Admins
         if (req.body.assignedTo !== undefined || req.body.categoryUpdate !== undefined) {
-            if (!isAdmin) {
+            if (!isAdmin && !isSuperAdmin) {
                 return res.status(403).json({ message: 'Only admins can modify assignments or categories' });
             }
 
@@ -342,14 +365,17 @@ router.put('/:id', protect, async (req, res) => {
 
         // 2. Updating 'status' is allowed for both Admins and the Assigned Dept Head
         if (req.body.status !== undefined) {
-            // Check if Dept_Head is trying to do something weird
-            if (isAssignedDeptHead && req.body.status !== 'COMPLETED') {
-                // Dept heads usually only mark as COMPLETED/Resolved
-                // But we'll allow it for now unless restricted
-            }
+            const oldStatus = feedback.status;
+            const newStatus = req.body.status;
+            
+            console.log(`[Status Change] Feedback: ${feedback.feedbackId}, Old: ${oldStatus}, New: ${newStatus}`);
 
-            feedback.status = req.body.status;
-            if (req.body.status === 'COMPLETED' && feedback.patientEmail) {
+            feedback.status = newStatus;
+
+            // Only trigger resolution email if status CHANGED to COMPLETED successfully
+            // This prevents duplicate emails if the record is saved again while already at COMPLETED
+            if (newStatus === 'COMPLETED' && oldStatus !== 'COMPLETED' && feedback.patientEmail) {
+                console.log(`[Resolution Email] Triggered for: ${feedback.patientEmail}`);
                 sendResolutionEmail(feedback.patientEmail, feedback.patientName);
             }
         }
@@ -372,17 +398,19 @@ router.post('/:id/notes', protect, async (req, res) => {
         const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
         const feedbackHospId = feedback.hospital?.toString();
 
-        const userRole = req.user.role?.toLowerCase();
-        if (['admin', 'hospital_admin', 'dept_head'].includes(userRole) && feedbackHospId !== userHospId) {
+        const userRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = userRole === 'superadmin';
+
+        if (!isSuperAdmin && feedbackHospId !== userHospId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
+        const isAdmin = ['admin', 'hospitaladmin'].includes(userRole);
         const myDept = req.user.department?.trim().toLowerCase();
         const assignedDept = feedback.assignedTo?.trim().toLowerCase();
-        const isAssignedDeptHead = userRole === 'dept_head' && assignedDept === myDept;
+        const isAssignedDeptHead = userRole === 'depthead' && assignedDept === myDept;
 
-        if (!isAdmin && !isAssignedDeptHead) {
+        if (!isAdmin && !isSuperAdmin && !isAssignedDeptHead) {
             return res.status(403).json({ message: 'Not authorized to add notes to this feedback' });
         }
 
@@ -413,17 +441,19 @@ router.delete('/:id', protect, admin, async (req, res) => {
             return res.status(404).json({ message: 'Feedback not found' });
         }
 
-        const userRole = req.user.role?.toLowerCase();
-        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
+        const userRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = userRole === 'superadmin';
 
         const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
         const feedbackHospId = feedback.hospital?.toString();
 
-        if (userRole !== 'super_admin' && feedbackHospId !== userHospId) {
+        if (!isSuperAdmin && feedbackHospId !== userHospId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        if (!isAdmin) {
+        const isAdmin = ['admin', 'hospitaladmin'].includes(userRole);
+
+        if (!isAdmin && !isSuperAdmin) {
             return res.status(403).json({ message: 'Not authorized to delete feedback' });
         }
 

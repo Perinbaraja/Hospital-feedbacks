@@ -1,139 +1,157 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns';
-
-// Force Node to prefer IPv4 over IPv6 to fix ENETUNREACH on cloud platforms (Render/DigitalOcean)
-if (dns.setDefaultResultOrder) {
-    dns.setDefaultResultOrder('ipv4first');
-}
 import dotenv from 'dotenv';
-
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure .env is loaded from the backend directory
-dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+// Ensure .env is loaded
+const envPath = path.resolve(__dirname, '..', '.env');
+dotenv.config({ path: envPath });
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // STARTTLS
-    pool: true,
-    family: 4, // Force IPv4 ONLY to bypass Render IPv6 routing issues
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-       rejectUnauthorized: false // Bypass some cloud certificate issues
-    },
-    connectionTimeout: 20000, 
-    greetingTimeout: 20000,
-    socketTimeout: 40000,
+// Verification Logging
+console.log('----------------------------------------------------');
+console.log('📧 [Email Service] Initializing configuration...');
+console.log('📧 [Email Service] From Email:', process.env.EMAIL_USER || 'NOT CONFIGURED');
+console.log('----------------------------------------------------');
+
+const mailerSend = new MailerSend({
+    apiKey: process.env.MAILERSEND_API_KEY,
 });
 
-// Verify email configuration on startup
-if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    transporter.verify((error, success) => {
-        if (error) {
-            console.warn('Email Service Warning: Configuration issue -', error.message);
-        } else {
-            console.log('Email Service: Ready to send emails');
-        }
-    });
-}
+/**
+ * Utility to generate a Sender object
+ */
+const getSender = () => {
+    return new Sender(process.env.EMAIL_USER?.trim() || '', "Hospital Feedback System");
+};
 
+/**
+ * sendThankYouEmail
+ * Purpose: Acknowledge feedback submission
+ */
 export const sendThankYouEmail = async (toEmail, name) => {
-    if (!toEmail || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.warn('Email skipped: Missing recipient or email configuration');
-        return { success: false, reason: 'Email not configured or no recipient' };
+    console.log(`[Email Service] Triggering Thank You email for: ${toEmail}`);
+    if (!toEmail || !process.env.MAILERSEND_API_KEY) {
+        console.warn('[Email Service] Skip: Missing configuration or recipient');
+        return { success: false, reason: 'Incomplete config' };
     }
 
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: toEmail,
-        subject: 'Thank You For Your Feedback',
-        text: `Hi ${name || 'Valued User'},\n\nThank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.\n\nThanks,\nHave a wonderful day!`,
-        html: `<h2>Thank You For Your Feedback</h2><p>Hi ${name || 'Valued User'},</p><p>Thank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.</p><p>Thanks,<br>Have a wonderful day!</p>`,
-    };
+    const safeName = (name || "Valued User").trim();
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Thank you email sent to: ${toEmail}`);
-        return { success: true, recipient: toEmail };
-    } catch (error) {
-        console.error(`Error sending thank you email to ${toEmail}:`, error.message);
-        return { success: false, error: error.message, recipient: toEmail };
-    }
-};
-
-export const sendResolutionEmail = async (toEmail, name) => {
-    if (!toEmail || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.warn('Email skipped: Missing recipient or email configuration');
-        return { success: false, reason: 'Email not configured or no recipient' };
-    }
-
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: toEmail,
-        subject: 'Your Feedback Query Has Been Rectified/Updated',
-        text: `Hi ${name || 'Valued User'},\n\nWe wanted to let you know that the issue you reported has been reviewed and rectified by our team.\n\nThanks,\nHave a wonderful day!`,
-        html: `<h2>Your Feedback Query Has Been Rectified</h2><p>Hi ${name || 'Valued User'},</p><p>We wanted to let you know that the issue you reported has been reviewed and rectified by our team.</p><p>Thanks,<br>Have a wonderful day!</p>`,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Resolution email sent to: ${toEmail}`);
-        return { success: true, recipient: toEmail };
-    } catch (error) {
-        console.error(`Error sending resolution email to ${toEmail}:`, error.message);
-        return { success: false, error: error.message, recipient: toEmail };
-    }
-};
-
-export const sendAdminCredentialsEmail = async (toEmail, name, email, password) => {
-    if (!toEmail || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.warn('Credential email skipped: Missing recipient or email configuration');
-        return { success: false, reason: 'Email not configured or no recipient' };
-    }
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const loginLink = `${frontendUrl}/login`;
-
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: toEmail,
-        subject: 'Hospital Administration - Access Credentials',
-        text: `Hi ${name},\n\nYour hospital administration account has been created by the Super Admin.\n\nLogin URL: ${loginLink}\nLogin Email ID: ${email}\nTemporary Password: ${password}\n\nIMPORTANT: The password provided above is temporary. Please log in and immediately update your email, password, and profile information from the dashboard settings section.\n\nRegards,\nSystem Administrator`,
-        html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #e2e8f0; padding: 2rem; border-radius: 12px; line-height: 1.6;">
-                <h2 style="color: #4338ca;">Account Created Successfully</h2>
-                <p>Hi <strong>${name}</strong>,</p>
-                <p>Your hospital administration account has been successfully created by the <strong>Super Admin</strong>. You now have full access to manage your facility's feedbacks and staff.</p>
-                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border: 1px solid #e2e8f0;">
-                    <p style="margin: 0.5rem 0;"><strong>Login URL:</strong> <a href="${loginLink}">${loginLink}</a></p>
-                    <p style="margin: 0.5rem 0;"><strong>Login Email ID:</strong> ${email}</p>
-                    <p style="margin: 0.5rem 0;"><strong>Temporary Password:</strong> <code style="background: #fff; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #1e293b;">${password}</code></p>
-                </div>
-                <div style="background: #fff; border-left: 4px solid #f59e0b; padding: 1rem; margin: 1.5rem 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <p style="margin: 0; font-weight: bold; color: #b45309;">⚠️ Security Notice</p>
-                    <p style="margin: 0.5rem 0 0; color: #475569; font-size: 0.95rem;">
-                        The provided password is <strong>temporary</strong>. Please log in and navigate to the <strong>Account Settings</strong> section to update your email, password, and profile information immediately.
-                    </p>
-                </div>
-                <p style="color: #64748b; font-size: 0.9rem; margin-top: 2rem;">Regards,<br>System Administrator</p>
+        const recipients = [new Recipient(toEmail, safeName)];
+        
+        const text = `Dear ${safeName},\n\nThank you for your feedback. We truly appreciate you taking the time to share your experience with us. Your input helps us improve our services and serve you better.`;
+        
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; color: #334155;">
+                <h2 style="color: #4338ca;">Thank You for Your Feedback</h2>
+                <p>Dear ${safeName},</p>
+                <p>Thank you for your feedback. We truly appreciate you taking the time to share your experience with us.</p>
+                <p>Your input helps us improve our services and serve you better.</p>
+                <p style="margin-top: 2rem; color: #64748b; font-size: 0.9rem;">Regards,<br>Hospital Administration</p>
             </div>
-        `,
-    };
+        `;
+
+        const emailParams = new EmailParams()
+            .setFrom(getSender())
+            .setTo(recipients)
+            .setSubject('Thank You For Your Feedback')
+            .setHtml(html)
+            .setText(text);
+
+        await mailerSend.email.send(emailParams);
+        console.log(`[Email Service Success] Thank You email sent to: ${toEmail}`);
+        return { success: true };
+    } catch (error) {
+        console.error(`[Email Service Error] Thank You email failed:`, error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * sendResolutionEmail
+ * Purpose: Notify user that an issue has been addressed (triggered on COMPLETED)
+ */
+export const sendResolutionEmail = async (toEmail, name) => {
+    console.log(`[Email Service] Triggering Resolution email for: ${toEmail}`);
+    if (!toEmail || !process.env.MAILERSEND_API_KEY) {
+        console.warn('[Email Service] Skip: Missing configuration or recipient');
+        return { success: false, reason: 'Incomplete config' };
+    }
+
+    const safeName = (name || "Valued User").trim();
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Credentials email sent to: ${toEmail}`);
-        return { success: true, recipient: toEmail };
+        const recipients = [new Recipient(toEmail, safeName)];
+        
+        const text = `Dear ${safeName},\n\nWe would like to inform you that your feedback has been carefully reviewed and the reported issue has been successfully addressed. We appreciate your patience and value your feedback.`;
+        
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; color: #334155;">
+                <h2 style="color: #4338ca;">Feedback Update</h2>
+                <p>Dear ${safeName},</p>
+                <p>We would like to inform you that your feedback has been carefully reviewed and the reported issue has been successfully addressed.</p>
+                <p>We appreciate your patience and value your feedback.</p>
+                <p style="margin-top: 2rem; color: #64748b; font-size: 0.9rem;">Regards,<br>Hospital Administration System</p>
+            </div>
+        `;
+
+        const emailParams = new EmailParams()
+            .setFrom(getSender())
+            .setTo(recipients)
+            .setSubject('Update Regarding Your Feedback Reference')
+            .setHtml(html)
+            .setText(text);
+
+        await mailerSend.email.send(emailParams);
+        console.log(`[Email Service Success] Resolution email sent to: ${toEmail}`);
+        return { success: true };
     } catch (error) {
-        console.error(`Error sending credentials email to ${toEmail}:`, error.message);
-        return { success: false, error: error.message, recipient: toEmail };
+        console.error(`[Email Service Error] Resolution email failed:`, error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * sendAdminCredentialsEmail
+ */
+export const sendAdminCredentialsEmail = async (toEmail, name, email, password) => {
+    console.log(`[Email Service] Triggering Admin Credentials email for: ${toEmail}`);
+    if (!toEmail || !process.env.MAILERSEND_API_KEY) return { success: false };
+
+    try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const loginLink = `${frontendUrl}/login`;
+        const safeName = (name || "Admin").trim();
+        const recipients = [new Recipient(toEmail, safeName)];
+        
+        const emailParams = new EmailParams()
+            .setFrom(getSender())
+            .setTo(recipients)
+            .setSubject('Hospital Administration - Access Credentials')
+            .setHtml(`
+                <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #e2e8f0; padding: 2rem; border-radius: 12px; line-height: 1.6;">
+                    <h2 style="color: #4338ca;">Account Created Successfully</h2>
+                    <p>Hi <strong>${safeName}</strong>,</p>
+                    <p>Your hospital administration account has been successfully created. You now have full access to manage your facility's feedbacks and staff.</p>
+                    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border: 1px solid #e2e8f0;">
+                        <p style="margin: 0.5rem 0;"><strong>Login URL:</strong> <a href="${loginLink}">${loginLink}</a></p>
+                        <p style="margin: 0.5rem 0;"><strong>Login Email ID:</strong> ${email}</p>
+                        <p style="margin: 0.5rem 0;"><strong>Temporary Password:</strong> <code style="background: #fff; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #1e293b;">${password}</code></p>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 2rem;">Regards,<br>System Administrator</p>
+                </div>
+            `)
+            .setText(`Hi ${safeName},\n\nYour account has been created.\nLogin URL: ${loginLink}\nEmail: ${email}\nPassword: ${password}`);
+
+        await mailerSend.email.send(emailParams);
+        console.log(`[Email Service Success] Credentials email sent to: ${toEmail}`);
+        return { success: true };
+    } catch (error) {
+        console.error(`[Email Service Error] Credentials email failed:`, error.message);
+        return { success: false, error: error.message };
     }
 };

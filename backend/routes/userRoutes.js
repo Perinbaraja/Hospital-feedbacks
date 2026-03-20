@@ -81,6 +81,18 @@ export const admin = (req, res, next) => {
     }
 };
 
+// Staff middleware (Admins, Super Admins, and Dept Heads)
+export const staff = (req, res, next) => {
+    const role = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+    const isStaff = ['admin', 'hospitaladmin', 'superadmin', 'depthead', 'staff'].includes(role);
+
+    if (isStaff) {
+        next();
+    } else {
+        res.status(403).json({ message: 'Not authorized: Staff privileges required' });
+    }
+};
+
 // Super Admin middleware
 export const superAdmin = (req, res, next) => {
     const role = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');

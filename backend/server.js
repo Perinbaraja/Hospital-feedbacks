@@ -9,6 +9,7 @@ import hospitalRoutes from './routes/hospitalRoutes.js';
 import feedbackRoutes from './routes/feedbackRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
+import testEmailRoute from './routes/testEmail.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -56,6 +57,7 @@ app.use('/api/hospital', hospitalRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api', testEmailRoute);
 
 if (process.env.NODE_ENV === 'production') {
     const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');

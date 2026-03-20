@@ -251,6 +251,7 @@ const AdminTvMonitor = () => {
                                     onChange={handleFilterChange}
                                     style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                                 >
+                                    <option value="">All Statuses</option>
                                     <option value="IN PROGRESS">In Progress</option>
                                     <option value="COMPLETED">Completed/Resolved</option>
                                 </select>
@@ -263,7 +264,19 @@ const AdminTvMonitor = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                    <button 
+                        className="btn-outline" 
+                        onClick={() => setTvFilters({
+                            departments: [],
+                            type: '',
+                            status: 'IN PROGRESS',
+                            visibleColumns: ['sno', 'department', 'feedbackType', 'comment', 'date', 'time', 'status']
+                        })}
+                        style={{ padding: '0.875rem 1.5rem' }}
+                    >
+                        Reset Defaults
+                    </button>
                     <button 
                         className="btn-primary" 
                         onClick={handleApplyFilters} 

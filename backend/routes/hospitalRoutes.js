@@ -22,8 +22,9 @@ router.get('/', optionalProtect, async (req, res) => {
                 hospital = await Hospital.findOne({ uniqueId: hospitalId });
             }
         } else if (req.user && req.user.hospital) {
-            // Priority: Authenticated Admin's assigned hospital
-            hospital = await Hospital.findById(req.user.hospital);
+            // Priority: Authenticated Admin's assigned hospital (Handle populated or ID safely)
+            const hId = req.user.hospital?._id || req.user.hospital;
+            hospital = await Hospital.findById(hId);
         } else {
             return res.status(400).json({ message: 'Hospital ID or QR ID required' });
         }
@@ -84,7 +85,8 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             hospital = await Hospital.findById(hospitalId);
         } else {
             // Normal Admin: Update their own hospital!
-            hospital = await Hospital.findById(req.user.hospital);
+            const hId = req.user.hospital?._id || req.user.hospital;
+            hospital = await Hospital.findById(hId);
         }
 
         if (hospital) {
@@ -151,7 +153,8 @@ router.put('/tv-filters', protect, admin, async (req, res) => {
         if (isSuperAdmin && hospitalId) {
             hospital = await Hospital.findById(hospitalId);
         } else {
-            hospital = await Hospital.findById(req.user.hospital);
+            const hId = req.user.hospital?._id || req.user.hospital;
+            hospital = await Hospital.findById(hId);
         }
 
         if (hospital) {

@@ -2,16 +2,21 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Department from '../models/Department.js';
 import Hospital from '../models/Hospital.js';
-import { protect, admin } from './userRoutes.js';
+import { protect, admin, optionalProtect } from './userRoutes.js';
 
 const router = express.Router();
 
 // @desc    Get all departments for a hospital
 // @route   GET /api/departments
-router.get('/', async (req, res) => {
+router.get('/', optionalProtect, async (req, res) => {
     const { hospitalId } = req.query;
     try {
         let hId = hospitalId;
+
+        // If no hospitalId param, use the authenticated user's hospital (Handle populated or ID safely)
+        if (!hId && req.user && req.user.hospital) {
+            hId = req.user.hospital?._id || req.user.hospital;
+        }
 
         if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
             // It's a slug, find the ID!
@@ -20,14 +25,12 @@ router.get('/', async (req, res) => {
         }
 
         if (!hId) {
-            // If still no hId, fallback to first hospital's ID
+            // Last resort fallback (avoid picking first hospital for logged in users)
             const hospital = await Hospital.findOne({});
             hId = hospital ? hospital._id : null;
         }
 
         const departments = await Department.find({ hospital: hId });
-        // User requested a list of names in the example, but for the UI we need objects.
-        // I will return objects to maintain compatibility with existing frontend logic.
         res.json(departments);
     } catch (error) {
         console.error('Error fetching departments:', error);
