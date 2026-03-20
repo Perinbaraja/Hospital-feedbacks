@@ -10,7 +10,7 @@
     "install:frontend": "cd frontend && npm install",
     "install-all": "npm install && npm run install:backend && npm run install:frontend",
     "setup": "npm run install-all && npm run dev",
-    "build:frontend": "cd frontend && npm run build",
+    "build:frontend": "cd frontend && npm ci --include=dev && npm run build",
     "build": "npm run install-all && npm run build:frontend",
     "start": "cd backend && npm start",
     "netlify:dev": "cd frontend && npm run build && cd .. && netlify dev",
