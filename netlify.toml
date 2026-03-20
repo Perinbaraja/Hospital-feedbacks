@@ -1,6 +1,11 @@
 [build]
+  command = "cd frontend && npm ci --include=dev && npm run build"
   publish = "frontend/dist"
   functions = "backend/netlify/functions"
+
+[build.environment]
+  NPM_CONFIG_PRODUCTION = "false"
+  NODE_ENV = "production"
 
 [[redirects]]
   from = "/api/*"
