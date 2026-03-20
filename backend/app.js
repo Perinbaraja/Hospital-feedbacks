@@ -44,17 +44,15 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-const apiPrefix = process.env.NETLIFY || process.env.NETLIFY_DEV ? '' : '/api';
+// API routes (direct root path inside Lambda function)
+app.use('/users', userRoutes);
+app.use('/hospital', hospitalRoutes);
+app.use('/feedback', feedbackRoutes);
+app.use('/super-admin', superAdminRoutes);
+app.use('/departments', departmentRoutes);
 
-// API routes
-app.use(`${apiPrefix}/users`, userRoutes);
-app.use(`${apiPrefix}/hospital`, hospitalRoutes);
-app.use(`${apiPrefix}/feedback`, feedbackRoutes);
-app.use(`${apiPrefix}/super-admin`, superAdminRoutes);
-app.use(`${apiPrefix}/departments`, departmentRoutes);
-
-// health check path
-app.get(apiPrefix || '/', (req, res) => {
+// health check path (always available at function root)
+app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Hospital Feedback API (serverless) is running' });
 });
 
