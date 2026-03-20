@@ -11,8 +11,15 @@ import feedbackRoutes from './routes/feedbackRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
 
-const __appFilename = fileURLToPath(import.meta.url);
-const __appDirname = path.dirname(__appFilename);
+let __appDirname;
+if (typeof __dirname !== 'undefined') {
+  __appDirname = __dirname;
+} else if (typeof import.meta !== 'undefined' && import.meta.url) {
+  const __appFilename = fileURLToPath(import.meta.url);
+  __appDirname = path.dirname(__appFilename);
+} else {
+  __appDirname = path.resolve(process.cwd(), 'backend');
+}
 
 // Load .env for local development (Netlify provides env vars in deployed runtime)
 dotenv.config({ path: path.join(__appDirname, '.env') });

@@ -10,8 +10,15 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __emailFilename = fileURLToPath(import.meta.url);
-const __emailDirname = path.dirname(__emailFilename);
+let __emailDirname;
+if (typeof __dirname !== 'undefined') {
+  __emailDirname = __dirname;
+} else if (typeof import.meta !== 'undefined' && import.meta.url) {
+  const __emailFilename = fileURLToPath(import.meta.url);
+  __emailDirname = path.dirname(__emailFilename);
+} else {
+  __emailDirname = path.resolve(process.cwd(), 'backend', 'services');
+}
 
 // Ensure .env is loaded from the backend directory
 dotenv.config({ path: path.resolve(__emailDirname, '..', '.env') });
