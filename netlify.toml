@@ -1,0 +1,15 @@
+[build]
+  publish = "frontend/dist"
+  functions = "backend/netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = { Language = ["en"] }

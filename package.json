@@ -12,7 +12,9 @@
     "setup": "npm run install-all && npm run dev",
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run install-all && npm run build:frontend",
-    "start": "cd backend && npm start"
+    "start": "cd backend && npm start",
+    "netlify:dev": "cd frontend && npm run build && cd .. && netlify dev",
+    "netlify:build": "npm run build && netlify build"
   },
   "dependencies": {
     "concurrently": "^9.2.1"
