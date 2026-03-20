@@ -41,6 +41,16 @@ app.use(
   })
 );
 
+// Netlify function path prefix handling
+// Requests arrive as '/.netlify/functions/api/...' when called directly; strip the prefix for routing.
+app.use((req, res, next) => {
+  const functionPrefix = '/.netlify/functions/api';
+  if (req.path.startsWith(functionPrefix)) {
+    req.url = req.url.replace(functionPrefix, '') || '/';
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
