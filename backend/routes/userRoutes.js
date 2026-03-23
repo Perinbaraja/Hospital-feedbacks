@@ -122,9 +122,10 @@ router.get('/version', (req, res) => {
 
 // @desc    Auth user & get token
 router.post('/login', validateUserInput, async (req, res) => {
-    const email = req.body?.email?.trim();
-    const password = req.body?.password;
-
+    const email = req?.body?.email?.trim();
+    const password = req?.body?.password;
+console.log(`email: ${email}`);
+console.log(`password: ${password}`);
     if (!email || !password) {
         console.warn("[LOGIN] Missing email or password");
         return res.status(400).json({ message: "Email and password are required" });
