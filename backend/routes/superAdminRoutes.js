@@ -1,11 +1,16 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Hospital from '../models/Hospital.js';
-import User from '../models/User.js';
-import Feedback from '../models/Feedback.js';
-import Department from '../models/Department.js';
+import _Hospital from '../models/Hospital.js';
+import _User from '../models/User.js';
+import _Feedback from '../models/Feedback.js';
+import _Department from '../models/Department.js';
 import { protect, superAdmin } from './userRoutes.js';
 import { sendAdminCredentialsEmail } from '../services/emailService.js';
+
+const Hospital = _Hospital?.default || _Hospital;
+const User = _User?.default || _User;
+const Feedback = _Feedback?.default || _Feedback;
+const Department = _Department?.default || _Department;
 
 const router = express.Router();
 

@@ -1,13 +1,16 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Feedback from '../models/Feedback.js';
-import Hospital from '../models/Hospital.js';
-import Department from '../models/Department.js';
+import _Feedback from '../models/Feedback.js';
+import _Hospital from '../models/Hospital.js';
+import _Department from '../models/Department.js';
 import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
 import { protect, admin } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
 import { generateFeedbackId } from '../utils/idGenerator.js';
 
+const Feedback = _Feedback?.default || _Feedback;
+const Hospital = _Hospital?.default || _Hospital;
+const Department = _Department?.default || _Department;
 
 const router = express.Router();
 

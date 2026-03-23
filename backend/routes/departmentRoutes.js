@@ -1,9 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Department from '../models/Department.js';
-import Hospital from '../models/Hospital.js';
+import _Department from '../models/Department.js';
+import _Hospital from '../models/Hospital.js';
 import { protect, admin } from './userRoutes.js';
 
+const Department = _Department?.default || _Department;
+const Hospital = _Hospital?.default || _Hospital;
 const router = express.Router();
 
 // @desc    Get all departments for a hospital

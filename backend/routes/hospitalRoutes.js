@@ -1,10 +1,12 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Hospital from '../models/Hospital.js';
-import Department from '../models/Department.js';
+import _Hospital from '../models/Hospital.js';
+import _Department from '../models/Department.js';
 import { protect, admin, optionalProtect } from './userRoutes.js';
 import { validateHospitalInput } from '../middleware/validation.js';
 
+const Hospital = _Hospital?.default || _Hospital;
+const Department = _Department?.default || _Department;
 const router = express.Router();
 
 // @desc    Get hospital config

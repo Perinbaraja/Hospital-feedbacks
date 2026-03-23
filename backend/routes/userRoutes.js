@@ -1,10 +1,14 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import Hospital from '../models/Hospital.js';
-import Feedback from '../models/Feedback.js';
+import _User from '../models/User.js';
+import _Hospital from '../models/Hospital.js';
+import _Feedback from '../models/Feedback.js';
 import { validateUserInput } from '../middleware/validation.js';
+
+const User = _User?.default || _User;
+const Hospital = _Hospital?.default || _Hospital;
+const Feedback = _Feedback?.default || _Feedback;
 
 // Protect routes middleware
 export const protect = async (req, res, next) => {
