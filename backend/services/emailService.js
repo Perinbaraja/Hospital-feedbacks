@@ -117,41 +117,68 @@ export const sendResolutionEmail = async (toEmail, name) => {
 
 /**
  * sendAdminCredentialsEmail
+ * Purpose: Send login credentials to a new hospital admin
  */
 export const sendAdminCredentialsEmail = async (toEmail, name, email, password) => {
-    console.log(`[Email Service] Triggering Admin Credentials email for: ${toEmail}`);
-    if (!toEmail || !process.env.MAILERSEND_API_KEY) return { success: false };
+    // 8. Send email ONLY if email exists
+    if (!toEmail) {
+        console.warn("[Email Service] Skip: No recipient email provided");
+        return { success: false, reason: 'No email' };
+    }
+
+    // Basic email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(toEmail)) {
+        console.warn(`[Email Service] Skip: Invalid email format (${toEmail})`);
+        return { success: false, reason: 'Invalid email format' };
+    }
+
+    if (!process.env.MAILERSEND_API_KEY) {
+        console.error("[Email Service] Error: MAILERSEND_API_KEY is missing");
+        return { success: false, reason: 'Missing API Key' };
+    }
+
+    // 6. Add logs before sending email
+    console.log("Sending credentials to:", email);
+    console.log("Password:", password);
 
     try {
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const loginLink = `${frontendUrl}/login`;
         const safeName = (name || "Admin").trim();
         const recipients = [new Recipient(toEmail, safeName)];
         
+        // 4. Email Content (Professional)
+        const text = `Dear ${safeName},
+Your hospital account has been successfully created.
+Please use the following credentials to log in:
+
+Email: ${email}
+Password: ${password}
+
+We recommend changing your password after logging in.`;
+
+        const html = `
+<div style="font-family: Arial;">
+  <h2>Hospital Account Created</h2>
+  <p>Dear ${safeName},</p>
+  <p>Your hospital account has been successfully created.</p>
+  <p><strong>Email:</strong> ${email}</p>
+  <p><strong>Password:</strong> ${password}</p>
+  <p>Please change your password after logging in.</p>
+</div>`;
+
         const emailParams = new EmailParams()
             .setFrom(getSender())
             .setTo(recipients)
-            .setSubject('Hospital Administration - Access Credentials')
-            .setHtml(`
-                <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #e2e8f0; padding: 2rem; border-radius: 12px; line-height: 1.6;">
-                    <h2 style="color: #4338ca;">Account Created Successfully</h2>
-                    <p>Hi <strong>${safeName}</strong>,</p>
-                    <p>Your hospital administration account has been successfully created. You now have full access to manage your facility's feedbacks and staff.</p>
-                    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border: 1px solid #e2e8f0;">
-                        <p style="margin: 0.5rem 0;"><strong>Login URL:</strong> <a href="${loginLink}">${loginLink}</a></p>
-                        <p style="margin: 0.5rem 0;"><strong>Login Email ID:</strong> ${email}</p>
-                        <p style="margin: 0.5rem 0;"><strong>Temporary Password:</strong> <code style="background: #fff; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #1e293b;">${password}</code></p>
-                    </div>
-                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 2rem;">Regards,<br>System Administrator</p>
-                </div>
-            `)
-            .setText(`Hi ${safeName},\n\nYour account has been created.\nLogin URL: ${loginLink}\nEmail: ${email}\nPassword: ${password}`);
+            .setSubject('Hospital Account Created')
+            .setHtml(html)
+            .setText(text);
 
         await mailerSend.email.send(emailParams);
-        console.log(`[Email Service Success] Credentials email sent to: ${toEmail}`);
+        console.log(`[Email Service Success] Credentials email sent successfully to: ${toEmail}`);
         return { success: true };
     } catch (error) {
-        console.error(`[Email Service Error] Credentials email failed:`, error.message);
-        return { success: false, error: error.message };
+        // 6. Log full error if email fails
+        console.error("MailerSend Error:", error);
+        return { success: false, error: error.message || error };
     }
 };

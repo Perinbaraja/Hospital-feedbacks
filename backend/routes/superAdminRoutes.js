@@ -119,12 +119,19 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             });
 
             // Send Email Notification - Non-blocking to prevent frontend timeouts
-            sendAdminCredentialsEmail(
-                adminEmail,
-                adminName || `${name} Admin`,
-                adminEmail,
-                adminPassword
-            ).catch(err => console.error('Background Email Failed:', err.message));
+            if (adminEmail && adminPassword) {
+                const cleanedEmail = adminEmail.trim().toLowerCase();
+                const safeAdminName = adminName || `${name} Admin`;
+                
+                sendAdminCredentialsEmail(
+                    cleanedEmail,
+                    safeAdminName,
+                    cleanedEmail,
+                    adminPassword
+                ).catch(err => console.error('[Background Email Error] SuperAdmin create hospital:', err));
+            } else {
+                console.warn('[SuperAdmin] Skip email: adminEmail or adminPassword missing for hospital:', name);
+            }
         }
 
         res.status(201).json(hospital);
@@ -180,7 +187,11 @@ router.post('/hospitals/:id/admin', protect, superAdmin, async (req, res) => {
         });
 
         // Send Email Notification
-        await sendAdminCredentialsEmail(email, name, email, password);
+        if (email && password) {
+            const cleanedEmail = email.trim().toLowerCase();
+            sendAdminCredentialsEmail(cleanedEmail, name || 'Admin', cleanedEmail, password)
+                .catch(err => console.error('[Background Email Error] SuperAdmin create admin:', err));
+        }
 
         res.status(201).json({ _id: user._id, name: user.name, email: user.email });
     } catch (error) {
