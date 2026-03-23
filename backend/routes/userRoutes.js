@@ -122,42 +122,37 @@ router.get('/version', (req, res) => {
 
 // @desc    Auth user & get token
 router.post('/login', validateUserInput, async (req, res) => {
-    const email = req.body.email?.trim();
-    const { password } = req.body;
+    const email = req.body?.email?.trim();
+    const password = req.body?.password;
+
+    if (!email || !password) {
+        console.warn("[LOGIN] Missing email or password");
+        return res.status(400).json({ message: "Email and password are required" });
+    }
 
     try {
         console.log(`[LOGIN] Attempt for email: ${email}`);
-        const user = await User.findOne({ email: email.toLowerCase() }).populate('hospital');
+
+        const user = await User.findOne({
+            email: email.toLowerCase()
+        }).populate('hospital');
 
         if (user && (await user.matchPassword(password))) {
             if (!user.isActive) {
-                console.warn(`[LOGIN] Denied: Account ${email} is deactivated.`);
-                return res.status(403).json({ message: 'Your account is deactivated. Contact Super Admin.' });
+                return res.status(403).json({ message: 'Account deactivated' });
             }
 
-            const normalizedRole = (user.role || '').toLowerCase().replace(/[^a-z]/g, '');
-            const isSuper = normalizedRole === 'superadmin';
-
-            if (!isSuper && user.hospital && !user.hospital.isActive) {
-                console.warn(`[LOGIN] Denied: Hospital for ${email} is restricted.`);
-                return res.status(403).json({ message: 'Super Admin restricted your access' });
-            }
-
-            console.log(`[LOGIN] Success: ${user.name} (${user.role})`);
-
-            res.json({
+            return res.json({
                 _id: user._id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                department: user.department || '',
-                hospital: isSuper ? null : user.hospital,
                 token: generateToken(user._id),
             });
-        } else {
-            console.warn(`[LOGIN] Failed: Invalid credentials for ${email}`);
-            res.status(401).json({ message: 'Invalid email or password' });
         }
+
+        return res.status(401).json({ message: 'Invalid email or password' });
+
     } catch (error) {
         console.error('[LOGIN] Server Error:', error);
         res.status(500).json({ message: 'Server error' });
