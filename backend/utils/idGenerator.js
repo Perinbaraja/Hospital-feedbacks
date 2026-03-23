@@ -1,4 +1,6 @@
-import Counter from '../models/Counter.js';
+import _Counter from '../models/Counter.js';
+
+const Counter = _Counter?.default || _Counter;
 
 export const generateFeedbackId = async () => {
     const year = new Date().getFullYear();
