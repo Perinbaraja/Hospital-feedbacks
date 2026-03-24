@@ -41,6 +41,19 @@ const transporter = nodemailer.createTransport({
     socketTimeout: 40000,
 });
 
+// Helper to get dynamic frontend URL based on environment
+const getFrontendUrl = () => {
+    // If FRONTEND_URL is explicitly set and we're NOT in development, use it.
+    // If FRONTEND_URL is set but we are in development, it depends on what's in .env
+    // We'll prioritize the ENV variable if it exists, otherwise fallback.
+    return process.env.FRONTEND_URL || 'http://localhost:5173';
+};
+
+const getFrontendLink = (path = '') => {
+    const base = getFrontendUrl().replace(/\/$/, ''); // Remove trailing slash
+    return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+};
+
 // Verify email configuration on startup
 if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     transporter.verify((error, success) => {
@@ -58,12 +71,13 @@ export const sendThankYouEmail = async (toEmail, name) => {
         return { success: false, reason: 'Email not configured or no recipient' };
     }
 
+    const loginLink = getFrontendLink('/login');
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: toEmail,
         subject: 'Thank You For Your Feedback',
-        text: `Hi ${name || 'Valued User'},\n\nThank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.\n\nThanks,\nHave a wonderful day!`,
-        html: `<h2>Thank You For Your Feedback</h2><p>Hi ${name || 'Valued User'},</p><p>Thank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.</p><p>Thanks,<br>Have a wonderful day!</p>`,
+        text: `Hi ${name || 'Valued User'},\n\nThank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.\n\nYou can track updates via our portal: ${loginLink}\n\nThanks,\nHave a wonderful day!`,
+        html: `<h2>Thank You For Your Feedback</h2><p>Hi ${name || 'Valued User'},</p><p>Thank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.</p><p>You can track updates via our <a href="${loginLink}">feedback portal</a>.</p><p>Thanks,<br>Have a wonderful day!</p>`,
     };
 
     try {
@@ -82,12 +96,13 @@ export const sendResolutionEmail = async (toEmail, name) => {
         return { success: false, reason: 'Email not configured or no recipient' };
     }
 
+    const loginLink = getFrontendLink('/login');
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: toEmail,
         subject: 'Your Feedback Query Has Been Rectified/Updated',
-        text: `Hi ${name || 'Valued User'},\n\nWe wanted to let you know that the issue you reported has been reviewed and rectified by our team.\n\nThanks,\nHave a wonderful day!`,
-        html: `<h2>Your Feedback Query Has Been Rectified</h2><p>Hi ${name || 'Valued User'},</p><p>We wanted to let you know that the issue you reported has been reviewed and rectified by our team.</p><p>Thanks,<br>Have a wonderful day!</p>`,
+        text: `Hi ${name || 'Valued User'},\n\nWe wanted to let you know that the issue you reported has been reviewed and rectified by our team.\n\nLogin to view details: ${loginLink}\n\nThanks,\nHave a wonderful day!`,
+        html: `<h2>Your Feedback Query Has Been Rectified</h2><p>Hi ${name || 'Valued User'},</p><p>We wanted to let you know that the issue you reported has been reviewed and rectified by our team.</p><p><a href="${loginLink}" style="display: inline-block; background: #4338ca; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">View Status</a></p><p>Thanks,<br>Have a wonderful day!</p>`,
     };
 
     try {
@@ -106,8 +121,7 @@ export const sendAdminCredentialsEmail = async (toEmail, name, email, password) 
         return { success: false, reason: 'Email not configured or no recipient' };
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const loginLink = `${frontendUrl}/login`;
+    const loginLink = getFrontendLink('/login');
 
     const mailOptions = {
         from: process.env.EMAIL_USER,
