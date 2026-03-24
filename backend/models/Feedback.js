@@ -6,9 +6,9 @@ const categorySchema = mongoose.Schema({
     customText: { type: String },
     reviewType: {
         type: String,
-        enum: ['Positive', 'Negative'],
+        enum: ['Positive', 'Needs Work'],
         required: true,
-        default: 'Negative'
+        default: 'Needs Work'
     },
     rating: {
         type: String,

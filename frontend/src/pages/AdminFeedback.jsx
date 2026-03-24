@@ -297,7 +297,7 @@ const AdminFeedback = () => {
                                                     alignItems: 'center',
                                                     gap: '0.3rem'
                                                 }}>
-                                                    {isPositive ? '✨ Positive' : '⚠️ Negative'}
+                                                    {isPositive ? '✨ Positive' : '⚠️ Needs Work'}
                                                 </span>
                                             </td>
                                             <td>
@@ -500,7 +500,7 @@ const AdminFeedback = () => {
                                                                             onChange={(e) => setTempReviewType(e.target.value)}
                                                                         >
                                                                             <option value="Positive">Positive ✨</option>
-                                                                            <option value="Negative">Negative ⚠️</option>
+                                                                            <option value="Needs Work">Needs Work ⚠️</option>
                                                                         </select>
                                                                     </div>
                                                                     <div className="form-group-sm">

@@ -202,13 +202,27 @@ const PublicFeedback = () => {
         });
     };
 
-    const toggleIssue = (dept, issue) => {
+    const toggleIssue = (dept, issue, isPositive, deptData) => {
         setSelectedCategories(prev => prev.map(c => {
             if (c.department === dept) {
-                const newIssues = c.issue.includes(issue)
-                    ? c.issue.filter(i => i !== issue)
-                    : [...c.issue, issue];
-                return { ...c, issue: newIssues };
+                const currentIssues = c.issue;
+                const newIssues = currentIssues.includes(issue)
+                    ? currentIssues.filter(i => i !== issue)
+                    : [...currentIssues, issue];
+
+                // Check which groups are present in the new selection
+                const hasPositive = newIssues.some(iss => deptData.positive.includes(iss));
+                const hasNeedsWork = newIssues.some(iss => deptData.negative.includes(iss));
+
+                // If both are selected (though the UI will disable them, this is extra safety),
+                // we'll handle it during submission or here.
+                // Let's also derive the reviewType ONLY from these checkboxes.
+                let reviewType = '';
+                if (hasPositive && !hasNeedsWork) reviewType = 'Positive';
+                else if (hasNeedsWork && !hasPositive) reviewType = 'Needs Work';
+                else if (hasPositive && hasNeedsWork) reviewType = 'Mixed'; // Will be validation-blocked
+
+                return { ...c, issue: newIssues, reviewType };
             }
             return c;
         }));
@@ -224,8 +238,8 @@ const PublicFeedback = () => {
     const updateRating = (dept, rating) => {
         setSelectedCategories(prev => prev.map(c => {
             if (c.department === dept) {
-                let reviewType = rating === 'Completely Satisfied' ? 'Positive' : (rating !== '' ? 'Negative' : '');
-                return { ...c, rating, reviewType };
+                // Satisfaction MUST NOT affect reviewType
+                return { ...c, rating };
             }
             return c;
         }));
@@ -271,8 +285,14 @@ const PublicFeedback = () => {
             return;
         }
 
+        if (selectedCategories.some(c => c.reviewType === 'Mixed')) {
+            toast.error('Please select only one type of feedback (Positive or Needs Work)');
+            setSubmitting(false);
+            return;
+        }
+
         if (selectedCategories.some(c => c.issue.length === 0 && !c.customText.trim())) {
-            toast.error('Please select issue or add details.');
+            toast.error('Please select at least one issue or add comments.');
             setSubmitting(false);
             return;
         }
@@ -552,25 +572,53 @@ const PublicFeedback = () => {
 
                                                 <div className="issues-grid">
                                                     <div>
-                                                        <label className="form-label" style={{ color: '#10B981' }}>😊 Postive</label>
+                                                        <label className="form-label" style={{ color: '#10B981', display: 'flex', alignItems: 'center', opacity: (cat.issue.some(iss => deptData.negative.includes(iss))) ? 0.4 : 1 }}>
+                                                            😊 Positive
+                                                        </label>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                            {deptData.positive.map(iss => (
-                                                                <label key={iss} style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                                                    <input type="checkbox" checked={cat.issue.includes(iss)} onChange={() => toggleIssue(cat.department, iss)} />
-                                                                    {iss}
-                                                                </label>
-                                                            ))}
+                                                            {deptData.positive.map(iss => {
+                                                                const isDisabled = cat.issue.some(i => deptData.negative.includes(i));
+                                                                return (
+                                                                    <label key={iss} style={{ 
+                                                                        fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
+                                                                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                                                        opacity: isDisabled ? 0.5 : 1
+                                                                    }}>
+                                                                        <input 
+                                                                            type="checkbox" 
+                                                                            checked={cat.issue.includes(iss)} 
+                                                                            onChange={() => !isDisabled && toggleIssue(cat.department, iss, true, deptData)} 
+                                                                            disabled={isDisabled}
+                                                                        />
+                                                                        {iss}
+                                                                    </label>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label className="form-label" style={{ color: '#EF4444' }}>😟 Needs Work</label>
+                                                        <label className="form-label" style={{ color: '#EF4444', display: 'flex', alignItems: 'center', opacity: (cat.issue.some(iss => deptData.positive.includes(iss))) ? 0.4 : 1 }}>
+                                                            😟 Needs Work
+                                                        </label>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                            {deptData.negative.map(iss => (
-                                                                <label key={iss} style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                                                    <input type="checkbox" checked={cat.issue.includes(iss)} onChange={() => toggleIssue(cat.department, iss)} />
-                                                                    {iss}
-                                                                </label>
-                                                            ))}
+                                                            {deptData.negative.map(iss => {
+                                                                const isDisabled = cat.issue.some(i => deptData.positive.includes(i));
+                                                                return (
+                                                                    <label key={iss} style={{ 
+                                                                        fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
+                                                                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                                                        opacity: isDisabled ? 0.5 : 1
+                                                                    }}>
+                                                                        <input 
+                                                                            type="checkbox" 
+                                                                            checked={cat.issue.includes(iss)} 
+                                                                            onChange={() => !isDisabled && toggleIssue(cat.department, iss, false, deptData)} 
+                                                                            disabled={isDisabled}
+                                                                        />
+                                                                        {iss}
+                                                                    </label>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
                                                 </div>

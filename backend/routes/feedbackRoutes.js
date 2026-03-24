@@ -33,8 +33,24 @@ router.post('/', validateFeedbackInput, async (req, res) => {
         for (let i = 0; i < categories.length; i++) {
             const cat = categories[i];
             const issueList = Array.isArray(cat.issue) ? cat.issue : [];
-
             const fId = await generateFeedbackId();
+
+            // Backend re-validation of reviewType based on issues
+            const dept = await Department.findOne({ hospital, name: cat.department });
+            const positiveIssues = dept?.positiveIssues || [];
+            const negativeIssues = dept?.negativeIssues || [];
+
+            const hasPositive = issueList.some(iss => positiveIssues.includes(iss));
+            const hasNegative = issueList.some(iss => negativeIssues.includes(iss));
+
+            let finalReviewType = cat.reviewType;
+            if (hasPositive && hasNegative) {
+                return res.status(400).json({ message: 'Feedback cannot contain both Positive and Needs Work selections.' });
+            }
+
+            if (hasPositive) finalReviewType = 'Positive';
+            else if (hasNegative) finalReviewType = 'Needs Work';
+            else if (!finalReviewType) finalReviewType = 'Needs Work'; // Default if none selected but custom text exists
 
             const feedback = await Feedback.create({
                 feedbackId: fId,
@@ -46,9 +62,9 @@ router.post('/', validateFeedbackInput, async (req, res) => {
                     department: cat.department,
                     issue: issueList,
                     customText: cat.customText,
-                    reviewType: cat.reviewType,
+                    reviewType: finalReviewType,
                     rating: cat.rating,
-                    image: cat.image // This is now a Base64 string from the frontend
+                    image: cat.image
                 }],
                 status: 'IN PROGRESS',
                 assignedTo: cat.department
@@ -151,7 +167,7 @@ router.get('/stats', protect, admin, async (req, res) => {
         allFeedbacks.forEach(fb => {
             const cat = fb.categories?.[0] || {};
             if (cat.reviewType === 'Positive') positiveCount++;
-            else if (cat.reviewType === 'Negative') negativeCount++;
+            else if (cat.reviewType === 'Needs Work') negativeCount++;
 
             if (cat.department) {
                 deptDistribution[cat.department] = (deptDistribution[cat.department] || 0) + 1;
@@ -253,7 +269,9 @@ router.get('/tv/:hospitalId', async (req, res) => {
 
         if (tvFilters) {
             if (tvFilters.type && tvFilters.type !== 'All Types') {
-                query['categories.reviewType'] = tvFilters.type;
+                // Compatibility for old "Negative" type if requested
+                const typeToQuery = tvFilters.type === 'Negative' ? 'Needs Work' : tvFilters.type;
+                query['categories.reviewType'] = typeToQuery;
             }
             
             query.status = tvFilters.status || 'IN PROGRESS';
