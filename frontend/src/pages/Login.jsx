@@ -43,7 +43,7 @@ const Login = () => {
                 console.log('[LOGIN] Redirecting to /admin');
                 navigate('/admin');
             } else if (['dept_head'].includes(role)) {
-                console.log('[LOGIN] Redirecting to /dept');
+                console.log(`[LOGIN] SUCCESS: Redirecting ${userData.name} to Department Head dashboard (${userData.department || 'All'})`);
                 navigate('/dept');
             } else {
                 console.log('[LOGIN] Unknown role, staying at /login');

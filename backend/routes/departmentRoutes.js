@@ -14,6 +14,7 @@ router.get('/', async (req, res) => {
     const { hospitalId } = req.query;
     try {
         let hId = hospitalId;
+        console.log(`[DEPT-FETCH] Incoming hospitalId: ${hospitalId}`);
 
         if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
             // It's a slug, find the ID!
@@ -25,9 +26,13 @@ router.get('/', async (req, res) => {
             // If still no hId, fallback to first hospital's ID
             const hospital = await Hospital.findOne({});
             hId = hospital ? hospital._id : null;
+            console.log(`[DEPT-FETCH] No ID provided. Falling back to first hospital: ${hId}`);
+        } else {
+            console.log(`[DEPT-FETCH] Final Resolved Hospital ID: ${hId}`);
         }
 
         const departments = await Department.find({ hospital: hId });
+        console.log(`[DEPT-FETCH] Found ${departments.length} departments for this hospital`);
         // User requested a list of names in the example, but for the UI we need objects.
         // I will return objects to maintain compatibility with existing frontend logic.
         res.json(departments);

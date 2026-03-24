@@ -143,11 +143,17 @@ console.log(`password: ${password}`);
                 return res.status(403).json({ message: 'Account deactivated' });
             }
 
+            if (user.role?.toLowerCase() === 'dept_head') {
+                console.log(`[LOGIN] SUCCESS: Department Head ${user.name} logged in for facility ${user.hospital?.name || 'N/A'}`);
+            }
+
             return res.json({
                 _id: user._id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                hospital: user.hospital,
+                department: user.department,
                 token: generateToken(user._id),
             });
         }
