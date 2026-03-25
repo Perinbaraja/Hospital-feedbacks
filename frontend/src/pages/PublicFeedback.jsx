@@ -6,8 +6,8 @@ import './PublicFeedback.css';
 
 
 const DEFAULT_ISSUES = {
-    positive: ['Professional Staff', 'Clean Environment', 'Quick Service', 'Clear Communication', 'Helpful Information'],
-    negative: ['Long Waiting Time', 'Rude Behavior', 'Lack of Cleanliness', 'High Cost', 'Complex Process']
+    positive: ['Friendly Staff', 'Clear Communication', 'Helpful Information'],
+    negative: ['Long Wait Time', 'High Cost', 'Complex Process']
 };
 
 const DEPARTMENT_ISSUES = {
@@ -238,8 +238,9 @@ const PublicFeedback = () => {
     const updateRating = (dept, rating) => {
         setSelectedCategories(prev => prev.map(c => {
             if (c.department === dept) {
-                // Satisfaction MUST NOT affect reviewType
-                return { ...c, rating };
+                // Satisfaction MUST NOT affect reviewType directly, 
+                // but we reset issues when rating changes as per requirements
+                return { ...c, rating, issue: [], reviewType: '' };
             }
             return c;
         }));
@@ -565,19 +566,23 @@ const PublicFeedback = () => {
                                                     <select className="form-control" value={cat.rating} onChange={(e) => updateRating(cat.department, e.target.value)} required>
                                                         <option value="" disabled>-- Select --</option>
                                                         <option value="Completely Satisfied">Completely Satisfied</option>
-                                                        <option value="Partially Satisfied">Partially Satisfied</option>
                                                         <option value="Not Satisfied">Not Satisfied</option>
                                                     </select>
                                                 </div>
 
                                                 <div className="issues-grid">
                                                     <div>
-                                                        <label className="form-label" style={{ color: '#10B981', display: 'flex', alignItems: 'center', opacity: (cat.issue.some(iss => deptData.negative.includes(iss))) ? 0.4 : 1 }}>
+                                                        <label className="form-label" style={{ 
+                                                            color: '#10B981', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            opacity: (cat.rating === 'Not Satisfied' || cat.issue.some(iss => deptData.negative.includes(iss))) ? 0.4 : 1 
+                                                        }}>
                                                             😊 Positive
                                                         </label>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                             {deptData.positive.map(iss => {
-                                                                const isDisabled = cat.issue.some(i => deptData.negative.includes(i));
+                                                                const isDisabled = cat.rating === 'Not Satisfied' || cat.issue.some(i => deptData.negative.includes(i));
                                                                 return (
                                                                     <label key={iss} style={{ 
                                                                         fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
@@ -597,12 +602,17 @@ const PublicFeedback = () => {
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label className="form-label" style={{ color: '#EF4444', display: 'flex', alignItems: 'center', opacity: (cat.issue.some(iss => deptData.positive.includes(iss))) ? 0.4 : 1 }}>
+                                                        <label className="form-label" style={{ 
+                                                            color: '#EF4444', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            opacity: (cat.rating === 'Completely Satisfied' || cat.issue.some(iss => deptData.positive.includes(iss))) ? 0.4 : 1 
+                                                        }}>
                                                             😟 Needs Work
                                                         </label>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                             {deptData.negative.map(iss => {
-                                                                const isDisabled = cat.issue.some(i => deptData.positive.includes(i));
+                                                                const isDisabled = cat.rating === 'Completely Satisfied' || cat.issue.some(i => deptData.positive.includes(i));
                                                                 return (
                                                                     <label key={iss} style={{ 
                                                                         fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 

@@ -128,7 +128,8 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
                 adminEmail,
                 adminName || `${name} Admin`,
                 adminEmail,
-                adminPassword
+                adminPassword,
+                req
             ).catch(err => console.error('Background Email Failed:', err.message));
         }
 
@@ -185,7 +186,7 @@ router.post('/hospitals/:id/admin', protect, superAdmin, async (req, res) => {
         });
 
         // Send Email Notification
-        await sendAdminCredentialsEmail(email, name, email, password);
+        await sendAdminCredentialsEmail(email, name, email, password, req);
 
         res.status(201).json({ _id: user._id, name: user.name, email: user.email });
     } catch (error) {

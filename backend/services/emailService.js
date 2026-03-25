@@ -41,16 +41,35 @@ const transporter = nodemailer.createTransport({
     socketTimeout: 40000,
 });
 
-// Helper to get dynamic frontend URL based on environment
-const getFrontendUrl = () => {
-    // If FRONTEND_URL is explicitly set and we're NOT in development, use it.
-    // If FRONTEND_URL is set but we are in development, it depends on what's in .env
-    // We'll prioritize the ENV variable if it exists, otherwise fallback.
-    return process.env.FRONTEND_URL || 'http://localhost:5173';
+// Helper to get dynamic frontend URL based on environment OR request
+const getFrontendUrl = (req = null) => {
+    // 1. If we have a request object, derive URL from it (best for dynamic preview deployments)
+    if (req && typeof req.get === 'function') {
+        const host = req.get('host');
+        // Determine protocol (Production usually uses https)
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+
+        // Local development: map backend (5000) vs frontend (5173) distinction
+        if (host.includes('localhost:5000')) {
+            return `http://localhost:5173`;
+        }
+        
+        // For Netlify/Production, frontend and functions typically share the domain
+        return `${protocol}://${host}`;
+    }
+
+    // 2. Prioritize explicitly set FRONTEND_URL from environment
+    if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+
+    // 3. Fallback to Netlify automatic URL variable
+    if (process.env.URL) return process.env.URL;
+
+    // 4. Final fallback for local development
+    return 'http://localhost:5173';
 };
 
-const getFrontendLink = (path = '') => {
-    const base = getFrontendUrl().replace(/\/$/, ''); // Remove trailing slash
+const getFrontendLink = (path = '', req = null) => {
+    const base = getFrontendUrl(req).replace(/\/$/, ''); // Remove trailing slash
     return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 };
 
@@ -65,11 +84,14 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     });
 }
 
-export const sendThankYouEmail = async (toEmail, name) => {
+export const sendThankYouEmail = async (toEmail, name, req = null) => {
     if (!toEmail || !process.env.EMAIL_USER || !(process.env.EMAIL_PASS || process.env.MAILERSEND_API_KEY)) {
         console.warn('Email skipped: Missing recipient or email configuration');
         return { success: false, reason: 'Email not configured or no recipient' };
     }
+    
+    // In this template, we don't have a specific link yet but might add one.
+    // Using getFrontendLink if needed.
 
     const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -89,13 +111,13 @@ export const sendThankYouEmail = async (toEmail, name) => {
     }
 };
 
-export const sendResolutionEmail = async (toEmail, name) => {
+export const sendResolutionEmail = async (toEmail, name, req = null) => {
     if (!toEmail || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.warn('Email skipped: Missing recipient or email configuration');
         return { success: false, reason: 'Email not configured or no recipient' };
     }
 
-    const loginLink = getFrontendLink('/login');
+    const loginLink = getFrontendLink('/login', req);
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: toEmail,
@@ -114,13 +136,13 @@ export const sendResolutionEmail = async (toEmail, name) => {
     }
 };
 
-export const sendAdminCredentialsEmail = async (toEmail, name, email, password) => {
+export const sendAdminCredentialsEmail = async (toEmail, name, email, password, req = null) => {
     if (!toEmail || !process.env.EMAIL_USER || !(process.env.EMAIL_PASS || process.env.MAILERSEND_API_KEY)) {
         console.warn('Credential email skipped: Missing recipient or email configuration');
         return { success: false, reason: 'Email not configured or no recipient' };
     }
 
-    const loginLink = getFrontendLink('/login');
+    const loginLink = getFrontendLink('/login', req);
 
     const mailOptions = {
         from: process.env.EMAIL_USER,

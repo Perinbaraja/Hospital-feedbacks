@@ -73,7 +73,7 @@ router.post('/', validateFeedbackInput, async (req, res) => {
         }
 
         if (patientEmail) {
-            sendThankYouEmail(patientEmail, patientName);
+            sendThankYouEmail(patientEmail, patientName, req);
         }
 
         res.status(201).json(createdFeedbacks);
@@ -371,7 +371,7 @@ router.put('/:id', protect, async (req, res) => {
 
             feedback.status = req.body.status;
             if (req.body.status === 'COMPLETED' && feedback.patientEmail) {
-                sendResolutionEmail(feedback.patientEmail, feedback.patientName);
+                sendResolutionEmail(feedback.patientEmail, feedback.patientName, req);
             }
         }
 
