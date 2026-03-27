@@ -2,19 +2,24 @@ import mongoose from 'mongoose';
 
 const categorySchema = mongoose.Schema({
     department: { type: String, required: true },
-    issue: { type: [String], required: true },
+    issue: [{ type: String }],
     customText: { type: String },
+    positive_feedback: [{ type: String }],
+    negative_feedback: [{ type: String }],
+    positive_issues: [{ type: String }], 
+    negative_issues: [{ type: String }],
+    note: { type: String },
     reviewType: {
         type: String,
-        enum: ['Positive', 'Needs Work'],
+        enum: ['Positive', 'Negative', 'Mixed', 'Needs Work', 'negative', 'needs_work'],
         required: true,
-        default: 'Needs Work'
+        default: 'Negative'
     },
-    rating: {
+    feedback: {
         type: String,
-        enum: ['Completely Satisfied', 'Partially Satisfied', 'Not Satisfied'],
+        enum: ['completely_satisfied', 'partially_satisfied', 'not_satisfied', 'Completely Satisfied', 'Partially Satisfied', 'Not Satisfied'],
         required: true,
-        default: 'Not Satisfied'
+        default: 'not_satisfied'
     },
     image: { type: String }, // Path to uploaded image
 });
@@ -34,9 +39,6 @@ const feedbackSchema = mongoose.Schema(
             // Optional as requested
         },
         categories: [categorySchema],
-        comments: {
-            type: String,
-        },
         status: {
             type: String,
             enum: ['Pending', 'IN PROGRESS', 'COMPLETED'],
@@ -52,6 +54,19 @@ const feedbackSchema = mongoose.Schema(
             ref: 'Hospital',
             required: true
         },
+        hospitalId: {
+            type: String,
+            required: true,
+            index: true
+        },
+        positive: {
+            type: Date,
+            default: null
+        },
+        negative: {
+            type: Date,
+            default: null
+        },
         notes: [
             {
                 text: { type: String, required: true },
@@ -59,7 +74,11 @@ const feedbackSchema = mongoose.Schema(
                 senderRole: { type: String, required: true },
                 createdAt: { type: Date, default: Date.now }
             }
-        ]
+        ],
+        comments: {
+            type: String,
+            default: ""
+        }
     },
     {
         timestamps: true,

@@ -59,12 +59,11 @@ async function fixFeedbackData() {
 
             let newType = originalType;
 
-            // Detect Negative/Needs Work
             const hasNegative = NEGATIVE_KEYWORDS.some(word => issuesText.includes(word));
             const hasPositive = POSITIVE_KEYWORDS.some(word => issuesText.includes(word));
 
             if (hasNegative) {
-                newType = 'Needs Work';
+                newType = 'negative';
             } else if (hasPositive) {
                 newType = 'Positive';
             }
@@ -85,7 +84,7 @@ async function fixFeedbackData() {
         console.log('\n--- DATA CORRECTION SUMMARY ---');
         console.log(`Total Records Processed: ${totalProcessed}`);
         console.log(`Corrected to "Positive": ${positiveFixes}`);
-        console.log(`Corrected to "Needs Work": ${needsWorkFixes}`);
+        console.log(`Corrected to "negative": ${needsWorkFixes}`);
         console.log('-------------------------------\n');
 
         await mongoose.disconnect();

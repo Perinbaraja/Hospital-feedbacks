@@ -50,12 +50,9 @@ const AdminFeedback = () => {
             }
 
             const fbResponse = await API.get(`/feedback${hIdParam}`);
+            console.log("Feedbacks received from API:", fbResponse.data);
             setFeedbacks(fbResponse.data);
             setLoading(false);
-            if (selectedFeedbackForNotes) {
-                const refreshed = fbResponse.data.find(f => f._id === selectedFeedbackForNotes._id);
-                if (refreshed) setSelectedFeedbackForNotes(refreshed);
-            }
         } catch (error) {
             console.error('Fetch error:', error);
             if (retryCount < 2) { // Retry up to 2 times
@@ -66,7 +63,17 @@ const AdminFeedback = () => {
                 setLoading(false);
             }
         }
-    }, [hospitalId, selectedFeedbackForNotes]);
+    }, [hospitalId]);
+
+    // Refresh side-panel data when feedbacks change
+    useEffect(() => {
+        if (selectedFeedbackForNotes && feedbacks.length > 0) {
+            const refreshed = feedbacks.find(f => f._id === selectedFeedbackForNotes._id);
+            if (refreshed && JSON.stringify(refreshed.notes) !== JSON.stringify(selectedFeedbackForNotes.notes)) {
+                setSelectedFeedbackForNotes(refreshed);
+            }
+        }
+    }, [feedbacks, selectedFeedbackForNotes]);
 
     useEffect(() => {
         fetchData();
@@ -76,8 +83,20 @@ const AdminFeedback = () => {
                 setActiveFeedbackId(null);
             }
         };
+
+        const handleEsc = (event) => {
+            if (event.key === 'Escape') {
+                setSelectedFeedbackForNotes(null);
+                setActiveFeedbackId(null);
+            }
+        };
+
         document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+        document.addEventListener('keydown', handleEsc);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+            document.removeEventListener('keydown', handleEsc);
+        };
     }, [fetchData]);
 
     const handleAssign = async (id, departments, categoryUpdate, statusUpdate) => {
@@ -112,6 +131,20 @@ const AdminFeedback = () => {
 
 
 
+    const handleDelete = async (id) => {
+        console.log("Deleting ID:", id);
+        if (!window.confirm('Are you sure you want to delete this feedback?')) return;
+        
+        try {
+            await API.delete(`/feedback/${id}`);
+            toast.success('Feedback deleted successfully');
+            setFeedbacks(prev => prev.filter(f => f._id !== id));
+        } catch (error) {
+            console.error('Delete error:', error);
+            toast.error('Failed to delete feedback');
+        }
+    };
+
     // Filtering Logic
     const filteredFeedbacks = feedbacks.filter(fb => {
         const target = filterDept.toLowerCase().trim();
@@ -134,6 +167,14 @@ const AdminFeedback = () => {
 
         return matchesDept && matchesStart && matchesEnd;
     });
+
+    // Helper to split tags for display (Backward compatible: supports ; and ,)
+    const splitTags = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(t => t && String(t).trim() !== '');
+        // Split by semicolon OR comma
+        return val.split(/[;,]/).map(t => t.trim()).filter(t => t);
+    };
 
     return (
         <div>
@@ -230,21 +271,25 @@ const AdminFeedback = () => {
                                     <th style={{ minWidth: '120px' }}>FEEDBACK ID</th>
                                     <th style={{ minWidth: '120px' }}>PATIENT</th>
                                     <th style={{ minWidth: '150px' }}>EMAIL</th>
-                                    <th style={{ width: '100px' }}>TYPE</th>
+                                    <th style={{ width: '80px' }}>POSITIVE</th>
+                                    <th style={{ width: '80px' }}>NEGATIVE</th>
                                     <th style={{ minWidth: '160px' }}>HOSPITAL SERVICE</th>
-                                    <th style={{ minWidth: '200px' }}>ISSUE CONTEXT</th>
-                                    <th style={{ width: '80px' }}>FEED</th>
+                                    <th style={{ minWidth: '150px' }}>USER FEEDBACK</th>
+                                    <th style={{ minWidth: '200px' }}>COMMENTS</th>
                                     <th style={{ width: '80px' }}>PHOTO</th>
-                                    <th style={{ width: '120px' }}>LOGGED ON</th>
-                                    <th style={{ width: '110px' }}>NOTES</th>
-                                    <th style={{ width: '130px' }}>WORKFLOW</th>
-                                    <th style={{ width: '180px', textAlign: 'right' }}>ACTION</th>
+                                    <th style={{ minWidth: '120px' }}>LOGGED ON</th>
+                                    <th style={{ minWidth: '110px' }}>STAFF ENTRIES</th>
+                                    <th style={{ width: '100px' }}>STATUS</th>
+                                    <th style={{ minWidth: '130px' }}>WORKFLOW</th>
+                                    <th style={{ width: '100px', textAlign: 'right' }}>ACTION</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredFeedbacks.map((fb, index) => {
                                     const cat = fb.categories?.[0] || {};
-                                    const isPositive = cat.reviewType === 'Positive';
+                                    const reviewType = (cat.reviewType || '').toLowerCase();
+                                    const isPositive = ['positive', 'completely_satisfied', 'completely satisfied'].includes(reviewType);
+                                    const isNegative = ['negative', 'needs work', 'needs_work', 'not_satisfied', 'not satisfied'].includes(reviewType);
                                     const actualStatus = fb.status;
                                     const isOverdue = fb.isOverdue; // From backend virtual
 
@@ -284,79 +329,58 @@ const AdminFeedback = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                                <span style={{
-                                                    padding: '0.25rem 0.6rem',
-                                                    borderRadius: '2rem',
-                                                    fontSize: '0.65rem',
-                                                    fontWeight: 700,
-                                                    textTransform: 'uppercase',
-                                                    backgroundColor: isPositive ? '#f0fdf4' : '#fef2f2',
-                                                    color: isPositive ? '#166534' : '#991b1b',
-                                                    border: `1px solid ${isPositive ? '#dcfce7' : '#fee2e2'}`,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.3rem'
-                                                }}>
-                                                    {isPositive ? '✨ Positive' : '⚠️ Needs Work'}
-                                                </span>
+                                                <div style={{ textAlign: 'left', minWidth: '140px', fontSize: '0.75rem', color: '#334155' }}>
+                                                    {(() => {
+                                                        const tags = [
+                                                            ...splitTags(cat.positive_feedback), 
+                                                            ...splitTags(cat.positive_issues),
+                                                            ...(isPositive ? splitTags(cat.issue) : [])
+                                                        ];
+                                                        const uniqueTags = [...new Set(tags)];
+                                                        return uniqueTags.length > 0 ? (
+                                                            <span style={{ fontWeight: 500 }}>{uniqueTags.join(', ')}</span>
+                                                        ) : (
+                                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div style={{ textAlign: 'left', minWidth: '140px', fontSize: '0.75rem', color: '#334155' }}>
+                                                    {(() => {
+                                                        const tags = [
+                                                            ...splitTags(cat.negative_feedback), 
+                                                            ...splitTags(cat.negative_issues),
+                                                            ...(isNegative ? splitTags(cat.issue) : [])
+                                                        ];
+                                                        const uniqueTags = [...new Set(tags)];
+                                                        return uniqueTags.length > 0 ? (
+                                                            <span style={{ fontWeight: 500 }}>{uniqueTags.join(', ')}</span>
+                                                        ) : (
+                                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
+                                                        );
+                                                    })()}
+                                                </div>
                                             </td>
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <div style={{
-                                                        width: '28px',
-                                                        height: '28px',
-                                                        borderRadius: '0.4rem',
-                                                        background: '#f8fafc',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: '0.85rem',
-                                                        border: '1px solid #f1f5f9'
-                                                    }}>
-                                                        🏥
-                                                    </div>
                                                     <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.8125rem' }}>{cat.department}</div>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div style={{ maxWidth: '240px' }}>
-                                                    <div style={{ fontWeight: 600, color: '#334155', marginBottom: '0.2rem', fontSize: '0.8125rem' }}>
-                                                        {Array.isArray(cat.issue) ? cat.issue.join(' • ') : cat.issue}
-                                                    </div>
-                                                    {(cat.customText || fb.comments) && (
-                                                        <div style={{
-                                                            fontSize: '0.75rem',
-                                                            color: '#64748b',
-                                                            background: '#f8fafc',
-                                                            padding: '0.4rem 0.6rem',
-                                                            borderRadius: '0.4rem',
-                                                            border: '1px solid #f1f5f9',
-                                                            marginTop: '0.35rem',
-                                                            lineHeight: '1.4'
-                                                        }}>
-                                                            <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginRight: '0.4rem' }}>Note:</span>
-                                                             "{cat.customText || fb.comments}"
-                                                        </div>
-                                                    )}
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 800,
+                                                    color: (cat.feedback === 'completely_satisfied' || cat.rating === 'Completely Satisfied') ? '#16a34a' : (cat.feedback === 'partially_satisfied' || cat.rating === 'Partially Satisfied') ? '#ca8a04' : '#dc2626'
+                                                }}>
+                                                    {cat.feedback === 'completely_satisfied' ? 'COMPLETELY' : 
+                                                     cat.feedback === 'partially_satisfied' ? 'PARTIALLY' : 
+                                                     cat.feedback === 'not_satisfied' ? 'NOT SATISFIED' : (cat.feedback || cat.rating || 'N/A').toUpperCase()}
                                                 </div>
                                             </td>
                                             <td>
-                                                <div style={{
-                                                    display: 'inline-flex',
-                                                    flexDirection: 'column',
-                                                    gap: '0.15rem'
-                                                }}>
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.3rem',
-                                                        fontWeight: 700,
-                                                        fontSize: '0.8rem',
-                                                        color: cat.rating === 'Completely Satisfied' ? '#16a34a' : cat.rating === 'Partially Satisfied' ? '#ca8a04' : '#dc2626'
-                                                    }}>
-                                                        {cat.rating === 'Completely Satisfied' ? '🤩' : cat.rating === 'Partially Satisfied' ? '😐' : '😡'}
-                                                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.025em' }}>{cat.rating?.split(' ')[0]}</span>
-                                                    </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#475569', maxWidth: '250px', whiteSpace: 'normal', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {fb.comments || "-"}
                                                 </div>
                                             </td>
                                             <td>
@@ -393,13 +417,13 @@ const AdminFeedback = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                                <button
-                                                    className="btn-outline"
-                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}
-                                                    onClick={() => setSelectedFeedbackForNotes(fb)}
-                                                >
-                                                    💬 {fb.notes?.length || 0}
-                                                </button>
+                                                    <button
+                                                        className="badge badge-info clickable"
+                                                        style={{ border: 'none', cursor: 'pointer', padding: '0.4rem 0.6rem' }}
+                                                        onClick={() => setSelectedFeedbackForNotes(prev => (prev?._id === fb._id ? null : fb))}
+                                                    >
+                                                        Notes: {fb.notes?.length || 0}
+                                                    </button>
                                             </td>
                                             <td>
                                                 <StatusBadge status={fb.status} />
@@ -409,7 +433,8 @@ const AdminFeedback = () => {
                                                     <div className="custom-assign-dropdown">
                                                         <div
                                                             className="dropdown-trigger"
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 const isOpening = activeFeedbackId !== fb._id;
                                                                 setActiveFeedbackId(isOpening ? fb._id : null);
 
@@ -431,7 +456,7 @@ const AdminFeedback = () => {
                                                             {fb.assignedTo ? (
                                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.2rem' }}>
                                                                     <span className="assigned-text">{fb.assignedTo}</span>
-                                                                    <span className="edit-hint">Edit ▼</span>
+                                                                    <span className="edit-hint">Edit</span>
                                                                 </div>
                                                             ) : (
                                                                 <div className="assign-placeholder">
@@ -482,7 +507,7 @@ const AdminFeedback = () => {
                                                                 <div className="adjust-classification">
                                                                     <div className="form-group-sm">
                                                                         <label>Department</label>
-                                                                        <select 
+                                                                        <select
                                                                             className="form-control-sm"
                                                                             value={tempCategoryDept}
                                                                             onChange={(e) => setTempCategoryDept(e.target.value)}
@@ -494,28 +519,28 @@ const AdminFeedback = () => {
                                                                     </div>
                                                                     <div className="form-group-sm">
                                                                         <label>Feedback Type</label>
-                                                                        <select 
+                                                                        <select
                                                                             className="form-control-sm"
                                                                             value={tempReviewType}
                                                                             onChange={(e) => setTempReviewType(e.target.value)}
                                                                         >
-                                                                            <option value="Positive">Positive ✨</option>
-                                                                            <option value="Needs Work">Needs Work ⚠️</option>
+                                                                            <option value="Positive">POSITIVE</option>
+                                                                            <option value="negative">NEGATIVE</option>
                                                                         </select>
                                                                     </div>
                                                                     <div className="form-group-sm">
                                                                         <label>Detailed Issue</label>
-                                                                        <input 
-                                                                            type="text" 
-                                                                            className="form-control-sm" 
-                                                                            value={tempIssue} 
+                                                                        <input
+                                                                            type="text"
+                                                                            className="form-control-sm"
+                                                                            value={tempIssue}
                                                                             onChange={(e) => setTempIssue(e.target.value)}
                                                                             placeholder="e.g. Long Wait"
                                                                         />
                                                                     </div>
                                                                     <div className="form-group-sm">
                                                                         <label>Workflow Status</label>
-                                                                        <select 
+                                                                        <select
                                                                             className="form-control-sm"
                                                                             value={tempStatus}
                                                                             onChange={(e) => setTempStatus(e.target.value)}
@@ -550,6 +575,18 @@ const AdminFeedback = () => {
                                                     </div>
                                                 </div>
                                             </td>
+                                            <td>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <button
+                                                        className="btn-icon delete"
+                                                        onClick={() => handleDelete(fb._id)}
+                                                        title="Delete Feedback"
+                                                        style={{ color: '#ef4444' }}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -566,9 +603,29 @@ const AdminFeedback = () => {
                     background: 'white', boxShadow: '-10px 0 30px rgba(0,0,0,0.1)',
                     zIndex: 1000, padding: '2rem', display: 'flex', flexDirection: 'column'
                 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                        <h3 style={{ fontSize: '1.25rem' }}>Internal Staff Notes</h3>
-                        <button className="btn-outline" style={{ border: 'none', padding: '8px' }} onClick={() => setSelectedFeedbackForNotes(null)}>✕</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', pb: '1rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>Internal Staff Notes</h3>
+                        <button 
+                            className="btn-icon" 
+                            style={{ 
+                                background: '#f8fafc', 
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '50%',
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                fontSize: '1rem',
+                                color: '#64748b'
+                            }} 
+                            onClick={() => setSelectedFeedbackForNotes(null)}
+                            onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#ef4444'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
+                            title="Close Sidebar (Esc)"
+                        >✕</button>
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -609,7 +666,7 @@ const AdminFeedback = () => {
 
             {/* Image Preview Modal */}
             {selectedImage && (
-                <div 
+                <div
                     style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                         background: 'rgba(0,0,0,0.85)', zIndex: 2000,
@@ -619,7 +676,7 @@ const AdminFeedback = () => {
                     onClick={() => setSelectedImage(null)}
                 >
                     <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
-                        <button 
+                        <button
                             onClick={() => setSelectedImage(null)}
                             style={{
                                 position: 'absolute', top: '-40px', right: 0,
@@ -627,14 +684,14 @@ const AdminFeedback = () => {
                                 fontSize: '2rem', cursor: 'pointer'
                             }}
                         >✕</button>
-                        <img 
-                            src={selectedImage} 
-                            alt="Preview" 
-                            style={{ 
-                                maxWidth: '100%', maxHeight: '85vh', 
+                        <img
+                            src={selectedImage}
+                            alt="Preview"
+                            style={{
+                                maxWidth: '100%', maxHeight: '85vh',
                                 borderRadius: '1rem', boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
                                 background: 'white'
-                            }} 
+                            }}
                         />
                     </div>
                 </div>

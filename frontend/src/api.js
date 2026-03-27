@@ -24,9 +24,9 @@ if (resolvedApiUrl.toLowerCase().endsWith('/api')) {
 
 export const API_BASE_URL = resolvedApiUrl;
 
-// For assets like images: Dev uses localhost:5000, Prod uses relative paths
+// For assets like images: Requests go through the proxy (Dev) or relative path (Prod)
 const envAssetUrl = import.meta.env.VITE_ASSET_URL;
-export const BASE_ASSET_URL = envAssetUrl !== undefined ? envAssetUrl : (import.meta.env.DEV ? 'http://localhost:5000' : '');
+export const BASE_ASSET_URL = envAssetUrl !== undefined ? envAssetUrl : '';
 
 /**
  * Robust helper to get full Asset URL

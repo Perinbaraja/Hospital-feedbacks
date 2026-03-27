@@ -31,32 +31,43 @@ const AdminDashboard = () => {
     const hospitalId = searchParams.get('hospitalId');
     const navigate = useNavigate();
 
-    const [stats, setStats] = useState(null);
     const [hospital, setHospital] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [totalEncounters, setTotalEncounters] = useState(0);
+    const [positive, setPositive] = useState(0);
+    const [negative, setNegative] = useState(0);
+    const [resolved, setResolved] = useState(0);
+    const [deptData, setDeptData] = useState([]);
 
     const hQuery = hospitalId ? `?hospitalId=${hospitalId}` : '';
 
-    const fetchData = useCallback(async () => {
-        try {
-            const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
-            const [statsRes, hospRes] = await Promise.all([
-                API.get(`/feedback/stats${hIdParam}`),
-                API.get(`/hospital${hIdParam}`)
-            ]);
-            setStats(statsRes.data);
-            setHospital(hospRes.data);
-        } catch (error) {
-            console.error('Dashboard fetch error:', error);
-            toast.error('Failed to load dashboard data');
-        } finally {
-            setLoading(false);
-        }
-    }, [hospitalId]);
-
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        API.get(`/admin/dashboard${hQuery}`)
+            .then(res => {
+                const data = res.data;
+                setTotalEncounters(data.totalEncounters);
+                setPositive(data.positiveCount);
+                setNegative(data.negativeCount);
+                setResolved(data.resolvedIssues);
+                setDeptData(data.deptDistribution || []);
+            })
+            .catch(err => {
+                console.error("Dashboard Fetch Error:", err);
+            });
+
+        // Continue fetching hospital data for facility info card
+        API.get(`/hospital${hQuery}`)
+            .then(res => {
+                setHospital(res.data);
+            })
+            .catch(err => {
+                console.error('Hospital fetch error:', err);
+                toast.error('Failed to load facility data');
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+    }, [hQuery]);
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -65,7 +76,7 @@ const AdminDashboard = () => {
     );
 
 
-    const positivePercent = stats?.total > 0 ? Math.round((stats.positiveCount / stats.total) * 100) : 0;
+    const positivePercent = totalEncounters > 0 ? Math.round((positive / totalEncounters) * 100) : 0;
 
     return (
         <div style={{ padding: '2rem 0' }}>
@@ -85,25 +96,25 @@ const AdminDashboard = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
                 <StatCard
                     title="Total Encounters"
-                    value={stats?.total || 0}
+                    value={totalEncounters}
                     color="#6366f1"
                     icon={LayoutDashboard}
                 />
                 <StatCard
-                    title="Pending Tasks"
-                    value={stats?.pending || 0}
+                    title="Positive Feedback"
+                    value={positive}
                     color="#f59e0b"
                     icon={Clock}
                 />
                 <StatCard
-                    title="Resolved Issues"
-                    value={stats?.completed || 0}
+                    title="Negative Feedback"
+                    value={negative}
                     color="#10b981"
                     icon={CheckCircle}
                 />
                 <StatCard
-                    title="Satisfaction Index"
-                    value={`${positivePercent}%`}
+                    title="Resolved Issues"
+                    value={resolved}
                     color="#8b5cf6"
                     icon={TrendingUp}
                 />
@@ -142,10 +153,12 @@ const AdminDashboard = () => {
                                 <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No departments configured for this hospital.</p>
                             ) : (
                                 hospital.departments.map((dept) => {
-                                    const count = stats?.deptDistribution?.[dept.name] || 0;
-                                    const percentage = stats?.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+                                    // Case-insensitive lookup for department name in distribution data
+                                    const distItem = deptData.find(d => (d.name || '').toLowerCase() === (dept.name || '').toLowerCase());
+                                    const count = distItem ? distItem.count : 0;
+                                    const percentage = totalEncounters > 0 ? Math.round((count / totalEncounters) * 100) : 0;
                                     return (
-                                        <div key={dept.name} style={{ opacity: count === 0 ? 0.6 : 1 }}>
+                                        <div key={dept.name} style={{ opacity: 1 }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                     {dept?.imageUrl ? (
@@ -198,12 +211,12 @@ const AdminDashboard = () => {
                         <div style={{ width: '100%', display: 'flex', gap: '1rem' }}>
                             <div style={{ flex: 1, textAlign: 'center' }}>
                                 <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px' }}>Positive</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#10b981' }}>{stats?.positiveCount || 0}</p>
+                                <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#10b981' }}>{positive}</p>
                             </div>
                             <div style={{ width: '1px', background: '#e2e8f0' }}></div>
                             <div style={{ flex: 1, textAlign: 'center' }}>
                                 <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px' }}>Negative</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>{stats?.negativeCount || 0}</p>
+                                <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>{negative}</p>
                             </div>
                         </div>
                     </div>

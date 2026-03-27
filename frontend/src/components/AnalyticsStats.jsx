@@ -5,8 +5,14 @@ const AnalyticsStats = ({ feedbacks }) => {
     if (total === 0) return null;
 
     // NPS calculation: %Promoters (Completely) - %Detractors (Not)
-    const promoters = feedbacks.filter(f => f.categories?.[0]?.rating === 'Completely Satisfied').length;
-    const detractors = feedbacks.filter(f => f.categories?.[0]?.rating === 'Not Satisfied').length;
+    const promoters = feedbacks.filter(f => {
+        const cat = f.categories?.[0];
+        return cat?.feedback === 'completely_satisfied' || cat?.rating === 'Completely Satisfied';
+    }).length;
+    const detractors = feedbacks.filter(f => {
+        const cat = f.categories?.[0];
+        return cat?.feedback === 'not_satisfied' || cat?.rating === 'Not Satisfied';
+    }).length;
     const nps = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0;
 
     const pending = feedbacks.filter(f => f.status === 'Pending').length;
@@ -17,7 +23,7 @@ const AnalyticsStats = ({ feedbacks }) => {
     const deptComplaints = {};
     feedbacks.forEach(f => {
         const cat = f.categories?.[0];
-        if (cat?.reviewType === 'Negative' && cat.department) {
+        if ((cat?.reviewType === 'negative' || cat?.reviewType === 'Needs Work') && cat.department) {
             deptComplaints[cat.department] = (deptComplaints[cat.department] || 0) + 1;
         }
     });
@@ -29,10 +35,10 @@ const AnalyticsStats = ({ feedbacks }) => {
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '1.5rem', marginBottom: '2rem'
         }}>
-            <StatCard title="Total Responses" value={total} color="#4f46e5" icon="📑" />
-            <StatCard title="NPS Score" value={nps} subText={`${promoters} Promoters`} color={nps >= 0 ? '#10b981' : '#ef4444'} icon="📈" />
-            <StatCard title="Active Issues" value={pending + inProgress} subText={`${pending} Unassigned`} color="#f59e0b" icon="⏳" />
-            <StatCard title="Focus Area" value={topDept} subText="Most complaints" color="#ef4444" icon="🎯" />
+            <StatCard title="Total Responses" value={total} color="#4f46e5" icon="DOC" />
+            <StatCard title="NPS Score" value={nps} subText={`${promoters} Promoters`} color={nps >= 0 ? '#10b981' : '#ef4444'} icon="NPS" />
+            <StatCard title="Active Issues" value={pending + inProgress} subText={`${pending} Unassigned`} color="#f59e0b" icon="ACT" />
+            <StatCard title="Focus Area" value={topDept} subText="Most complaints" color="#ef4444" icon="FOC" />
         </div>
     );
 };

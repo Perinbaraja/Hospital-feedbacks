@@ -7,13 +7,15 @@ import { Building2, LogOut, Power, Settings, Users, MessageSquare, Plus, Activit
 const SuperAdminDashboard = () => {
     const navigate = useNavigate();
     const [hospitals, setHospitals] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [initialFetchDone, setInitialFetchDone] = useState(false);
 
     useEffect(() => {
         fetchHospitals();
     }, []);
 
     const fetchHospitals = async () => {
+        setLoading(true);
         try {
             const { data } = await API.get('/super-admin/hospitals');
             setHospitals(data);
@@ -21,6 +23,7 @@ const SuperAdminDashboard = () => {
             toast.error('Failed to fetch hospitals');
         } finally {
             setLoading(false);
+            setInitialFetchDone(true);
         }
     };
 

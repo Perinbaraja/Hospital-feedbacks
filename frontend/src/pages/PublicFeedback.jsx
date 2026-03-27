@@ -50,7 +50,6 @@ const PublicFeedback = () => {
     const [patientName, setPatientName] = useState('');
     const [patientEmail, setPatientEmail] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
-    const [comments] = useState('');
 
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -82,7 +81,7 @@ const PublicFeedback = () => {
                             issue: [],
                             customText: '',
                             reviewType: '',
-                            rating: '',
+                            feedback: '',
                             imageFile: null,
                             imageUrl: targetDept.imageUrl
                         }]);
@@ -194,7 +193,7 @@ const PublicFeedback = () => {
                     issue: [],
                     customText: '',
                     reviewType: '',
-                    rating: '',
+                    feedback: '',
                     image: null,
                     imageUrl: dept.imageUrl
                 }];
@@ -219,8 +218,8 @@ const PublicFeedback = () => {
                 // Let's also derive the reviewType ONLY from these checkboxes.
                 let reviewType = '';
                 if (hasPositive && !hasNeedsWork) reviewType = 'Positive';
-                else if (hasNeedsWork && !hasPositive) reviewType = 'Needs Work';
-                else if (hasPositive && hasNeedsWork) reviewType = 'Mixed'; // Will be validation-blocked
+                else if (hasNeedsWork && !hasPositive) reviewType = 'Negative';
+                else if (hasPositive && hasNeedsWork) reviewType = 'Mixed';
 
                 return { ...c, issue: newIssues, reviewType };
             }
@@ -235,12 +234,17 @@ const PublicFeedback = () => {
         }));
     };
 
-    const updateRating = (dept, rating) => {
+    const updateRating = (dept, fbValue) => {
         setSelectedCategories(prev => prev.map(c => {
             if (c.department === dept) {
-                // Satisfaction MUST NOT affect reviewType directly, 
-                // but we reset issues when rating changes as per requirements
-                return { ...c, rating, issue: [], reviewType: '' };
+                // Determine a fallback reviewType if no issues are selected
+                let newReviewType = c.reviewType;
+                if (!c.issue || c.issue.length === 0) {
+                    if (fbValue === 'completely_satisfied') newReviewType = 'Positive';
+                    else if (fbValue === 'partially_satisfied') newReviewType = 'Mixed';
+                    else if (fbValue === 'not_satisfied') newReviewType = 'Negative';
+                }
+                return { ...c, feedback: fbValue, reviewType: newReviewType || 'Mixed' };
             }
             return c;
         }));
@@ -280,17 +284,13 @@ const PublicFeedback = () => {
         e.preventDefault();
         setSubmitting(true);
 
-        if (selectedCategories.some(c => !c.rating)) {
+        if (selectedCategories.some(c => !c.feedback)) {
             toast.error('Please select satisfaction.');
             setSubmitting(false);
             return;
         }
 
-        if (selectedCategories.some(c => c.reviewType === 'Mixed')) {
-            toast.error('Please select only one type of feedback (Positive or Needs Work)');
-            setSubmitting(false);
-            return;
-        }
+        // Validation for Mixed feedback removed to allow both positive and negative in one submission
 
         if (selectedCategories.some(c => c.issue.length === 0 && !c.customText.trim())) {
             toast.error('Please select at least one issue or add comments.');
@@ -302,16 +302,31 @@ const PublicFeedback = () => {
             const payload = {
                 patientName,
                 patientEmail,
-                comments,
                 hospital: hospital._id,
-                categories: selectedCategories.map(c => ({
-                    department: c.department,
-                    issue: c.issue,
-                    customText: c.customText,
-                    reviewType: c.reviewType,
-                    rating: c.rating,
-                    image: c.image // This is now a Base64 string
-                }))
+                categories: selectedCategories.map(c => {
+                    const dbDept = hospital?.departments?.find(d => d.name.toLowerCase() === c.department.toLowerCase());
+                    const deptNameNormalized = c.department.toLowerCase();
+                    const hardcodedIssues = Object.keys(DEPARTMENT_ISSUES).find(k => k.toLowerCase() === deptNameNormalized);
+                    const deptData = (dbDept?.positive_feedback || dbDept?.negative_feedback || dbDept?.positiveIssues?.length > 0 || dbDept?.negativeIssues?.length > 0)
+                        ? { 
+                            positive: (dbDept?.positive_feedback ? dbDept.positive_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.positiveIssues || [])),
+                            negative: (dbDept?.negative_feedback ? dbDept.negative_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.negativeIssues || []))
+                        }
+                        : (DEPARTMENT_ISSUES[hardcodedIssues] || DEFAULT_ISSUES);
+
+                    return {
+                        department: c.department,
+                        issue: c.issue, 
+                        positive_issues: (c.reviewType === 'Positive' && deptData.positive.length === 0) ? c.issue : c.issue.filter(iss => deptData.positive.includes(iss)),
+                        negative_issues: (c.reviewType === 'Negative' && deptData.negative.length === 0) ? c.issue : c.issue.filter(iss => deptData.negative.includes(iss)),
+                        positive_feedback: (c.reviewType === 'Positive' && deptData.positive.length === 0) ? c.issue : c.issue.filter(iss => deptData.positive.includes(iss)),
+                        negative_feedback: (c.reviewType === 'Negative' && deptData.negative.length === 0) ? c.issue : c.issue.filter(iss => deptData.negative.includes(iss)),
+                        note: c.customText, // Send category text as note
+                        reviewType: c.reviewType,
+                        feedback: c.feedback, // Renamed from rating
+                        image: c.image // This is now a Base64 string
+                    };
+                })
             };
 
             const { data } = await API.post('/feedback', payload);
@@ -342,7 +357,7 @@ const PublicFeedback = () => {
                 padding: '1.5rem'
             }}>
                 <div className="feedback-card card shadow-premium animate-pop" style={{ maxWidth: '32rem', textAlign: 'center', borderTop: `6px solid #EF4444` }}>
-                    <div style={{ fontSize: '4rem', color: '#EF4444', marginBottom: '1rem' }}>⚠️</div>
+                    <div style={{ fontSize: '2rem', color: '#EF4444', marginBottom: '1rem', fontWeight: 800 }}>ALERT!</div>
                     <h2 style={{ marginBottom: '1rem', color: '#111827' }}>Notice</h2>
                     <p style={{ color: '#4B5563', fontSize: '1.1rem', marginBottom: '2rem', lineHeight: '1.5' }}>
                         {deactivationMessage}
@@ -363,7 +378,7 @@ const PublicFeedback = () => {
                 display: 'flex', justifyContent: 'center', alignItems: 'center'
             }}>
                 <div className="feedback-card card shadow-premium animate-pop" style={{ maxWidth: '32rem', textAlign: 'center', borderTop: `6px solid ${hospital?.themeColor || 'var(--primary)'}` }}>
-                    <div style={{ fontSize: '4rem', color: hospital?.themeColor || '#10B981', marginBottom: '1rem' }}>✓</div>
+                    <div style={{ fontSize: '4rem', color: hospital?.themeColor || '#10B981', marginBottom: '1rem', fontWeight: 800 }}>OK</div>
                     <h2 style={{ marginBottom: '1rem', color: '#111827' }}>Thank You!</h2>
                     <p style={{ color: '#6B7280', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Your feedback has been received and will help us improve our services.</p>
 
@@ -427,7 +442,7 @@ const PublicFeedback = () => {
                                             backgroundColor: step === currentStep ? 'var(--primary)' : step < currentStep ? '#10B981' : '#E5E7EB',
                                             color: step <= currentStep ? 'white' : '#6B7280'
                                         }}>
-                                            {step < currentStep ? '✓' : step}
+                                            {step < currentStep ? 'OK' : step}
                                         </div>
                                         {step < 3 && <div className="step-line" style={{ backgroundColor: step < currentStep ? '#10B981' : '#E5E7EB' }} />}
                                     </div>
@@ -438,7 +453,7 @@ const PublicFeedback = () => {
 
                     {error && (
                         <div className="fade-in" style={{ textAlign: 'center', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-                            <div style={{ fontSize: '4rem' }}>📡</div>
+                             <div style={{ fontSize: '2rem', fontWeight: 800 }}>OFFLINE</div>
                             <h3 style={{ color: '#ef4444' }}>Service Unavailable</h3>
                             <p style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>{error}</p>
                             <button onClick={() => window.location.reload()} className="btn-outline">Retry Connection</button>
@@ -513,10 +528,15 @@ const PublicFeedback = () => {
                         <div className="fade-in">
                             <form onSubmit={handleSubmit}>
                                 {selectedCategories.map((cat) => {
-                                    const dbDept = hospital?.departments?.find(d => d.name === cat.department);
-                                    const deptData = (dbDept?.positiveIssues?.length > 0 || dbDept?.negativeIssues?.length > 0)
-                                        ? { positive: dbDept.positiveIssues, negative: dbDept.negativeIssues }
-                                        : (DEPARTMENT_ISSUES[cat.department] || DEFAULT_ISSUES);
+                                    const dbDept = hospital?.departments?.find(d => d.name.toLowerCase() === cat.department.toLowerCase());
+                                    const deptNameNormalized = cat.department.toLowerCase();
+                                    const hardcodedIssues = Object.keys(DEPARTMENT_ISSUES).find(k => k.toLowerCase() === deptNameNormalized);
+                                    const deptData = (dbDept?.positive_feedback || dbDept?.negative_feedback || dbDept?.positiveIssues?.length > 0 || dbDept?.negativeIssues?.length > 0)
+                                        ? { 
+                                            positive: (dbDept?.positive_feedback ? dbDept.positive_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.positiveIssues || [])),
+                                            negative: (dbDept?.negative_feedback ? dbDept.negative_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.negativeIssues || []))
+                                        }
+                                        : (DEPARTMENT_ISSUES[hardcodedIssues] || DEFAULT_ISSUES);
 
                                     return (
                                         <div key={cat.department} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E5E7EB', borderRadius: '1.25rem' }}>
@@ -563,10 +583,11 @@ const PublicFeedback = () => {
                                             <div style={{ padding: '1.5rem' }}>
                                                 <div className="form-group">
                                                     <label className="form-label">Satisfaction:</label>
-                                                    <select className="form-control" value={cat.rating} onChange={(e) => updateRating(cat.department, e.target.value)} required>
+                                                    <select className="form-control" value={cat.feedback} onChange={(e) => updateRating(cat.department, e.target.value)} required>
                                                         <option value="" disabled>-- Select --</option>
-                                                        <option value="Completely Satisfied">Completely Satisfied</option>
-                                                        <option value="Not Satisfied">Not Satisfied</option>
+                                                        <option value="completely_satisfied">Completely Satisfied</option>
+                                                        <option value="partially_satisfied">Partially Satisfied</option>
+                                                        <option value="not_satisfied">Not Satisfied</option>
                                                     </select>
                                                 </div>
 
@@ -575,25 +596,21 @@ const PublicFeedback = () => {
                                                         <label className="form-label" style={{ 
                                                             color: '#10B981', 
                                                             display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            opacity: (cat.rating === 'Not Satisfied' || cat.issue.some(iss => deptData.negative.includes(iss))) ? 0.4 : 1 
+                                                            alignItems: 'center'
                                                         }}>
-                                                            😊 Positive
+                                                            Positive
                                                         </label>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                             {deptData.positive.map(iss => {
-                                                                const isDisabled = cat.rating === 'Not Satisfied' || cat.issue.some(i => deptData.negative.includes(i));
                                                                 return (
                                                                     <label key={iss} style={{ 
                                                                         fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                                                                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                                                        opacity: isDisabled ? 0.5 : 1
+                                                                        cursor: 'pointer'
                                                                     }}>
                                                                         <input 
                                                                             type="checkbox" 
                                                                             checked={cat.issue.includes(iss)} 
-                                                                            onChange={() => !isDisabled && toggleIssue(cat.department, iss, true, deptData)} 
-                                                                            disabled={isDisabled}
+                                                                            onChange={() => toggleIssue(cat.department, iss, true, deptData)} 
                                                                         />
                                                                         {iss}
                                                                     </label>
@@ -605,25 +622,21 @@ const PublicFeedback = () => {
                                                         <label className="form-label" style={{ 
                                                             color: '#EF4444', 
                                                             display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            opacity: (cat.rating === 'Completely Satisfied' || cat.issue.some(iss => deptData.positive.includes(iss))) ? 0.4 : 1 
+                                                            alignItems: 'center'
                                                         }}>
-                                                            😟 Needs Work
+                                                            Negative
                                                         </label>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                             {deptData.negative.map(iss => {
-                                                                const isDisabled = cat.rating === 'Completely Satisfied' || cat.issue.some(i => deptData.positive.includes(i));
                                                                 return (
                                                                     <label key={iss} style={{ 
                                                                         fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                                                                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                                                        opacity: isDisabled ? 0.5 : 1
+                                                                        cursor: 'pointer'
                                                                     }}>
                                                                         <input 
                                                                             type="checkbox" 
                                                                             checked={cat.issue.includes(iss)} 
-                                                                            onChange={() => !isDisabled && toggleIssue(cat.department, iss, false, deptData)} 
-                                                                            disabled={isDisabled}
+                                                                            onChange={() => toggleIssue(cat.department, iss, false, deptData)} 
                                                                         />
                                                                         {iss}
                                                                     </label>
@@ -636,15 +649,15 @@ const PublicFeedback = () => {
                                                 <div className="form-group">
                                                     <label className="form-label">Photo (Optional):</label>
                                                     <div className="evidence-grid">
-                                                        <button type="button" onClick={() => startCamera(cat.department)} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', height: '80px', gap: '4px' }}>
-                                                            <span>📸</span> Camera
+                                                        <button type="button" onClick={() => startCamera(cat.department)} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', height: '80px', gap: '4px', justifyContent: 'center', alignItems: 'center', fontSize: '0.9rem', width: '100%' }}>
+                                                             Camera
                                                         </button>
-                                                        <label className="btn-outline" style={{ display: 'flex', flexDirection: 'column', height: '80px', gap: '4px', cursor: 'pointer', justifyContent: 'center', alignItems: 'center' }}>
-                                                            <span>🖼️</span> Gallery
+                                                        <label className="btn-outline" style={{ display: 'flex', flexDirection: 'column', height: '80px', gap: '4px', cursor: 'pointer', justifyContent: 'center', alignItems: 'center', fontSize: '0.9rem', width: '100%', margin: 0 }}>
+                                                             Gallery
                                                             <input type="file" accept="image/*" onChange={(e) => updateImageFile(cat.department, e.target.files[0])} style={{ display: 'none' }} />
                                                         </label>
                                                     </div>
-                                                    {cat.image && <div className="photo-selection-status"><span>✓ Photo Attached</span></div>}
+                                                     {cat.image && <div className="photo-selection-status"><span>Photo Attached</span></div>}
                                                 </div>
 
                                                 <div className="form-group">
@@ -655,6 +668,7 @@ const PublicFeedback = () => {
                                         </div>
                                     );
                                 })}
+
 
                                 <div className="btn-group">
                                     <button type="button" onClick={handlePrevStep} className="btn-outline">← Back</button>
@@ -689,10 +703,10 @@ const PublicFeedback = () => {
                                     padding: '12px 24px',
                                     borderRadius: '50px',
                                     cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '600'
-                                }}
-                            >🔄 Rotate</span>
+                                     fontSize: '0.9rem',
+                                     fontWeight: '600'
+                                 }}
+                             >Rotate</span>
                             <span 
                                 role="button"
                                 className="camera-btn-capture"

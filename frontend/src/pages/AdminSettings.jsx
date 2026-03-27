@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import API, { BASE_ASSET_URL, getAssetUrl, API_BASE_URL } from '../api';
 import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, ImageOff } from 'lucide-react';
+import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, Edit, ImageOff, Upload } from 'lucide-react';
 
 
 const AdminSettings = () => {
@@ -33,8 +33,9 @@ const AdminSettings = () => {
         imageUrl: '',
         description: '',
         imageFile: null,
-        positiveIssues: '',
-        negativeIssues: ''
+        positive: '',
+        negative: '',
+        incharges: [{ name: '', email: '' }]
     });
     const [logoFile, setLogoFile] = useState(null);
     const [bgFile, setBgFile] = useState(null);
@@ -42,12 +43,13 @@ const AdminSettings = () => {
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [qrModified, setQrModified] = useState(false);
+    const [editingDeptId, setEditingDeptId] = useState(null);
 
     const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
             const hUrl = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
             const dUrl = hospitalId ? `/departments?hospitalId=${hospitalId}` : '/departments';
-            
+
             const [hRes, dRes] = await Promise.all([
                 API.get(hUrl),
                 API.get(dUrl)
@@ -58,7 +60,7 @@ const AdminSettings = () => {
                     themeColor: '#0ca678',
                     qrId: '1',
                     ...hRes.data,
-                    departments: dRes.data || hRes.data.departments || []
+                    departments: (dRes.data && dRes.data.length > 0) ? dRes.data : (hRes.data.departments || [])
                 });
             } else {
                 toast.error('Hospital configuration not found');
@@ -134,6 +136,7 @@ const AdminSettings = () => {
 
     const handleAddDept = async () => {
         if (!newDept.name.trim()) return toast.error('Name is required');
+        if (!newDept.imageUrl && !newDept.imageFile) return toast.error('Department Icon (URL or file) is required');
 
         try {
             setSaving(true);
@@ -142,16 +145,44 @@ const AdminSettings = () => {
                 const url = await handleImageUpload(newDept.imageFile);
                 if (url) finalImageUrl = url;
             }
+            // Validation for incharges (Optional but must be valid if entered)
+            const validIncharges = newDept.incharges.filter(inc => inc.name.trim() !== '' || inc.email.trim() !== '');
+            for (const inc of validIncharges) {
+                if (!inc.name.trim()) return toast.error('Incharge name is required if email is provided');
+                if (!inc.email.trim()) return toast.error('Email ID is required if name is provided');
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inc.email.trim())) return toast.error(`Invalid email format for ${inc.name}`);
+            }
 
-            if (!hospital.departments.some(d => d.name === newDept.name)) {
-                const deptPayload = {
-                    name: newDept.name,
-                    imageUrl: finalImageUrl,
-                    description: newDept.description,
-                    positiveIssues: newDept.positiveIssues.split(',').map(i => i.trim()).filter(i => i),
-                    negativeIssues: newDept.negativeIssues.split(',').map(i => i.trim()).filter(i => i)
-                };
-                
+            const deptPayload = {
+                name: newDept.name,
+                imageUrl: finalImageUrl,
+                description: newDept.description,
+                positive_feedback: (newDept.positive || '').trim(),
+                negative_feedback: (newDept.negative || '').trim(),
+                positiveIssues: (newDept.positive || '').split(';').map(s => s.trim()).filter(Boolean),
+                negativeIssues: (newDept.negative || '').split(';').map(s => s.trim()).filter(Boolean),
+                incharges: validIncharges.map(inc => ({ name: inc.name.trim(), email: inc.email.trim() }))
+            };
+
+            if (editingDeptId) {
+                // Update Existing
+                const query = hospitalId ? `?hospitalId=${hospitalId}` : '';
+                const { data } = await API.put(`/departments/${editingDeptId}${query}`, deptPayload);
+
+                setHospital(prev => ({
+                    ...prev,
+                    departments: prev.departments.map(d => d._id === editingDeptId ? data : d)
+                }));
+                toast.success('Department updated successfully.');
+            } else {
+                // Check duplicate for new departments
+                const isDuplicate = hospital.departments.some(d => (d.name || '').toLowerCase() === (newDept.name || '').toLowerCase());
+                if (isDuplicate) {
+                    toast.error('Department already exists with this name');
+                    setSaving(false);
+                    return;
+                }
+
                 const query = hospitalId ? `?hospitalId=${hospitalId}` : '';
                 const { data } = await API.post(`/departments${query}`, deptPayload);
                 
@@ -159,36 +190,65 @@ const AdminSettings = () => {
                     ...prev, 
                     departments: [...prev.departments, data] 
                 }));
-                setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positiveIssues: '', negativeIssues: '' });
                 toast.success('Department added successfully.');
-            } else {
-                toast.error('Department already exists');
             }
+
+            setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positive: '', negative: '', incharges: [{ name: '', email: '' }] });
+            setEditingDeptId(null);
         } catch (error) {
-            console.error(error);
-            toast.error('Failed to add department');
+            console.error('[DEPT-SAVE-ERROR]', error);
+            const operation = editingDeptId ? 'update' : 'add';
+            const msg = error.response?.data?.message || error.message || `Failed to ${operation} department`;
+            toast.error(msg);
         } finally {
             setSaving(false);
         }
     };
 
     const handleRemoveDept = async (id, name) => {
+        if (!id) return toast.error('Error: Could not identify department for deletion');
         if (!window.confirm(`Are you sure you want to remove ${name}?`)) return;
-        
+
         try {
             setSaving(true);
-            await API.delete(`/departments/${id}`);
+            console.log(`[DEPT-UI] Deleting department: ${id} (${name})`);
+
+            const response = await API.delete(`/departments/${id}`);
+            console.log(`[DEPT-UI] API Result:`, response.data);
+
             setHospital(prev => ({
                 ...prev,
                 departments: prev.departments.filter(d => d._id !== id)
             }));
-            toast.success('Department removed successfully.');
+            if (editingDeptId === id) {
+                setEditingDeptId(null);
+                setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positiveIssues: '', negativeIssues: '', incharges: [{ name: '', email: '' }] });
+            }
+            toast.success(`Department "${name}" removed successfully.`);
         } catch (error) {
-            console.error(error);
-            toast.error('Failed to remove department');
+            console.error('[DEPT-UI] Delete Error:', error);
+            const msg = error.response?.data?.message || 'Failed to remove department. Check server logs.';
+            toast.error(msg);
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleEditDept = (dept) => {
+        setEditingDeptId(dept._id);
+        // Ensure we load from either the string field or reconstruct from array
+        setNewDept({
+            name: dept.name,
+            imageUrl: dept.imageUrl || '',
+            description: dept.description || '',
+            imageFile: null,
+            positive: dept.positive_feedback || (dept.positiveIssues || []).join('; '),
+            negative: dept.negative_feedback || (dept.negativeIssues || []).join('; '),
+            incharges: dept.incharges && dept.incharges.length > 0 ? dept.incharges.map(inc => ({ name: inc.name, email: inc.email })) : [{ name: '', email: '' }]
+        });
+        // Scroll to add/edit section
+        const section = document.getElementById('dept-form-section');
+        if (section) section.scrollIntoView({ behavior: 'smooth' });
     };
 
     const handleUpdateProfile = async (e) => {
@@ -464,12 +524,11 @@ const AdminSettings = () => {
                         </form>
                     </div>
 
-                    {/* Add Department Section */}
-                    <div className="card">
+                    <div className="card" id="dept-form-section">
                         <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Plus size={20} color="var(--primary)" /> Add Service Department
+                            <Plus size={20} color="var(--primary)" /> {editingDeptId ? `Editing: ${newDept.name}` : 'Add Service Department'}
                         </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 100px', gap: '1.5rem', alignItems: 'start' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', alignItems: 'start' }}>
                             <div style={{ display: 'grid', gap: '1rem' }}>
                                 <input
                                     type="text"
@@ -478,9 +537,75 @@ const AdminSettings = () => {
                                     value={newDept.name}
                                     onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
                                 />
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <input type="file" className="form-control" accept="image/*" onChange={(e) => setNewDept({ ...newDept, imageFile: e.target.files[0] })} />
-                                    <input type="text" className="form-control" placeholder="Icon URL" value={newDept.imageUrl} onChange={(e) => setNewDept({ ...newDept, imageUrl: e.target.value })} />
+                                <div>
+                                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem', display: 'block' }}>Department Icon</label>
+                                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ position: 'relative' }}>
+                                                <Upload size={18} color="var(--primary)" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '12px', pointerEvents: 'none', opacity: 0.7 }} />
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    placeholder="Enter image URL or click to upload"
+                                                    value={newDept.imageFile ? newDept.imageFile.name : newDept.imageUrl}
+                                                    onChange={(e) => {
+                                                        if (newDept.imageFile) {
+                                                            setNewDept({ ...newDept, imageUrl: e.target.value, imageFile: null });
+                                                        } else {
+                                                            setNewDept({ ...newDept, imageUrl: e.target.value });
+                                                        }
+                                                    }}
+                                                    onClick={() => document.getElementById('dept-icon-upload')?.click()}
+                                                    style={{ cursor: 'pointer', paddingLeft: '40px' }}
+                                                />
+                                            </div>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: '0.75rem' }}>
+                                                You can either paste an image URL or upload a file
+                                            </p>
+                                            <input
+                                                id="dept-icon-upload"
+                                                type="file"
+                                                className="form-control"
+                                                accept="image/*"
+                                                onChange={(e) => setNewDept({ ...newDept, imageFile: e.target.files[0] })}
+                                            />
+                                        </div>
+                                        {(newDept.imageFile || newDept.imageUrl) ? (
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{
+                                                    width: '100px', height: '100px',
+                                                    border: '2px solid var(--border)', borderRadius: '1rem',
+                                                    overflow: 'hidden', background: '#f8fafc',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem'
+                                                }}>
+                                                    <img
+                                                        src={newDept.imageFile ? URL.createObjectURL(newDept.imageFile) : getAssetUrl(newDept.imageUrl)}
+                                                        alt="Preview"
+                                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewDept({ ...newDept, imageUrl: '', imageFile: null })}
+                                                    style={{
+                                                        position: 'absolute', top: '-10px', right: '-10px',
+                                                        background: '#ef4444', color: 'white',
+                                                        border: 'none', borderRadius: '50%',
+                                                        width: '24px', height: '24px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                                    }}
+                                                    title="Remove Icon"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ width: '100px', height: '100px', border: '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>PREVIEW</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <textarea
                                     className="form-control"
@@ -488,18 +613,90 @@ const AdminSettings = () => {
                                     value={newDept.description}
                                     onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
                                 />
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <textarea className="form-control" placeholder="What went well? (Internal Note)" value={newDept.positiveIssues} onChange={(e) => setNewDept({ ...newDept, positiveIssues: e.target.value })} />
-                                    <textarea className="form-control" placeholder="Need Improvements? (Internal Note)" value={newDept.negativeIssues} onChange={(e) => setNewDept({ ...newDept, negativeIssues: e.target.value })} />
+                                <textarea
+                                    className="form-control"
+                                    placeholder="What went well? (Positive Feedback)"
+                                    value={newDept.positive}
+                                    style={{ height: '80px' }}
+                                    onChange={(e) => setNewDept({ ...newDept, positive: e.target.value })}
+                                />
+                                <textarea
+                                    className="form-control"
+                                    placeholder="Negative Feedback / Improvements"
+                                    value={newDept.negative}
+                                    style={{ height: '80px' }}
+                                    onChange={(e) => setNewDept({ ...newDept, negative: e.target.value })}
+                                />
+                                <div style={{ border: '1px solid #e2e8f0', borderRadius: '1rem', padding: '1.25rem', background: '#f8fafc' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Department Incharge Details (Optional)</h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => setNewDept({ ...newDept, incharges: [...newDept.incharges, { name: '', email: '' }] })}
+                                            className="btn-outline"
+                                            style={{ padding: '4px 12px', fontSize: '0.75rem', borderRadius: '2rem' }}
+                                        >
+                                            + Add Person
+                                        </button>
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                        {newDept.incharges.map((inc, index) => (
+                                            <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: '0.75rem', alignItems: 'center' }}>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    style={{ fontSize: '0.85rem', padding: '8px 12px' }}
+                                                    placeholder="Incharge Name"
+                                                    value={inc.name}
+                                                    onChange={(e) => {
+                                                        const updated = [...newDept.incharges];
+                                                        updated[index].name = e.target.value;
+                                                        setNewDept({ ...newDept, incharges: updated });
+                                                    }}
+                                                />
+                                                <input
+                                                    type="email"
+                                                    className="form-control"
+                                                    style={{ fontSize: '0.85rem', padding: '8px 12px' }}
+                                                    placeholder="Email ID"
+                                                    value={inc.email}
+                                                    onChange={(e) => {
+                                                        const updated = [...newDept.incharges];
+                                                        updated[index].email = e.target.value;
+                                                        setNewDept({ ...newDept, incharges: updated });
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updated = newDept.incharges.filter((_, i) => i !== index);
+                                                        setNewDept({ ...newDept, incharges: updated.length > 0 ? updated : [{ name: '', email: '' }] });
+                                                    }}
+                                                    style={{
+                                                        background: 'none', border: 'none', color: '#ef4444',
+                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <button type="button" onClick={handleAddDept} className="btn-primary" style={{ background: '#1e293b' }} disabled={saving}>
-                                    + Add Department to Workflow
+                                <button type="button" onClick={handleAddDept} className="btn-primary" style={{ background: editingDeptId ? 'var(--primary)' : '#1e293b' }} disabled={saving}>
+                                    {editingDeptId ? 'Save Department Changes' : '+ Add Department to Workflow'}
                                 </button>
-                            </div>
-                            <div style={{ width: '100px', height: '100px', border: '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                {(newDept.imageFile || newDept.imageUrl) ? (
-                                    <img src={newDept.imageFile ? URL.createObjectURL(newDept.imageFile) : getAssetUrl(newDept.imageUrl)} alt="Preview" style={{ maxWidth: '90%', maxHeight: '90%' }} />
-                                ) : <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>PREVIEW</span>}
+                                {editingDeptId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingDeptId(null);
+                                            setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positive: '', negative: '', incharges: [{ name: '', email: '' }] });
+                                        }}
+                                        className="btn-outline"
+                                        style={{ marginTop: '-0.5rem', width: '100%', borderColor: '#64748b', color: '#64748b' }}
+                                    >Cancel & Reset Form</button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -509,21 +706,98 @@ const AdminSettings = () => {
                         <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>Active Departments</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
                             {hospital?.departments?.map(dept => (
-                                <div key={dept.name} className="card" style={{ padding: 0, position: 'relative', overflow: 'hidden', background: '#f8fafc', border: '1px solid var(--border)' }}>
-                                    {dept.imageUrl && (
-                                        <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', borderBottom: '1px solid var(--border)' }}>
+                                <div key={dept._id || dept.name} className="card" style={{ padding: 0, position: 'relative', overflow: 'hidden', background: '#f8fafc', border: editingDeptId === dept._id ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '1rem' }}>
+                                    <div style={{
+                                        position: 'relative',
+                                        background: '#f8fafc',
+                                        height: '100px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderBottom: '1px solid var(--border)',
+                                        border: editingDeptId === dept._id ? '2px solid var(--primary)' : '1px solid transparent',
+                                        borderRadius: '1rem 1rem 0 0'
+                                    }}>
+                                        {editingDeptId === dept._id && (
+                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 8px', borderRadius: '0.75rem 0 0.75rem 0', fontWeight: 800, zIndex: 5 }}>
+                                                EDITING
+                                            </div>
+                                        )}
+                                        {dept.imageUrl ? (
                                             <img src={getAssetUrl(dept.imageUrl)} alt="" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
-                                        </div>
-                                    )}
-                                    <div style={{ padding: '1rem' }}>
-                                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{dept.name}</div>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>{dept.description}</p>
+                                        ) : (
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>No icon</div>
+                                        )}
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveDept(dept._id, dept.name)}
-                                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'white', border: '1px solid #fee2e2', borderRadius: '50%', color: '#ef4444', height: '28px', width: '28px', cursor: 'pointer' }}
-                                    >✕</button>
+                                    <div style={{ padding: '1rem', border: editingDeptId === dept._id ? '2px solid var(--primary)' : 'none', borderTop: 'none', borderRadius: '0 0 1rem 1rem' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: editingDeptId === dept._id ? 'var(--primary)' : 'inherit' }}>{dept.name}</div>
+                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', height: '2.5rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{dept.description}</p>
+                                    </div>
+
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '0',
+                                        right: '0',
+                                        bottom: '0',
+                                        left: '0',
+                                        background: 'rgba(255,255,255,0.7)',
+                                        display: (editingDeptId && editingDeptId !== dept._id) ? 'flex' : 'none',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '1rem',
+                                        zIndex: 10
+                                    }}>
+                                        <div style={{ background: '#1e293b', color: 'white', padding: '4px 12px', borderRadius: '2rem', fontSize: '0.65rem', fontWeight: 600 }}>Save current edit first</div>
+                                    </div>
+
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: '10px',
+                                        right: '10px',
+                                        display: editingDeptId === dept._id ? 'none' : 'flex',
+                                        gap: '6px'
+                                    }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleEditDept(dept)}
+                                            style={{
+                                                background: 'white',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '6px',
+                                                color: 'var(--primary)',
+                                                padding: '4px 8px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 600,
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                        >
+                                            <Edit size={12} /> Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveDept(dept._id, dept.name)}
+                                            style={{
+                                                background: 'white',
+                                                border: '1px solid #fee2e2',
+                                                borderRadius: '6px',
+                                                color: '#ef4444',
+                                                padding: '4px 8px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 600,
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                        >
+                                            <Trash2 size={12} /> Delete
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -610,17 +884,17 @@ const AdminSettings = () => {
                             </div>
                             <div className="form-group">
                                 <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e' }}>Phone Number</label>
-                                <input 
-                                    type="text" 
-                                    className="form-control" 
-                                    style={{ background: 'white' }} 
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    style={{ background: 'white' }}
                                     maxLength={10}
                                     placeholder="10 digit number"
-                                    value={adminProfile.phone} 
+                                    value={adminProfile.phone}
                                     onChange={e => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                                         setAdminProfile({ ...adminProfile, phone: val });
-                                    }} 
+                                    }}
                                 />
                             </div>
                             <div className="form-group">

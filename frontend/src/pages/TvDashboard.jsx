@@ -139,7 +139,7 @@ const TvDashboard = () => {
             case 'department': return cat.department || '—';
             case 'feedbackType': return (
                 <span className={`type-tag ${isPositive ? 'tag-pos' : 'tag-neg'}`}>
-                    {isPositive ? '✨ Positive' : '⚠️ Negative'}
+                    {isPositive ? 'POSITIVE' : 'NEGATIVE'}
                 </span>
             );
             case 'comment': return (
@@ -150,7 +150,24 @@ const TvDashboard = () => {
                         </div>
                     )}
                     <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600 }}>{fb.comments ? `"${fb.comments}"` : cat.issue?.join(', ') || 'Feedback Received'}</div>
+                        <div style={{ fontWeight: 600 }}>
+                            {(() => {
+                                const isPos = cat.reviewType === 'Positive';
+                                const tags = [
+                                    ...(isPos ? [
+                                        ...(Array.isArray(cat.positive_feedback) ? cat.positive_feedback : []),
+                                        ...(Array.isArray(cat.positive_issues) ? cat.positive_issues : []),
+                                        ...(Array.isArray(cat.issue) ? cat.issue : [])
+                                    ] : [
+                                        ...(Array.isArray(cat.negative_feedback) ? cat.negative_feedback : []),
+                                        ...(Array.isArray(cat.negative_issues) ? cat.negative_issues : []),
+                                        ...(Array.isArray(cat.issue) ? cat.issue : [])
+                                    ])
+                                ];
+                                const uniqueTags = [...new Set(tags)].filter(t => t && String(t).trim() !== '');
+                                return uniqueTags.length > 0 ? uniqueTags.join(', ') : (fb.comments ? `"${fb.comments}"` : 'Feedback Received');
+                            })()}
+                        </div>
                         {cat.customText && <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>{cat.customText}</div>}
                     </div>
                 </div>
@@ -201,7 +218,7 @@ const TvDashboard = () => {
                 <div className="tv-rows-container">
                     {!hospitalId ? (
                          <div className="tv-empty">
-                            <div className="tv-empty-icon">⚠️</div>
+                            <div className="tv-empty-icon">ALERT</div>
                             <div className="tv-empty-text">No Hospital ID Provided</div>
                             <p style={{ color: '#94a3b8', fontSize: '1.25rem' }}>Please access this dashboard via the link provided in the Admin Panel.</p>
                         </div>
@@ -221,7 +238,7 @@ const TvDashboard = () => {
                                 </div>
                             ) : (
                                 <div className="tv-empty">
-                                    <div className="tv-empty-icon">✓</div>
+                                    <div className="tv-empty-icon">OK</div>
                                     <div className="tv-empty-text">Everything looks great! No issues reported.</div>
                                 </div>
                             )}

@@ -15,11 +15,49 @@ const Department = _Department?.default || _Department;
 const router = express.Router();
 
 
+// @desc    Dashboard Metrics
+// @route   GET /api/feedback/admin-dashboard
+router.get('/admin-dashboard', protect, admin, async (req, res) => {
+    try {
+        const query = {};
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (normalizedAuthRole !== 'superadmin') {
+            query.hospitalId = req.user.hospitalId;
+        }
+
+        console.log(`[Dashboard Debug] User: ${req.user.email}, Role: ${normalizedAuthRole}, HospitalId: ${query.hospitalId}`);
+
+        const totalEncounters = await Feedback.countDocuments(query);
+        const positiveCount = await Feedback.countDocuments({ 
+            ...query,
+            "categories.reviewType": { $in: ["Positive", "positive", "completely_satisfied", "completely satisfied"] } 
+        });
+        const negativeCount = await Feedback.countDocuments({ 
+            ...query,
+            "categories.reviewType": { $in: ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied"] } 
+        });
+        const resolvedIssues = await Feedback.countDocuments({ ...query, status: "COMPLETED" });
+
+        console.log(`[Dashboard Results] Total: ${totalEncounters}, Pos: ${positiveCount}, Neg: ${negativeCount}, Resolved: ${resolvedIssues}`);
+
+        res.json({
+            totalEncounters,
+            positiveCount,
+            negativeCount,
+            resolvedIssues,
+            debugHospitalId: query.hospitalId,
+            debugRole: normalizedAuthRole
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching dashboard data' });
+    }
+});
+
 // @desc    Submit new feedback
 // @route   POST /api/feedback
 router.post('/', validateFeedbackInput, async (req, res) => {
     try {
-        const { patientName, patientEmail, categories, comments, hospital } = req.body;
+        const { patientName, patientEmail, categories, hospital } = req.body;
 
         // Verify hospital is active before accepting feedback
         const targetHospital = await Hospital.findById(hospital);
@@ -32,7 +70,9 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 
         for (let i = 0; i < categories.length; i++) {
             const cat = categories[i];
-            const issueList = Array.isArray(cat.issue) ? cat.issue : [];
+            const issueList = Array.isArray(cat.issue) 
+                ? cat.issue 
+                : (typeof cat.issue === 'string' ? cat.issue.split(';').map(s => s.trim()).filter(s => s) : []);
             const fId = await generateFeedbackId();
 
             // Backend re-validation of reviewType based on issues
@@ -45,25 +85,37 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 
             let finalReviewType = cat.reviewType;
             if (hasPositive && hasNegative) {
-                return res.status(400).json({ message: 'Feedback cannot contain both Positive and Needs Work selections.' });
+                finalReviewType = 'Mixed';
+            } else if (hasPositive) {
+                finalReviewType = 'Positive';
+            } else if (hasNegative) {
+                finalReviewType = 'Negative';
+            } else if (!finalReviewType) {
+                finalReviewType = 'Negative'; 
             }
 
-            if (hasPositive) finalReviewType = 'Positive';
-            else if (hasNegative) finalReviewType = 'Needs Work';
-            else if (!finalReviewType) finalReviewType = 'Needs Work'; // Default if none selected but custom text exists
+            const isPosEntry = ["Positive", "positive", "completely_satisfied", "completely satisfied"].includes(finalReviewType);
+            const isNegEntry = ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied"].includes(finalReviewType);
 
             const feedback = await Feedback.create({
                 feedbackId: fId,
                 patientName,
                 patientEmail,
                 hospital,
-                comments,
+                hospitalId: hospital.toString(),
+                positive: isPosEntry ? new Date() : null,
+                negative: isNegEntry ? new Date() : null,
+                comments: req.body.comments || (cat && cat.note) || "",
                 categories: [{
                     department: cat.department,
                     issue: issueList,
-                    customText: cat.customText,
+                    positive_issues: cat.positive_issues || [],
+                    negative_issues: cat.negative_issues || [],
+                    positive_feedback: cat.positive_feedback || cat.positive_issues || [],
+                    negative_feedback: cat.negative_feedback || cat.negative_issues || [],
+                    note: cat.note,
                     reviewType: finalReviewType,
-                    rating: cat.rating,
+                    feedback: cat.feedback,
                     image: cat.image
                 }],
                 status: 'IN PROGRESS',
@@ -73,8 +125,21 @@ router.post('/', validateFeedbackInput, async (req, res) => {
         }
 
         if (patientEmail) {
-            sendThankYouEmail(patientEmail, patientName, req);
+            try {
+                await sendThankYouEmail(patientEmail, patientName, req);
+            } catch (emailError) {
+                console.error('Email send failed but feedback was saved:', emailError);
+            }
         }
+
+        // 3. Post-submission Cleanup (Retain only latest 2 globally)
+        const latestDocs = await Feedback.find({})
+            .sort({ _id: -1 })
+            .limit(2);
+        const latestIds = latestDocs.map(f => f._id);
+        await Feedback.deleteMany({
+            _id: { $nin: latestIds }
+        });
 
         res.status(201).json(createdFeedbacks);
     } catch (error) {
@@ -89,14 +154,13 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 router.get('/', protect, admin, async (req, res) => {
     try {
         const query = {};
-        const userRole = req.user.role?.toLowerCase();
-        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
-        const isSuperAdmin = ['super_admin'].includes(userRole);
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
-        if (isAdmin) {
-            query.hospital = req.user.hospital;
-        } else if (isSuperAdmin && req.query.hospitalId) {
-            query.hospital = req.query.hospitalId;
+        if (!isSuperAdmin) {
+            query.hospitalId = req.user.hospitalId;
+        } else if (req.query.hospitalId) {
+            query.hospitalId = req.query.hospitalId;
         }
 
         // Apply additional filters from query parameters
@@ -130,6 +194,13 @@ router.get('/', protect, admin, async (req, res) => {
             }
         }
 
+        // Ensure we retrieve records that have either markers OR comments
+        query.$or = [
+            { positive: { $ne: null } },
+            { negative: { $ne: null } },
+            { comments: { $ne: "" } }
+        ];
+
         const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
         res.json(feedbacks);
     } catch (error) {
@@ -143,47 +214,69 @@ router.get('/', protect, admin, async (req, res) => {
 router.get('/stats', protect, admin, async (req, res) => {
     try {
         const filter = {};
-        const userRole = req.user.role?.toLowerCase();
-        const isAdmin = ['admin', 'hospital_admin'].includes(userRole);
-        const isSuperAdmin = ['super_admin'].includes(userRole);
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
-        if (isAdmin) {
-            filter.hospital = req.user.hospital;
+        if (!isSuperAdmin) {
+            filter.hospitalId = req.user.hospitalId;
         } else if (isSuperAdmin && req.query.hospitalId) {
-            filter.hospital = req.query.hospitalId;
+            filter.hospitalId = req.query.hospitalId;
         }
 
-        const total = await Feedback.countDocuments(filter);
-        const pending = await Feedback.countDocuments({ ...filter, status: 'Pending' });
-        const inProgress = await Feedback.countDocuments({ ...filter, status: 'IN PROGRESS' });
-        const completed = await Feedback.countDocuments({ ...filter, status: 'COMPLETED' });
-
-        // Calculate Average Rating / Positive Ratio
-        const allFeedbacks = await Feedback.find(filter).select('categories');
-        let positiveCount = 0;
-        let negativeCount = 0;
-        const deptDistribution = {};
-
-        allFeedbacks.forEach(fb => {
-            const cat = fb.categories?.[0] || {};
-            if (cat.reviewType === 'Positive') positiveCount++;
-            else if (cat.reviewType === 'Needs Work') negativeCount++;
-
-            if (cat.department) {
-                deptDistribution[cat.department] = (deptDistribution[cat.department] || 0) + 1;
+        const query = { ...filter };
+        
+        const stats = await Feedback.aggregate([
+            { $match: query },
+            {
+                $facet: {
+                    counts: [
+                        { $group: {
+                            _id: null,
+                            total: { $sum: 1 },
+                            pending: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] } },
+                            inProgress: { $sum: { $cond: [{ $eq: ["$status", "IN PROGRESS"] }, 1, 0] } },
+                            completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } }
+                        }}
+                    ],
+                    distribution: [
+                        { $unwind: "$categories" },
+                        { $group: {
+                            _id: "$categories.department",
+                            count: { $sum: 1 },
+                            positiveCount: { $sum: { $cond: [{ $eq: ["$categories.reviewType", "Positive"] }, 1, 0] } },
+                            negativeCount: { $sum: { $cond: [{ $in: ["$categories.reviewType", ["Negative", "negative", "Needs Work", "needs_work"]] }, 1, 0] } }
+                        }}
+                    ]
+                }
             }
-        });
+        ]);
+
+        const baseStats = stats[0]?.counts[0] || { total: 0, pending: 0, inProgress: 0, completed: 0 };
+        const deptDistribution = {};
+        let totalPositive = 0;
+        let totalNegative = 0;
+
+        if (stats[0]?.distribution) {
+            stats[0].distribution.forEach(d => {
+                if (d._id) {
+                    deptDistribution[d._id] = d.count;
+                }
+                totalPositive += d.positiveCount;
+                totalNegative += d.negativeCount;
+            });
+        }
 
         res.json({
-            total,
-            pending,
-            inProgress,
-            completed,
-            positiveCount,
-            negativeCount,
+            total: baseStats.total,
+            pending: baseStats.pending,
+            inProgress: baseStats.inProgress,
+            completed: baseStats.completed,
+            positiveCount: totalPositive,
+            negativeCount: totalNegative,
             deptDistribution
         });
     } catch (error) {
+        console.error('Stats error:', error);
         res.status(500).json({ message: 'Error fetching stats' });
     }
 });
@@ -207,8 +300,10 @@ router.get('/department/:dept', protect, async (req, res) => {
         const filter = {
             assignedTo: { $regex: new RegExp(deptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
         };
-        if (req.user.hospital) {
-            filter.hospital = req.user.hospital;
+        
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (normalizedAuthRole !== 'superadmin') {
+            filter.hospitalId = req.user.hospitalId;
         }
 
         const feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
@@ -270,7 +365,7 @@ router.get('/tv/:hospitalId', async (req, res) => {
         if (tvFilters) {
             if (tvFilters.type && tvFilters.type !== 'All Types') {
                 // Compatibility for old "Negative" type if requested
-                const typeToQuery = tvFilters.type === 'Negative' ? 'Needs Work' : tvFilters.type;
+                const typeToQuery = tvFilters.type === 'Negative' ? 'negative' : tvFilters.type;
                 query['categories.reviewType'] = typeToQuery;
             }
             
@@ -302,23 +397,17 @@ router.put('/:id', protect, async (req, res) => {
             return res.status(404).json({ message: 'Feedback not found' });
         }
 
-        // Correct hospital check: compare IDs
-        const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
-        const feedbackHospId = feedback.hospital?.toString();
-
-        const userRole = req.user.role?.toLowerCase();
-
         // Hospital Access Check: Ensure staff only access their own hospital's data
-        if (userRole !== 'super_admin' && feedbackHospId !== userHospId) {
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (normalizedAuthRole !== 'superadmin' && feedback.hospitalId !== req.user.hospitalId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
-        
+        const userRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin', 'superadmin'].includes(userRole);
         const myDept = req.user.department?.trim().toLowerCase();
         const assignedDept = feedback.assignedTo?.trim().toLowerCase();
-        
-        const isAssignedDeptHead = userRole === 'dept_head' && assignedDept === myDept;
+        const isAssignedDeptHead = userRole === 'depthead' && assignedDept === myDept;
 
         if (!isAdmin && !isAssignedDeptHead) {
             return res.status(403).json({ message: 'Not authorized to update this feedback' });
@@ -390,18 +479,16 @@ router.post('/:id/notes', protect, async (req, res) => {
         const feedback = await Feedback.findById(req.params.id);
         if (!feedback) return res.status(404).json({ message: 'Feedback not found' });
 
-        const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
-        const feedbackHospId = feedback.hospital?.toString();
-
-        const userRole = req.user.role?.toLowerCase();
-        if (['admin', 'hospital_admin', 'dept_head'].includes(userRole) && feedbackHospId !== userHospId) {
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (normalizedAuthRole !== 'superadmin' && feedback.hospitalId !== req.user.hospitalId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
-        const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
+        const userRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isAdmin = ['admin', 'hospitaladmin', 'superadmin'].includes(userRole);
         const myDept = req.user.department?.trim().toLowerCase();
         const assignedDept = feedback.assignedTo?.trim().toLowerCase();
-        const isAssignedDeptHead = userRole === 'dept_head' && assignedDept === myDept;
+        const isAssignedDeptHead = userRole === 'depthead' && assignedDept === myDept;
 
         if (!isAdmin && !isAssignedDeptHead) {
             return res.status(403).json({ message: 'Not authorized to add notes to this feedback' });
@@ -437,10 +524,8 @@ router.delete('/:id', protect, admin, async (req, res) => {
         const userRole = req.user.role?.toLowerCase();
         const isAdmin = ['admin', 'hospital_admin', 'super_admin'].includes(userRole);
 
-        const userHospId = req.user.hospital?._id?.toString() || req.user.hospital?.toString();
-        const feedbackHospId = feedback.hospital?.toString();
-
-        if (userRole !== 'super_admin' && feedbackHospId !== userHospId) {
+        const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (normalizedAuthRole !== 'superadmin' && feedback.hospitalId !== req.user.hospitalId) {
             return res.status(403).json({ message: 'Not authorized for this hospital\'s feedback' });
         }
 
@@ -449,9 +534,10 @@ router.delete('/:id', protect, admin, async (req, res) => {
         }
 
         await feedback.deleteOne();
-        res.json({ message: 'Feedback removed' });
+        res.json({ message: "Deleted successfully" });
     } catch (error) {
-        res.status(500).json({ message: 'Error removing feedback' });
+        console.error('Delete error:', error);
+        res.status(500).json({ message: "Delete failed", error });
     }
 });
 

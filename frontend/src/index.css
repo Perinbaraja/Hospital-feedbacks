@@ -317,6 +317,13 @@ body {
   border: 1px solid #a7f3d0;
 }
 
+.badge-negative {
+  background-color: #ffe5e5;
+  color: #d32f2f;
+  font-weight: 600;
+  border: 1px solid #ffcccc;
+}
+
 /* Form elements */
 .form-control {
   width: 100%;

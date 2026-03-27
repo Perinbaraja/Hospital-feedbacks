@@ -16,8 +16,16 @@ const hospitalSchema = mongoose.Schema(
                 name: { type: String, required: true },
                 imageUrl: { type: String, default: '' },
                 description: { type: String, default: '' },
+                positive_feedback: { type: String, default: '' },
+                negative_feedback: { type: String, default: '' },
                 positiveIssues: [{ type: String }],
                 negativeIssues: [{ type: String }],
+                incharges: [
+                    {
+                        name: { type: String },
+                        email: { type: String }
+                    }
+                ]
             }
         ],
         themeColor: {
@@ -77,11 +85,20 @@ const hospitalSchema = mongoose.Schema(
                 default: ['sno', 'department', 'feedbackType', 'comment', 'date', 'time', 'status'] 
             }
         },
+        hospitalId: {
+            type: String
+        }
     },
     {
         timestamps: true,
     }
 );
+
+hospitalSchema.pre('save', async function() {
+    if (!this.hospitalId && this._id) {
+        this.hospitalId = this._id.toString();
+    }
+});
 
 // Add a default set if none provided (can be changed via seed or admin)
 hospitalSchema.path('departments').default(() => [

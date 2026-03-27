@@ -37,6 +37,8 @@ export const protect = async (req, res, next) => {
             }
 
             req.user = user;
+            // Ensure hospitalId is always available as a string on req.user for isolated queries
+            req.user.hospitalId = user.hospitalId || (user.hospital?._id || user.hospital || '').toString();
             return next();
         } catch (error) {
             console.error('Token verification failed:', error.message);
@@ -62,6 +64,7 @@ export const optionalProtect = async (req, res, next) => {
                     const isSuper = normalizedRole === 'superadmin';
                     if (isSuper || (user.hospital && user.hospital.isActive)) {
                         req.user = user;
+                        req.user.hospitalId = user.hospitalId || (user.hospital?._id || user.hospital || '').toString();
                     }
                 }
             }
@@ -153,6 +156,7 @@ console.log(`password: ${password}`);
                 email: user.email,
                 role: user.role,
                 hospital: user.hospital,
+                hospitalId: user.hospitalId || (user.hospital?._id || user.hospital || '').toString(),
                 department: user.department,
                 token: generateToken(user._id),
             });
@@ -192,7 +196,8 @@ router.post('/', protect, admin, validateUserInput, async (req, res) => {
             password: password,
             role: role || 'Dept_Head',
             department: department?.trim(),
-            hospital: targetHospital
+            hospital: targetHospital,
+            hospitalId: targetHospital?.toString() || 'GLOBAL'
         });
 
         if (user) {
@@ -218,13 +223,12 @@ router.get('/', protect, async (req, res) => {
     try {
         const filter = {};
         const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
-        const isAdmin = ['admin', 'hospitaladmin'].includes(normalizedAuthRole);
         const isSuperAdmin = normalizedAuthRole === 'superadmin';
 
-        if (isAdmin) {
-            filter.hospital = req.user.hospital;
-        } else if (isSuperAdmin && req.query.hospitalId) {
-            filter.hospital = req.query.hospitalId;
+        if (!isSuperAdmin) {
+            filter.hospitalId = req.user.hospitalId;
+        } else if (req.query.hospitalId) {
+            filter.hospitalId = req.query.hospitalId;
         }
 
         const users = await User.find(filter).select('-password');

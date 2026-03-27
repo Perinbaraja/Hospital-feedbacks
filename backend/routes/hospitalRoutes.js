@@ -23,9 +23,9 @@ router.get('/', optionalProtect, async (req, res) => {
                 // If not an ObjectId, assume it's a uniqueId slug
                 hospital = await Hospital.findOne({ uniqueId: hospitalId });
             }
-        } else if (req.user && req.user.hospital) {
+        } else if (req.user && req.user.hospitalId) {
             // Priority: Authenticated Admin's assigned hospital
-            hospital = await Hospital.findById(req.user.hospital);
+            hospital = await Hospital.findById(req.user.hospitalId);
         } else {
             return res.status(400).json({ message: 'Hospital ID or QR ID required' });
         }
@@ -51,22 +51,6 @@ router.get('/', optionalProtect, async (req, res) => {
             });
         }
 
-        // Auto-migrate departments if they don't exist in the Department collection
-        const deptCount = mongoose.Types.ObjectId.isValid(hospital._id) 
-            ? await Department.countDocuments({ hospital: hospital._id })
-            : 0;
-        if (deptCount === 0 && hospital.departments && hospital.departments.length > 0) {
-            const deptsToCreate = hospital.departments.map(d => ({
-                name: d.name,
-                hospital: hospital._id,
-                imageUrl: d.imageUrl,
-                description: d.description,
-                positiveIssues: d.positiveIssues,
-                negativeIssues: d.negativeIssues
-            }));
-            await Department.insertMany(deptsToCreate);
-        }
-
         res.json(hospital);
     } catch (error) {
         console.error('Error fetching hospital settings:', error.message);
@@ -86,7 +70,7 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             hospital = await Hospital.findById(hospitalId);
         } else {
             // Normal Admin: Update their own hospital!
-            hospital = await Hospital.findById(req.user.hospital);
+            hospital = await Hospital.findById(req.user.hospitalId);
         }
 
         if (hospital) {
@@ -110,26 +94,6 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             if (phone !== undefined) hospital.phone = phone;
 
             const updatedHospital = await hospital.save();
-
-            // Sync nested departments to the Department collection (Important for TV Dashboard consistency)
-            if (departments !== undefined && Array.isArray(departments)) {
-                // Clear existing records for this hospital in the Department collection
-                await Department.deleteMany({ hospital: hospital._id });
-
-                // Bulk insert the new set from the nested array
-                if (departments.length > 0) {
-                    const deptDocs = departments.map(d => ({
-                        hospital: hospital._id,
-                        name: d.name,
-                        imageUrl: d.imageUrl || '',
-                        description: d.description || '',
-                        positiveIssues: d.positiveIssues || [],
-                        negativeIssues: d.negativeIssues || []
-                    }));
-                    await Department.insertMany(deptDocs);
-                }
-            }
-            
             res.json(updatedHospital);
         } else {
             res.status(404).json({ message: 'Hospital not found' });
@@ -153,7 +117,7 @@ router.put('/tv-filters', protect, admin, async (req, res) => {
         if (isSuperAdmin && hospitalId) {
             hospital = await Hospital.findById(hospitalId);
         } else {
-            hospital = await Hospital.findById(req.user.hospital);
+            hospital = await Hospital.findById(req.user.hospitalId);
         }
 
         if (hospital) {

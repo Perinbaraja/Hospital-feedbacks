@@ -27,10 +27,6 @@ const DeptDashboard = () => {
             const { data } = await API.get(`/feedback/department/${encodedDept}`);
             setFeedbacks(data);
             setLoading(false);
-            if (selectedFeedback) {
-                const refreshed = data.find(f => f._id === selectedFeedback._id);
-                if (refreshed) setSelectedFeedback(refreshed);
-            }
         } catch (error) {
             console.error('Dept fetch error:', error);
             if (retryCount < 2) {
@@ -41,7 +37,17 @@ const DeptDashboard = () => {
                 setLoading(false);
             }
         }
-    }, [user, selectedFeedback]);
+    }, [user?.department]);
+
+    // Keep side-panel data in sync without triggering full fetch loops
+    useEffect(() => {
+        if (selectedFeedback) {
+            const refreshed = feedbacks.find(f => f._id === selectedFeedback._id);
+            if (refreshed && JSON.stringify(refreshed.notes) !== JSON.stringify(selectedFeedback.notes)) {
+                setSelectedFeedback(refreshed);
+            }
+        }
+    }, [feedbacks, selectedFeedback]);
 
     useEffect(() => {
         if (user && user.department) {
@@ -75,6 +81,12 @@ const DeptDashboard = () => {
         }
     };
 
+    const splitTags = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(t => t && String(t).trim() !== '');
+        return String(val).split(/[;,]/).map(s => s.trim()).filter(s => s.length > 0);
+    };
+
     return (
         <div style={{ position: 'relative' }}>
             {loading && (
@@ -99,13 +111,13 @@ const DeptDashboard = () => {
 
             {(!user?.department) ? (
                 <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', border: '2px dashed var(--danger)' }}>
-                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>⚠️</div>
+                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem', fontWeight: 800 }}>!</div>
                     <h3 style={{ marginBottom: '0.5rem', color: 'var(--danger)' }}>Configuration Error</h3>
                     <p style={{ color: 'var(--text-muted)' }}>This account is not assigned to any department. Please contact your Hospital Admin.</p>
                 </div>
             ) : feedbacks.length === 0 && !loading ? (
                 <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
+                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem', fontWeight: 800 }}>DONE</div>
                     <h3 style={{ marginBottom: '0.5rem' }}>Operations Clear</h3>
                     <p style={{ color: 'var(--text-muted)' }}>No pending investigations assigned to your department.</p>
                 </div>
@@ -115,11 +127,13 @@ const DeptDashboard = () => {
                         <thead>
                             <tr>
                                 <th style={{ width: '40px' }}>#</th>
+                                <th style={{ minWidth: '120px' }}>FEEDBACK ID</th>
                                 <th>PATIENT</th>
-                                <th>FEEDBACK DETAILS</th>
-                                <th>COMMENTS</th>
-                                <th>STATUS</th>
-                                <th>NOTES</th>
+                                <th style={{ minWidth: '150px' }}>POSITIVE</th>
+                                <th style={{ minWidth: '150px' }}>NEGATIVE</th>
+                                <th style={{ minWidth: '200px' }}>COMMENTS</th>
+                                <th style={{ width: '100px' }}>STATUS</th>
+                                <th style={{ width: '100px' }}>NOTES</th>
                                 <th style={{ textAlign: 'right' }}>ACTION</th>
                             </tr>
                         </thead>
@@ -130,6 +144,9 @@ const DeptDashboard = () => {
                                     c.department?.trim().toLowerCase() === user.department?.trim().toLowerCase()
                                 ) || fb.categories?.[0] || {};
 
+                                const isPositive = deptFeedback.reviewType === 'Positive';
+                                const isNegative = deptFeedback.reviewType === 'Negative';
+
                                 return (
                                     <tr key={fb._id} style={{ opacity: isCompleted ? 0.7 : 1 }}>
                                         <td>
@@ -138,21 +155,48 @@ const DeptDashboard = () => {
                                             </div>
                                         </td>
                                         <td>
+                                            <span style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--primary-dark)' }}>{fb.feedbackId || '—'}</span>
+                                        </td>
+                                        <td>
                                             <div style={{ fontWeight: 600 }}>{fb.patientName || 'Anonymous'}</div>
                                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(fb.createdAt).toLocaleDateString()}</div>
                                         </td>
                                         <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <span className={`badge ${deptFeedback.reviewType === 'Positive' ? 'badge-resolved' : 'badge-pending'}`} style={{ fontSize: '0.6rem' }}>
-                                                    {deptFeedback.reviewType}
-                                                </span>
-                                                <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                                                    {Array.isArray(deptFeedback.issue) ? deptFeedback.issue.join(', ') : deptFeedback.issue}
-                                                </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#16a34a' }}>
+                                                {(() => {
+                                                    const tags = [
+                                                        ...splitTags(deptFeedback.positive_feedback),
+                                                        ...splitTags(deptFeedback.positive_issues),
+                                                        ...(isPositive ? splitTags(deptFeedback.issue) : [])
+                                                    ];
+                                                    const uniqueTags = [...new Set(tags)];
+                                                    return uniqueTags.length > 0 ? (
+                                                        <span style={{ fontWeight: 500 }}>{uniqueTags.join(', ')}</span>
+                                                    ) : (
+                                                        <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
+                                                    );
+                                                })()}
                                             </div>
                                         </td>
                                         <td>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '300px' }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#dc2626' }}>
+                                                {(() => {
+                                                    const tags = [
+                                                        ...splitTags(deptFeedback.negative_feedback),
+                                                        ...splitTags(deptFeedback.negative_issues),
+                                                        ...(isNegative ? splitTags(deptFeedback.issue) : [])
+                                                    ];
+                                                    const uniqueTags = [...new Set(tags)];
+                                                    return uniqueTags.length > 0 ? (
+                                                        <span style={{ fontWeight: 500 }}>{uniqueTags.join(', ')}</span>
+                                                    ) : (
+                                                        <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '250px', whiteSpace: 'normal' }}>
                                                 {fb.comments ? `"${fb.comments}"` : '—'}
                                             </div>
                                         </td>
@@ -165,7 +209,7 @@ const DeptDashboard = () => {
                                                 style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                                                 onClick={() => setSelectedFeedback(fb)}
                                             >
-                                                💬 {fb.notes?.length || 0} Notes
+                                                Notes: {fb.notes?.length || 0}
                                             </button>
                                         </td>
                                          <td style={{ textAlign: 'right' }}>
@@ -175,11 +219,11 @@ const DeptDashboard = () => {
                                                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', gap: '4px' }} 
                                                     onClick={() => handleResolve(fb._id)}
                                                 >
-                                                    <span style={{ fontSize: '0.9rem' }}>✓</span> Mark Resolved
+                                                    Mark Resolved
                                                 </button>
                                              ) : (
                                                  <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                                    <span style={{ fontSize: '1rem' }}>✓</span> Closed
+                                                    Closed
                                                  </span>
                                              )}
                                          </td>
@@ -200,7 +244,7 @@ const DeptDashboard = () => {
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                         <h3 style={{ fontSize: '1.25rem' }}>Staff Discussion</h3>
-                        <button className="btn-outline" style={{ border: 'none', padding: '8px' }} onClick={() => setSelectedFeedback(null)}>✕</button>
+                        <button className="btn-icon" style={{ padding: '8px' }} onClick={() => setSelectedFeedback(null)}>✕</button>
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -243,3 +287,4 @@ const DeptDashboard = () => {
 };
 
 export default DeptDashboard;
+

@@ -22,7 +22,7 @@ router.get('/hospitals', protect, superAdmin, async (req, res) => {
 
         // Enhance hospitals with feedback counts
         const enhancedHospitals = await Promise.all(hospitals.map(async (h) => {
-            const feedbackCount = await Feedback.countDocuments({ hospital: h._id });
+            const feedbackCount = await Feedback.countDocuments({ hospitalId: h._id.toString() });
             return {
                 ...h,
                 feedbackCount
@@ -42,7 +42,7 @@ router.get('/hospitals/:id', protect, superAdmin, async (req, res) => {
         const hospital = await Hospital.findById(req.params.id).lean();
         if (!hospital) return res.status(404).json({ message: 'Hospital not found' });
 
-        const feedbackCount = await Feedback.countDocuments({ hospital: hospital._id });
+        const feedbackCount = await Feedback.countDocuments({ hospitalId: hospital._id.toString() });
         res.json({ ...hospital, feedbackCount });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching hospital details' });
@@ -106,6 +106,7 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
                 Department.create({
                     name: d.name,
                     hospital: hospital._id,
+                    hospitalId: hospital._id.toString(),
                     description: d.description || `Standard ${d.name} department`,
                     imageUrl: d.imageUrl || ''
                 })
@@ -120,7 +121,8 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
                 password: adminPassword, // Password validation (minLength 6) should be handled by the User model schema
                 phone: adminPhone || '',
                 role: 'hospital_admin',
-                hospital: hospital._id
+                hospital: hospital._id,
+                hospitalId: hospital._id.toString()
             });
 
             // Send Email Notification - Non-blocking to prevent frontend timeouts
@@ -182,11 +184,12 @@ router.post('/hospitals/:id/admin', protect, superAdmin, async (req, res) => {
             email,
             password,
             role: 'Admin',
-            hospital: req.params.id
+            hospital: req.params.id,
+            hospitalId: req.params.id
         });
 
-        // Send Email Notification
-        await sendAdminCredentialsEmail(email, name, email, password, req);
+        // Send Email Notification - Non-blocking
+        sendAdminCredentialsEmail(email, name, email, password, req);
 
         res.status(201).json({ _id: user._id, name: user.name, email: user.email });
     } catch (error) {
@@ -198,7 +201,7 @@ router.post('/hospitals/:id/admin', protect, superAdmin, async (req, res) => {
 // @route   GET /api/super-admin/hospitals/:id/users
 router.get('/hospitals/:id/users', protect, superAdmin, async (req, res) => {
     try {
-        const users = await User.find({ hospital: req.params.id }).select('-password');
+        const users = await User.find({ hospitalId: req.params.id }).select('-password');
         res.json(users);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching hospital staff' });

@@ -5,7 +5,7 @@ import API, { getAssetUrl } from '../api';
 import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft, Monitor } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-const Sidebar = ({ hospital }) => {
+const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const params = new URLSearchParams(location.search);
@@ -24,8 +24,8 @@ const Sidebar = ({ hospital }) => {
         backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        gap: '12px',
+        justifyContent: isCollapsed ? 'center' : 'flex-start',
+        gap: isCollapsed ? '0' : '12px',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         fontWeight: isActive ? '700' : '500',
         fontSize: '0.925rem',
@@ -38,11 +38,11 @@ const Sidebar = ({ hospital }) => {
 
     return (
         <div style={{
-            width: '280px',
-            minWidth: '280px',
+            width: isCollapsed ? '80px' : '280px',
+            minWidth: isCollapsed ? '80px' : '280px',
             background: 'var(--grad-header)',
             color: 'white',
-            padding: '2.5rem 1.25rem',
+            padding: isCollapsed ? '2.5rem 0.75rem' : '2.5rem 1.25rem',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -51,8 +51,31 @@ const Sidebar = ({ hospital }) => {
             transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             position: 'relative'
         }}>
+            <button 
+                onClick={onToggle}
+                style={{
+                    position: 'absolute',
+                    right: '-12px',
+                    top: '32px',
+                    background: 'white',
+                    color: 'var(--primary)',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                    zIndex: 110,
+                    cursor: 'pointer',
+                    transform: isCollapsed ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.3s'
+                }}
+            >
+                <ChevronLeft size={16} />
+            </button>
             <div>
-                <div style={{ paddingLeft: '0.75rem', marginBottom: '3rem', display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{ paddingLeft: isCollapsed ? '0' : '0.75rem', marginBottom: '3rem', display: 'flex', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
                     <h2 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em', overflow: 'hidden' }}>
                         <div style={{ background: 'white', padding: '6px', borderRadius: '10px', display: 'flex', width: '40px', height: '40px', minWidth: '40px', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                             {hospital?.logoUrl ? (
@@ -61,7 +84,7 @@ const Sidebar = ({ hospital }) => {
                                 <LayoutDashboard size={24} color="var(--primary)" />
                             )}
                         </div>
-                        {hospital?.name || 'HOSPITAL'}
+                        {!isCollapsed && (hospital?.name || 'HOSPITAL')}
                     </h2>
                 </div>
 
@@ -69,19 +92,19 @@ const Sidebar = ({ hospital }) => {
                     {['admin', 'hospital_admin'].includes(user?.role?.toLowerCase()) && (
                         <>
                             <NavLink title="Dashboard" to={`/admin${hQuery}`} style={getLinkStyle} end>
-                                <LayoutDashboard size={20} style={{ minWidth: '20px' }} /> Dashboard
+                                <LayoutDashboard size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Dashboard'}
                             </NavLink>
                             <NavLink title="All Feedback" to={`/admin/feedbacks${hQuery}`} style={getLinkStyle}>
-                                <ClipboardList size={20} style={{ minWidth: '20px' }} /> Feedback
+                                <ClipboardList size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Feedback'}
                             </NavLink>
                             <NavLink title="Staff" to={`/admin/staff${hQuery}`} style={getLinkStyle}>
-                                <UserPlus size={20} style={{ minWidth: '20px' }} /> Staff
+                                <UserPlus size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Staff'}
                             </NavLink>
                             <NavLink title="TV Monitor" to={`/admin/tv-monitor${hQuery}`} style={getLinkStyle}>
-                                <Monitor size={20} style={{ minWidth: '20px' }} /> TV
+                                <Monitor size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'TV'}
                             </NavLink>
                             <NavLink title="Settings" to={`/admin/settings${hQuery}`} style={getLinkStyle}>
-                                <Settings size={20} style={{ minWidth: '20px' }} /> Settings
+                                <Settings size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Settings'}
                             </NavLink>
                         </>
                     )}
@@ -89,17 +112,17 @@ const Sidebar = ({ hospital }) => {
                     {['super_admin'].includes(user?.role?.toLowerCase()) && (
                         <>
                             <NavLink title="Hospital Settings" to={`/admin/settings${hQuery}`} style={getLinkStyle}>
-                                <Settings size={20} style={{ minWidth: '20px' }} /> Hospital Settings
+                                <Settings size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Hospital Settings'}
                             </NavLink>
                             <NavLink title="Return to Network" to="/super-admin" style={getLinkStyle}>
-                                <ChevronLeft size={20} style={{ minWidth: '20px' }} /> Return
+                                <ChevronLeft size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Return'}
                             </NavLink>
                         </>
                     )}
 
                     {['Dept_Head', 'dept_head'].includes(user?.role) && (
                         <NavLink title="Dept Tasks" to="/dept" style={getLinkStyle}>
-                            <Users size={20} style={{ minWidth: '20px' }} /> Dept Tasks
+                            <Users size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Dept Tasks'}
                         </NavLink>
                     )}
                 </nav>
@@ -107,39 +130,41 @@ const Sidebar = ({ hospital }) => {
 
             <div style={{
                 background: 'rgba(0, 0, 0, 0.2)',
-                padding: '1.5rem',
-                borderRadius: '1.25rem',
+                padding: isCollapsed ? '1rem 0.5rem' : '1.5rem',
+                borderRadius: isCollapsed ? '0.75rem' : '1.25rem',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'stretch'
+                alignItems: isCollapsed ? 'center' : 'stretch'
             }}>
-                <div style={{ marginBottom: '1.25rem' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Account</p>
-                    <p style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'white' }}>{user?.name}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.7)' }}>{user?.role}</p>
-                </div>
+                {!isCollapsed && (
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Account</p>
+                        <p style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'white' }}>{user?.name}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.7)' }}>{user?.role}</p>
+                    </div>
+                )}
                 <button
                     onClick={handleLogout}
                     title="Logout"
                     style={{
-                        width: '100%',
+                        width: 'auto',
                         height: 'auto',
-                        padding: '0.75rem 1rem',
+                        padding: '0.75rem',
                         background: 'rgba(239, 68, 68, 0.15)',
                         color: '#ff8080',
                         borderRadius: '0.75rem',
                         textAlign: 'left',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-start',
+                        justifyContent: 'center',
                         gap: '10px',
                         border: '1px solid rgba(239, 68, 68, 0.2)',
                         transition: 'all 0.2s',
                         fontWeight: '600'
                     }}
                 >
-                    <LogOut size={18} /> Logout
+                    <LogOut size={18} /> {!isCollapsed && 'Logout'}
                 </button>
             </div>
         </div>
@@ -150,7 +175,16 @@ const DashboardLayout = ({ allowedRoles }) => {
     const { user, loading } = useAuth();
 
     const [hospital, setHospital] = useState(null);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        return localStorage.getItem('sidebar_collapsed') === 'true';
+    });
     const hospitalId = new URLSearchParams(useLocation().search).get('hospitalId');
+
+    const toggleSidebar = () => {
+        const next = !isCollapsed;
+        setIsCollapsed(next);
+        localStorage.setItem('sidebar_collapsed', next);
+    };
 
     useEffect(() => {
         const fetchHospital = async () => {
@@ -179,8 +213,8 @@ const DashboardLayout = ({ allowedRoles }) => {
     return (
         <div className="layout-container" style={{ display: 'flex', minHeight: '100vh' }}>
             <Toaster position="top-right" />
-            <Sidebar hospital={hospital} />
-            <main className="main-content" style={{ flex: 1, padding: '2rem' }}>
+            <Sidebar hospital={hospital} isCollapsed={isCollapsed} onToggle={toggleSidebar} />
+            <main className="main-content" style={{ flex: 1, padding: isCollapsed ? '2rem 3rem' : '2rem' }}>
                 <Outlet />
             </main>
         </div>

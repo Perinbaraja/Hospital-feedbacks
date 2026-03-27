@@ -21,9 +21,25 @@ export const exportToCSV = (data, filename) => {
         const email = fb.patientEmail || "N/A";
         const dept = cat.department || "N/A";
         const type = cat.reviewType || "N/A";
-        const issue = Array.isArray(cat.issue) ? cat.issue.join(" | ") : (cat.issue || "N/A");
-        const rating = cat.rating || "N/A";
-        const comments = fb.comments ? fb.comments.replace(/,/g, ";") : ""; // Clean commas
+        const isPos = cat.reviewType === 'Positive';
+        const rawTags = [
+            ...(isPos ? [
+                ...((Array.isArray(cat.positive_feedback) ? cat.positive_feedback : [])),
+                ...((Array.isArray(cat.positive_issues) ? cat.positive_issues : [])),
+                ...((Array.isArray(cat.issue) ? cat.issue : []))
+            ] : [
+                ...((Array.isArray(cat.negative_feedback) ? cat.negative_feedback : [])),
+                ...((Array.isArray(cat.negative_issues) ? cat.negative_issues : [])),
+                ...((Array.isArray(cat.issue) ? cat.issue : []))
+            ])
+        ];
+        const uniqueTags = [...new Set(rawTags)].filter(t => t && String(t).trim() !== '');
+        const issue = uniqueTags.length > 0 ? uniqueTags.join(" | ") : (cat.issue && Array.isArray(cat.issue) ? cat.issue.join(" | ") : (cat.issue || "N/A"));
+        const ratingSlug = cat.feedback || cat.rating || "N/A";
+        const rating = ratingSlug === 'completely_satisfied' ? 'COMPLETELY' : 
+                      ratingSlug === 'partially_satisfied' ? 'PARTIALLY' :
+                      ratingSlug === 'not_satisfied' ? 'NOT SATISFIED' : ratingSlug.toUpperCase();
+        const comments = (cat.note || cat.customText || fb.comments || "").replace(/,/g, ";"); // Clean commas
         const status = fb.status || "Pending";
         const assigned = fb.assignedTo || "Unassigned";
 
