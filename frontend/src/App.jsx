@@ -27,10 +27,10 @@ const HomeRedirect = () => {
   
   if (!user) return <Navigate to="/login" replace />;
   
-  const role = user.role?.toLowerCase();
-  if (['super_admin'].includes(role)) return <Navigate to="/super-admin" replace />;
-  if (['admin', 'hospital_admin'].includes(role)) return <Navigate to="/admin" replace />;
-  if (['dept_head'].includes(role)) return <Navigate to="/dept" replace />;
+  const role = (user.role || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (role === 'superadmin') return <Navigate to="/super-admin" replace />;
+  if (['admin', 'hospitaladmin'].includes(role)) return <Navigate to="/admin" replace />;
+  if (role === 'depthead') return <Navigate to="/dept" replace />;
   
   return <Navigate to="/login" replace />;
 };
@@ -54,7 +54,7 @@ function App() {
         </Route>
 
         {/* Standard Hospital Dashboards (Brand Theme) */}
-        <Route element={<DashboardLayout allowedRoles={['Admin', 'hospital_admin', 'Super_Admin', 'super_admin', 'Dept_Head', 'dept_head']} />}>
+        <Route element={<DashboardLayout allowedRoles={['admin', 'hospitaladmin', 'superadmin', 'depthead']} />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/feedbacks" element={<AdminFeedback />} />
           <Route path="/admin/staff" element={<AdminStaff />} />

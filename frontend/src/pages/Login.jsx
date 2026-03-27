@@ -33,16 +33,16 @@ const Login = () => {
         try {
             const cleanEmail = email.trim().toLowerCase();
             const userData = await login(cleanEmail, password);
-            const role = userData.role?.toLowerCase();
+            const role = (userData.role || '').toLowerCase().replace(/[^a-z]/g, '');
             console.log(`[LOGIN] User Logged In: ${cleanEmail}, role: ${userData.role}`);
 
-            if (['super_admin'].includes(role)) {
+            if (role === 'superadmin') {
                 console.log('[LOGIN] Redirecting to /super-admin');
                 navigate('/super-admin');
-            } else if (['admin', 'hospital_admin'].includes(role)) {
+            } else if (['admin', 'hospitaladmin'].includes(role)) {
                 console.log('[LOGIN] Redirecting to /admin');
                 navigate('/admin');
-            } else if (['dept_head'].includes(role)) {
+            } else if (role === 'depthead') {
                 console.log(`[LOGIN] SUCCESS: Redirecting ${userData.name} to Department Head dashboard (${userData.department || 'All'})`);
                 navigate('/dept');
             } else {

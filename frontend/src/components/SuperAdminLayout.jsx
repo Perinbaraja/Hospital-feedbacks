@@ -117,7 +117,7 @@ const SuperAdminLayout = () => {
         <div className="spinner"></div>
     </div>;
 
-    if (!user || !['Super_Admin', 'super_admin'].includes(user.role)) {
+    if (!user || (user.role || '').toLowerCase().replace(/[^a-z]/g, '') !== 'superadmin') {
         return <Navigate to="/login" replace />;
     }
 
