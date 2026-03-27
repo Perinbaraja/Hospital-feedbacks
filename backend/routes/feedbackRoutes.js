@@ -132,15 +132,6 @@ router.post('/', validateFeedbackInput, async (req, res) => {
             }
         }
 
-        // 3. Post-submission Cleanup (Retain only latest 2 globally)
-        const latestDocs = await Feedback.find({})
-            .sort({ _id: -1 })
-            .limit(2);
-        const latestIds = latestDocs.map(f => f._id);
-        await Feedback.deleteMany({
-            _id: { $nin: latestIds }
-        });
-
         res.status(201).json(createdFeedbacks);
     } catch (error) {
         console.error('Submission error:', error);
