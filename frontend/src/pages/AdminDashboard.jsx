@@ -28,7 +28,8 @@ const StatCard = ({ title, value, color, icon, trend }) => {
 
 const AdminDashboard = () => {
     const [searchParams] = useSearchParams();
-    const hospitalId = searchParams.get('hospitalId');
+    const rawHospitalId = searchParams.get('hospitalId');
+    const hospitalId = rawHospitalId && !['undefined', 'null'].includes(rawHospitalId.toLowerCase()) ? rawHospitalId.trim() : '';
     const navigate = useNavigate();
 
     const [hospital, setHospital] = useState(null);
@@ -39,7 +40,7 @@ const AdminDashboard = () => {
     const [resolved, setResolved] = useState(0);
     const [deptData, setDeptData] = useState([]);
 
-    const hQuery = hospitalId ? `?hospitalId=${hospitalId}` : '';
+    const hQuery = hospitalId ? `?hospitalId=${encodeURIComponent(hospitalId)}` : '';
 
     useEffect(() => {
         API.get(`/admin/dashboard${hQuery}`)

@@ -11,28 +11,48 @@ const router = express.Router();
 
 // @desc    Get hospital config
 router.get('/', optionalProtect, async (req, res) => {
-    const { hospitalId, qrId } = req.query;
+    let { hospitalId, qrId } = req.query;
     try {
+        hospitalId = typeof hospitalId === 'string' ? hospitalId.trim() : '';
+        qrId = typeof qrId === 'string' ? qrId.trim() : '';
+        if (hospitalId && ['undefined', 'null'].includes(hospitalId.toLowerCase())) hospitalId = '';
+        if (qrId && ['undefined', 'null'].includes(qrId.toLowerCase())) qrId = '';
+
         let hospital;
         if (qrId) {
             hospital = await Hospital.findOne({ qrId });
         } else if (hospitalId) {
             if (mongoose.Types.ObjectId.isValid(hospitalId)) {
                 hospital = await Hospital.findById(hospitalId);
-            } else {
-                // If not an ObjectId, assume it's a uniqueId slug
-                hospital = await Hospital.findOne({ uniqueId: hospitalId });
+            }
+            if (!hospital) {
+                hospital = await Hospital.findOne({
+                    $or: [
+                        { uniqueId: hospitalId },
+                        { hospitalId }
+                    ]
+                });
             }
         } else if (req.user && req.user.hospitalId) {
-            // Priority: Authenticated Admin's assigned hospital
-            hospital = await Hospital.findById(req.user.hospitalId);
+            const userHospitalId = String(req.user.hospitalId || '').trim();
+            if (mongoose.Types.ObjectId.isValid(userHospitalId)) {
+                hospital = await Hospital.findById(userHospitalId);
+            }
+            if (!hospital && userHospitalId) {
+                hospital = await Hospital.findOne({
+                    $or: [
+                        { uniqueId: userHospitalId },
+                        { hospitalId: userHospitalId }
+                    ]
+                });
+            }
         } else {
             return res.status(400).json({ message: 'Hospital ID or QR ID required' });
         }
 
         // If no hospital found, return error with appropriate status
         if (!hospital) {
-            console.warn(`[Hospital Config] Hospital not found for qrId: ${qrId} or hospitalId: ${hospitalId}`);
+            console.warn(`[Hospital Config] Hospital not found for qrId: ${qrId} or hospitalId: ${hospitalId || req.user?.hospitalId}`);
             return res.status(404).json({ message: 'Hospital not found. Please ensure hospital is initialized.' });
         }
 

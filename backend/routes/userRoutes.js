@@ -392,10 +392,10 @@ router.put('/:id/role', protect, admin, async (req, res) => {
     }
 });
 
-// @desc    Self Reset password (Requires old password verification)
+// @desc    Self Reset password (Password reset by email only)
 // @route   POST /api/users/reset-password
 router.post('/reset-password', async (req, res) => {
-    const { email, oldPassword, newPassword } = req.body;
+    const { email, newPassword } = req.body;
     try {
         if (!email || !newPassword) {
             return res.status(400).json({ message: 'Email and new password are required' });
@@ -403,15 +403,6 @@ router.post('/reset-password', async (req, res) => {
         const user = await User.findOne({ email: email?.trim().toLowerCase() });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Require old password for verification
-        if (!oldPassword) {
-            return res.status(400).json({ message: 'Current password is required for verification' });
-        }
-        const isMatch = await user.matchPassword(oldPassword);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
         user.password = newPassword;
