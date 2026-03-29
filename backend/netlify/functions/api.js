@@ -19,8 +19,11 @@ async function connectDB() {
 
   if (!connectionPromise) {
     connectionPromise = mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 45000,
+      socketTimeoutMS: 45000,
     });
   }
 
