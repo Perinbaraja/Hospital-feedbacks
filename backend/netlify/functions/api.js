@@ -22,6 +22,9 @@ async function connectDB() {
       serverSelectionTimeoutMS: 10000,
       connectTimeoutMS: 45000,
       socketTimeoutMS: 45000,
+    }).catch((err) => {
+      connectionPromise = null;
+      throw err;
     });
   }
 
