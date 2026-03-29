@@ -43,22 +43,24 @@ const getFrontendLink = (path = '', req = null) => {
     return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 };
 
-// NON-BLOCKING: Internal helper that doesn't use await if we want fire-and-forget
+// NON-BLOCKING: Internal helper that returns a Promise so callers can safely await/catch if needed.
 const fireAndForgetEmail = (emailParams, label) => {
-    mailersend.email.send(emailParams)
+    return mailersend.email.send(emailParams)
         .then(response => {
             console.log(`[Email Service] ${label} - Success:`, response.statusCode);
+            return response;
         })
         .catch(error => {
             console.error(`[Email Service] ${label} - Error:`, error.body?.message || error.message);
+            // Re-throw so callers using .catch(...) can still handle it.
+            throw error;
         });
-    return { success: true, message: 'Initiated' };
 };
 
 export const sendThankYouEmail = (toEmail, name, req = null) => {
     if (!toEmail || !process.env.MAILERSEND_API_KEY) {
         console.warn('Email skipped: Missing recipient or API key');
-        return;
+        return Promise.resolve({ skipped: true });
     }
 
     const recipients = [new Recipient(toEmail, name || 'Valued User')];
@@ -75,7 +77,7 @@ export const sendThankYouEmail = (toEmail, name, req = null) => {
 export const sendResolutionEmail = (toEmail, name, req = null) => {
     if (!toEmail || !process.env.MAILERSEND_API_KEY) {
         console.warn('Email skipped: Missing recipient or API key');
-        return;
+        return Promise.resolve({ skipped: true });
     }
 
     const loginLink = getFrontendLink('/login', req);
@@ -93,7 +95,7 @@ export const sendResolutionEmail = (toEmail, name, req = null) => {
 export const sendAdminCredentialsEmail = (toEmail, name, email, password, req = null) => {
     if (!toEmail || !process.env.MAILERSEND_API_KEY) {
         console.warn('Credential email skipped: Missing recipient or API key');
-        return;
+        return Promise.resolve({ skipped: true });
     }
 
     const loginLink = getFrontendLink('/login', req);
