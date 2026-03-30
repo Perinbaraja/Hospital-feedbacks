@@ -30,11 +30,11 @@ router.get('/admin-dashboard', protect, admin, async (req, res) => {
         const totalEncounters = await Feedback.countDocuments(query);
         const positiveCount = await Feedback.countDocuments({ 
             ...query,
-            "categories.reviewType": { $in: ["Positive", "positive", "completely_satisfied", "completely satisfied"] } 
+            "categories.reviewType": { $in: ["Positive", "positive", "completely_satisfied", "completely satisfied", "Mixed"] } 
         });
         const negativeCount = await Feedback.countDocuments({ 
             ...query,
-            "categories.reviewType": { $in: ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied"] } 
+            "categories.reviewType": { $in: ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied", "Mixed"] } 
         });
         const resolvedIssues = await Feedback.countDocuments({ ...query, status: "COMPLETED" });
 

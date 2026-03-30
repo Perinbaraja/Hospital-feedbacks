@@ -89,11 +89,11 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
         const totalEncounters = await Feedback.countDocuments(query);
         const positiveCount = await Feedback.countDocuments({ 
             ...query,
-            positive: { $ne: null } 
+            "categories.reviewType": { $in: ["Positive", "positive", "completely_satisfied", "completely satisfied", "Mixed"] }
         });
         const negativeCount = await Feedback.countDocuments({ 
             ...query,
-            negative: { $ne: null } 
+            "categories.reviewType": { $in: ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied", "Mixed"] }
         });
         
         // Resolved issues are typically negatives that were completed

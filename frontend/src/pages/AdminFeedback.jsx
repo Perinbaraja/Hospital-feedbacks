@@ -271,8 +271,8 @@ const AdminFeedback = () => {
                                     <th style={{ minWidth: '120px' }}>FEEDBACK ID</th>
                                     <th style={{ minWidth: '120px' }}>PATIENT</th>
                                     <th style={{ minWidth: '150px' }}>EMAIL</th>
-                                    <th style={{ width: '80px' }}>POSITIVE</th>
-                                    <th style={{ width: '80px' }}>NEGATIVE</th>
+                                    <th className="positive-col-header" style={{ width: '80px', color: '#16a34a' }}>POSITIVE</th>
+                                    <th className="negative-col-header" style={{ width: '80px', color: '#dc2626' }}>NEGATIVE</th>
                                     <th style={{ minWidth: '160px' }}>HOSPITAL SERVICE</th>
                                     <th style={{ minWidth: '150px' }}>USER FEEDBACK</th>
                                     <th style={{ minWidth: '200px' }}>COMMENTS</th>
@@ -328,8 +328,8 @@ const AdminFeedback = () => {
                                                     {fb.patientEmail || 'N/A'}
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div style={{ textAlign: 'left', minWidth: '140px', fontSize: '0.75rem', color: '#334155' }}>
+                                            <td className="positive-cell">
+                                                <div style={{ textAlign: 'left', minWidth: '140px', fontSize: '0.75rem', color: '#166534' }}>
                                                     {(() => {
                                                         const tags = [
                                                             ...splitTags(cat.positive_feedback), 
@@ -338,15 +338,15 @@ const AdminFeedback = () => {
                                                         ];
                                                         const uniqueTags = [...new Set(tags)];
                                                         return uniqueTags.length > 0 ? (
-                                                            <span style={{ fontWeight: 500 }}>{uniqueTags.join(', ')}</span>
+                                                            <span style={{ fontWeight: 700 }}>{uniqueTags.join(', ')}</span>
                                                         ) : (
                                                             <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
                                                         );
                                                     })()}
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div style={{ textAlign: 'left', minWidth: '140px', fontSize: '0.75rem', color: '#334155' }}>
+                                            <td className="negative-cell">
+                                                <div style={{ textAlign: 'left', minWidth: '140px', fontSize: '0.75rem', color: '#991b1b'}}>
                                                     {(() => {
                                                         const tags = [
                                                             ...splitTags(cat.negative_feedback), 
@@ -355,7 +355,7 @@ const AdminFeedback = () => {
                                                         ];
                                                         const uniqueTags = [...new Set(tags)];
                                                         return uniqueTags.length > 0 ? (
-                                                            <span style={{ fontWeight: 500 }}>{uniqueTags.join(', ')}</span>
+                                                            <span style={{ fontWeight: 700 }}>{uniqueTags.join(', ')}</span>
                                                         ) : (
                                                             <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>-</span>
                                                         );
@@ -373,8 +373,8 @@ const AdminFeedback = () => {
                                                     fontWeight: 800,
                                                     color: (cat.feedback === 'completely_satisfied' || cat.rating === 'Completely Satisfied') ? '#16a34a' : (cat.feedback === 'partially_satisfied' || cat.rating === 'Partially Satisfied') ? '#ca8a04' : '#dc2626'
                                                 }}>
-                                                    {cat.feedback === 'completely_satisfied' ? 'COMPLETELY' : 
-                                                     cat.feedback === 'partially_satisfied' ? 'PARTIALLY' : 
+                                                    {cat.feedback === 'completely_satisfied' ? 'COMPLETELY SATISFIED' : 
+                                                     cat.feedback === 'partially_satisfied' ? 'PARTIALLY SATISFIED' : 
                                                      cat.feedback === 'not_satisfied' ? 'NOT SATISFIED' : (cat.feedback || cat.rating || 'N/A').toUpperCase()}
                                                 </div>
                                             </td>

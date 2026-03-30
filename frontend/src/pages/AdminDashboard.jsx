@@ -77,7 +77,8 @@ const AdminDashboard = () => {
     );
 
 
-    const positivePercent = totalEncounters > 0 ? Math.round((positive / totalEncounters) * 100) : 0;
+    const sentimentTotal = positive + negative;
+    const positivePercent = sentimentTotal > 0 ? Math.round((positive / sentimentTotal) * 100) : 0;
 
     return (
         <div style={{ padding: '2rem 0' }}>

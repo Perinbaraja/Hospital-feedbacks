@@ -136,6 +136,26 @@
     border: 1px solid #fee2e2;
 }
 
+.modern-table th.positive-col-header {
+    color: #16a34a !important;
+}
+
+.modern-table th.negative-col-header {
+    color: #dc2626 !important;
+}
+
+.modern-table td.positive-cell,
+.modern-table td.positive-cell * {
+    color: #166534 !important;
+    font-weight: 600;
+}
+
+.modern-table td.negative-cell,
+.modern-table td.negative-cell * {
+    color: #991b1b !important;
+    font-weight: 600;
+}
+
 .hospital-service-cell {
     display: flex;
     align-items: center;
