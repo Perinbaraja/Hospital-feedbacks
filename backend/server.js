@@ -6,10 +6,12 @@ const PORT = process.env.PORT || 5000;
 const connectDB = async (retryCount = 5) => {
   try {
     console.log('🔄 Connecting to MongoDB...');
+    mongoose.set('strictQuery', false);
     await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
       connectTimeoutMS: 45000,
       socketTimeoutMS: 45000,
+      maxPoolSize: 10,
     });
     console.log('✅ MongoDB Connected');
 

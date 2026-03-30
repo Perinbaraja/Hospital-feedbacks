@@ -144,6 +144,10 @@ const PublicFeedback = () => {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob((blob) => {
+            if (!blob) {
+                toast.error('Failed to capture photo. Please try again.');
+                return;
+            }
             const reader = new FileReader();
             reader.onloadend = () => {
                 updateImageFile(cameraDept, reader.result);
@@ -151,7 +155,7 @@ const PublicFeedback = () => {
                 toast.success("Photo captured!");
             };
             reader.readAsDataURL(blob);
-        }, 'image/jpeg');
+        }, 'image/jpeg', 0.7);
     };
 
     useEffect(() => {
@@ -250,7 +254,7 @@ const PublicFeedback = () => {
         }));
     };
 
-    const updateImageFile = (dept, fileOrBase64) => {
+    const updateImageFile = async (dept, fileOrBase64) => {
         if (!fileOrBase64) return;
 
         if (typeof fileOrBase64 === 'string') {
@@ -258,7 +262,44 @@ const PublicFeedback = () => {
                 if (c.department === dept) return { ...c, image: fileOrBase64 };
                 return c;
             }));
-        } else {
+            return;
+        }
+
+        const compressImage = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxSize = 1200;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxSize || height > maxSize) {
+                        const ratio = Math.min(maxSize / width, maxSize / height);
+                        width = Math.round(width * ratio);
+                        height = Math.round(height * ratio);
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = reject;
+                img.src = reader.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        try {
+            const compressedDataUrl = await compressImage(fileOrBase64);
+            setSelectedCategories(prev => prev.map(c => {
+                if (c.department === dept) return { ...c, image: compressedDataUrl };
+                return c;
+            }));
+        } catch (err) {
+            console.error('Image compression failed:', err);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setSelectedCategories(prev => prev.map(c => {

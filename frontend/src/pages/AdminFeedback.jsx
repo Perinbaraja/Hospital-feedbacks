@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
@@ -26,10 +26,12 @@ const AdminFeedback = () => {
     const [tempStatus, setTempStatus] = useState('');
     const [tempIssue, setTempIssue] = useState('');
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState(null);
     const [selectedFeedbackForNotes, setSelectedFeedbackForNotes] = useState(null);
     const [newNote, setNewNote] = useState('');
     const [postingNote, setPostingNote] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
+    const isMountedRef = useRef(true);
 
     const [filterDept, setFilterDept] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -45,19 +47,26 @@ const AdminFeedback = () => {
                 return null;
             });
 
+            if (!isMountedRef.current) return;
             if (hospResponse) {
                 setHospital(hospResponse.data);
             }
 
             const fbResponse = await API.get(`/feedback${hIdParam}`);
+            if (!isMountedRef.current) return;
+
             console.log("Feedbacks received from API:", fbResponse.data);
             setFeedbacks(fbResponse.data);
             setLoading(false);
+            setLastUpdated(new Date());
         } catch (error) {
+            if (!isMountedRef.current) return;
             console.error('Fetch error:', error);
             if (retryCount < 2) { // Retry up to 2 times
                 console.log(`Retrying fetch (${retryCount + 1})...`);
-                setTimeout(() => fetchData(retryCount + 1), 1500);
+                setTimeout(() => {
+                    if (isMountedRef.current) fetchData(retryCount + 1);
+                }, 1500);
             } else {
                 toast.error('Failed to load dashboard data. Please check your connection.');
                 setLoading(false);
@@ -76,7 +85,9 @@ const AdminFeedback = () => {
     }, [feedbacks, selectedFeedbackForNotes]);
 
     useEffect(() => {
+        isMountedRef.current = true;
         fetchData();
+        const intervalId = setInterval(fetchData, 60000);
 
         const handleClickOutside = (event) => {
             if (!event.target.closest('.custom-assign-dropdown')) {
@@ -94,6 +105,8 @@ const AdminFeedback = () => {
         document.addEventListener('click', handleClickOutside);
         document.addEventListener('keydown', handleEsc);
         return () => {
+            isMountedRef.current = false;
+            clearInterval(intervalId);
             document.removeEventListener('click', handleClickOutside);
             document.removeEventListener('keydown', handleEsc);
         };
@@ -184,6 +197,17 @@ const AdminFeedback = () => {
                         <h2 className="page-title text-colorful">Patient Feedback Overview</h2>
                         <p className="header-subtitle">Monitor and manage patient experiences across all departments.</p>
                     </div>
+                    {lastUpdated && (
+                        <div className="last-sync-box">
+                            <span className="last-sync-label">Last sync</span>
+                            <span className="last-sync-time">{new Date(lastUpdated).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            })}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Vibrant Filter Bar */}

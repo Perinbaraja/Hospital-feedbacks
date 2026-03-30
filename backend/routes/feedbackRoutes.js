@@ -94,8 +94,8 @@ router.post('/', validateFeedbackInput, async (req, res) => {
                 finalReviewType = 'Negative'; 
             }
 
-            const isPosEntry = ["Positive", "positive", "completely_satisfied", "completely satisfied"].includes(finalReviewType);
-            const isNegEntry = ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied"].includes(finalReviewType);
+            const isPosEntry = ["Positive", "positive", "completely_satisfied", "completely satisfied", "Mixed"].includes(finalReviewType);
+            const isNegEntry = ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied", "Mixed"].includes(finalReviewType);
 
             const feedback = await Feedback.create({
                 feedbackId: fId,
@@ -185,11 +185,13 @@ router.get('/', protect, admin, async (req, res) => {
             }
         }
 
-        // Ensure we retrieve records that have either markers OR comments
+        // Ensure we retrieve records that have either markers OR comments,
+        // and also include Mixed reviewType entries even if they do not set explicit positive/negative markers.
         query.$or = [
             { positive: { $ne: null } },
             { negative: { $ne: null } },
-            { comments: { $ne: "" } }
+            { comments: { $ne: "" } },
+            { 'categories.reviewType': 'Mixed' }
         ];
 
         const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
@@ -234,8 +236,14 @@ router.get('/stats', protect, admin, async (req, res) => {
                         { $group: {
                             _id: "$categories.department",
                             count: { $sum: 1 },
-                            positiveCount: { $sum: { $cond: [{ $eq: ["$categories.reviewType", "Positive"] }, 1, 0] } },
-                            negativeCount: { $sum: { $cond: [{ $in: ["$categories.reviewType", ["Negative", "negative", "Needs Work", "needs_work"]] }, 1, 0] } }
+                            positiveCount: { $sum: { $cond: [{ $or: [
+                                { $eq: ["$categories.reviewType", "Positive"] },
+                                { $eq: ["$categories.reviewType", "Mixed"] }
+                            ] }, 1, 0] } },
+                            negativeCount: { $sum: { $cond: [{ $or: [
+                                { $in: ["$categories.reviewType", ["Negative", "negative", "Needs Work", "needs_work"]] },
+                                { $eq: ["$categories.reviewType", "Mixed"] }
+                            ] }, 1, 0] } }
                         }}
                     ]
                 }

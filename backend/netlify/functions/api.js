@@ -10,6 +10,9 @@ if (!app || typeof app.use !== 'function') {
 
 let connectionPromise = null;
 
+mongoose.set('bufferCommands', false);
+mongoose.set('strictQuery', false);
+
 async function connectDB() {
   if (mongoose.connection?.readyState === 1) return;
 
@@ -19,9 +22,10 @@ async function connectDB() {
 
   if (!connectionPromise) {
     connectionPromise = mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 15000,
       connectTimeoutMS: 45000,
       socketTimeoutMS: 45000,
+      maxPoolSize: 10,
     }).catch((err) => {
       connectionPromise = null;
       throw err;
@@ -31,16 +35,37 @@ async function connectDB() {
   await connectionPromise;
 }
 
+mongoose.connection.on('disconnected', () => {
+  console.warn('MongoDB connection lost; clearing cache for next Netlify request.');
+  connectionPromise = null;
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
 // ✅ SAFE BODY PARSER (FINAL FIX)
 const handler = serverless(app, {
   request: (req, event) => {
     try {
-      if (
-        event.body &&
-        typeof event.body === 'string' &&
-        event.headers['content-type']?.includes('application/json')
-      ) {
-        req.body = JSON.parse(event.body);
+      const headers = Object.entries(event.headers || {}).reduce((acc, [key, value]) => {
+        acc[key.toLowerCase()] = value;
+        return acc;
+      }, {});
+      const contentType = headers['content-type'] || '';
+
+      if (event.body) {
+        if (typeof event.body === 'string') {
+          let bodyString = event.body;
+          if (event.isBase64Encoded) {
+            bodyString = Buffer.from(event.body, 'base64').toString('utf8');
+          }
+          if (contentType.includes('application/json')) {
+            req.body = JSON.parse(bodyString);
+          }
+        } else if (typeof event.body === 'object') {
+          req.body = event.body;
+        }
       }
     } catch (err) {
       console.error('Body parse failed:', err);
