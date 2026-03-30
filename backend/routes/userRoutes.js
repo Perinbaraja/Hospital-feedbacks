@@ -400,9 +400,11 @@ router.post('/reset-password', async (req, res) => {
         if (!email || !newPassword) {
             return res.status(400).json({ message: 'Email and new password are required' });
         }
-        const user = await User.findOne({ email: email?.trim().toLowerCase() });
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ message: `No account found for ${normalizedEmail}` });
         }
 
         user.password = newPassword;
