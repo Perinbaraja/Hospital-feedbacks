@@ -5,6 +5,10 @@ import API, { getAssetUrl } from '../api';
 import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft, Monitor } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
+const normalizeRole = (role) => {
+    return (role || '').toLowerCase().replace(/[^a-z]/g, '');
+};
+
 const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
     const { user, logout } = useAuth();
     const location = useLocation();
@@ -89,7 +93,7 @@ const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
                 </div>
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {['admin', 'hospital_admin'].includes(user?.role?.toLowerCase()) && (
+                    {['admin', 'hospitaladmin'].includes(normalizeRole(user?.role)) && (
                         <>
                             <NavLink title="Dashboard" to={`/admin${hQuery}`} style={getLinkStyle} end>
                                 <LayoutDashboard size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Dashboard'}
@@ -109,7 +113,7 @@ const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
                         </>
                     )}
 
-                    {['super_admin'].includes(user?.role?.toLowerCase()) && (
+                    {normalizeRole(user?.role) === 'superadmin' && (
                         <>
                             <NavLink title="Hospital Settings" to={`/admin/settings${hQuery}`} style={getLinkStyle}>
                                 <Settings size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Hospital Settings'}
@@ -120,7 +124,7 @@ const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
                         </>
                     )}
 
-                    {['Dept_Head', 'dept_head'].includes(user?.role) && (
+                    {normalizeRole(user?.role) === 'depthead' && (
                         <NavLink title="Dept Tasks" to="/dept" style={getLinkStyle}>
                             <Users size={20} style={{ minWidth: '20px' }} /> {!isCollapsed && 'Dept Tasks'}
                         </NavLink>
@@ -201,7 +205,8 @@ const DashboardLayout = ({ allowedRoles }) => {
 
     if (loading) return null;
 
-    const isAllowed = !allowedRoles || allowedRoles.some(role => role.toLowerCase() === user?.role?.toLowerCase());
+    const normalizedUserRole = normalizeRole(user?.role);
+    const isAllowed = !allowedRoles || allowedRoles.some(role => normalizeRole(role) === normalizedUserRole);
 
     if (!user || !isAllowed) {
         if (user) {
