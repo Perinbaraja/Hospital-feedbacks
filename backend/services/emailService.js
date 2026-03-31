@@ -57,10 +57,10 @@ const fireAndForgetEmail = (emailParams, label) => {
         });
 };
 
-export const sendThankYouEmail = (toEmail, name, req = null) => {
-    if (!toEmail || !process.env.MAILERSEND_API_KEY) {
-        console.warn('Email skipped: Missing recipient or API key');
-        return Promise.resolve({ skipped: true });
+export const sendThankYouEmail = async (toEmail, name, req = null) => {
+    if (!toEmail) {
+        console.error('Thank you email failed: Missing recipient');
+        throw new Error('Recipient email is required');
     }
 
     const recipients = [new Recipient(toEmail, name || 'Valued User')];
@@ -71,13 +71,21 @@ export const sendThankYouEmail = (toEmail, name, req = null) => {
         .setHtml(`<h2>Thank You For Your Feedback</h2><p>Hi ${name || 'Valued User'},</p><p>Thank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.</p><p>Thanks,<br>Have a wonderful day!</p>`)
         .setText(`Hi ${name || 'Valued User'},\n\nThank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.\n\nThanks,\nHave a wonderful day!`);
 
-    return fireAndForgetEmail(emailParams, `Thank You Email to ${toEmail}`);
+    const mailOptions = {
+        from: process.env.GMAIL_USER || process.env.EMAIL_USER,
+        to: toEmail,
+        subject: 'Thank You For Your Feedback',
+        html: `<h2>Thank You For Your Feedback</h2><p>Hi ${name || 'Valued User'},</p><p>Thank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.</p><p>Thanks,<br>Have a wonderful day!</p>`,
+        text: `Hi ${name || 'Valued User'},\n\nThank you for providing your feedback. We are working on it and will send you updates if we need more information or once the issue is resolved.\n\nThanks,\nHave a wonderful day!`,
+    };
+
+    return sendEmailWithFallback({ emailParams, mailOptions, label: `Thank You Email to ${toEmail}` });
 };
 
-export const sendResolutionEmail = (toEmail, name, req = null) => {
-    if (!toEmail || !process.env.MAILERSEND_API_KEY) {
-        console.warn('Email skipped: Missing recipient or API key');
-        return Promise.resolve({ skipped: true });
+export const sendResolutionEmail = async (toEmail, name, req = null) => {
+    if (!toEmail) {
+        console.error('Resolution email failed: Missing recipient');
+        throw new Error('Recipient email is required');
     }
 
     const loginLink = getFrontendLink('/login', req);
@@ -89,13 +97,21 @@ export const sendResolutionEmail = (toEmail, name, req = null) => {
         .setHtml(`<h2>Your Feedback Query Has Been Rectified</h2><p>Hi ${name || 'Valued User'},</p><p>We wanted to let you know that the issue you reported has been reviewed and rectified by our team.</p><p><a href="${loginLink}" style="display: inline-block; background: #4338ca; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">View Status</a></p><p>Thanks,<br>Have a wonderful day!</p>`)
         .setText(`Hi ${name || 'Valued User'},\n\nWe wanted to let you know that the issue you reported has been reviewed and rectified by our team.\n\nLogin to view details: ${loginLink}\n\nThanks,\nHave a wonderful day!`);
 
-    return fireAndForgetEmail(emailParams, `Resolution Email to ${toEmail}`);
+    const mailOptions = {
+        from: process.env.GMAIL_USER || process.env.EMAIL_USER,
+        to: toEmail,
+        subject: 'Your Feedback Query Has Been Rectified/Updated',
+        html: `<h2>Your Feedback Query Has Been Rectified</h2><p>Hi ${name || 'Valued User'},</p><p>We wanted to let you know that the issue you reported has been reviewed and rectified by our team.</p><p><a href="${loginLink}" style="display: inline-block; background: #4338ca; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">View Status</a></p><p>Thanks,<br>Have a wonderful day!</p>`,
+        text: `Hi ${name || 'Valued User'},\n\nWe wanted to let you know that the issue you reported has been reviewed and rectified by our team.\n\nLogin to view details: ${loginLink}\n\nThanks,\nHave a wonderful day!`,
+    };
+
+    return sendEmailWithFallback({ emailParams, mailOptions, label: `Resolution Email to ${toEmail}` });
 };
 
-export const sendAdminCredentialsEmail = (toEmail, name, email, password, req = null) => {
-    if (!toEmail || !process.env.MAILERSEND_API_KEY) {
-        console.warn('Credential email skipped: Missing recipient or API key');
-        return Promise.resolve({ skipped: true });
+export const sendAdminCredentialsEmail = async (toEmail, name, email, password, req = null) => {
+    if (!toEmail) {
+        console.error('Credential email failed: Missing recipient');
+        throw new Error('Recipient email is required');
     }
 
     const loginLink = getFrontendLink('/login', req);
@@ -119,7 +135,112 @@ export const sendAdminCredentialsEmail = (toEmail, name, email, password, req = 
         `)
         .setText(`Hi ${name},\n\nYour hospital administration account has been created by the Super Admin.\n\nLogin URL: ${loginLink}\nLogin Email ID: ${email}\nTemporary Password: ${password}\n\nRegards,\nSystem Administrator`);
 
-    return fireAndForgetEmail(emailParams, `Credentials Email to ${toEmail}`);
+    const mailOptions = {
+        from: process.env.GMAIL_USER || process.env.EMAIL_USER,
+        to: toEmail,
+        subject: 'Hospital Administration - Access Credentials',
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #e2e8f0; padding: 2rem; border-radius: 12px; line-height: 1.6;">
+                <h2 style="color: #4338ca;">Account Created Successfully</h2>
+                <p>Hi <strong>${name}</strong>,</p>
+                <p>Your hospital administration account has been successfully created by the <strong>Super Admin</strong>. You now have full access to manage your facility's feedbacks and staff.</p>
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border: 1px solid #e2e8f0;">
+                    <p style="margin: 0.5rem 0;"><strong>Login URL:</strong> <a href="${loginLink}">${loginLink}</a></p>
+                    <p style="margin: 0.5rem 0;"><strong>Login Email ID:</strong> ${email}</p>
+                    <p style="margin: 0.5rem 0;"><strong>Temporary Password:</strong> <code style="background: #fff; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #1e293b;">${password}</code></p>
+                </div>
+                <p style="color: #64748b; font-size: 0.9rem; margin-top: 2rem;">Regards,<br>System Administrator</p>
+            </div>
+        `,
+        text: `Hi ${name},\n\nYour hospital administration account has been created by the Super Admin.\n\nLogin URL: ${loginLink}\nLogin Email ID: ${email}\nTemporary Password: ${password}\n\nRegards,\nSystem Administrator`,
+    };
+
+    return sendEmailWithFallback({ emailParams, mailOptions, label: `Credentials Email to ${toEmail}` });
+};
+
+const isMailerSendConfigured = Boolean(process.env.MAILERSEND_API_KEY);
+const smtpUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
+const smtpPass = process.env.GMAIL_PASS || process.env.EMAIL_PASS;
+const isGmailConfigured = Boolean(smtpUser && smtpPass);
+
+const createGmailTransporter = () => {
+    return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: smtpUser,
+            pass: smtpPass,
+        },
+    });
+};
+
+const sendViaNodemailer = async (mailOptions, label) => {
+    try {
+        const transporter = createGmailTransporter();
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[Email Service] ${label} - Success: ${info.messageId}`);
+        return info;
+    } catch (error) {
+        console.error(`[Email Service] ${label} - Error:`, error.message || error);
+        throw error;
+    }
+};
+
+const sendEmailWithFallback = async ({ emailParams, mailOptions, label }) => {
+    if (isMailerSendConfigured && emailParams) {
+        try {
+            return await fireAndForgetEmail(emailParams, label);
+        } catch (mailerError) {
+            console.warn(`[Email Service] ${label} - MailerSend failed, falling back to Nodemailer.`, mailerError.message || mailerError);
+            if (isGmailConfigured && mailOptions) {
+                return await sendViaNodemailer(mailOptions, label);
+            }
+            throw mailerError;
+        }
+    }
+
+    if (isGmailConfigured && mailOptions) {
+        return await sendViaNodemailer(mailOptions, label);
+    }
+
+    throw new Error('No email provider configured. Set MAILERSEND_API_KEY or EMAIL_USER / EMAIL_PASS in environment.');
+};
+
+export const sendPasswordResetOtpEmail = async (toEmail, otp, req = null) => {
+    if (!toEmail) {
+        console.error('Password reset email failed: Missing recipient');
+        throw new Error('Recipient email is required');
+    }
+
+    const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color: #4338ca; margin-top: 0;">Password Reset Code</h2>
+            <p>Use the code below to reset your password. This code will expire in 5 minutes.</p>
+            <div style="margin: 24px 0; padding: 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1.5rem; letter-spacing: 0.2em; text-align: center; font-weight: 700;">
+                ${otp}
+            </div>
+            <p>If you did not request a password reset, please ignore this email.</p>
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 16px;">Thanks,<br/>Hospital Feedback Management Team</p>
+        </div>
+    `;
+
+    const textContent = `Your password reset code is: ${otp}\n\nThis code expires in 5 minutes. If you did not request a reset, please ignore this message.`;
+
+    const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo([new Recipient(toEmail, 'Hospital User')])
+        .setSubject('Your password reset code')
+        .setHtml(htmlContent)
+        .setText(textContent);
+
+    const mailOptions = {
+        from: process.env.GMAIL_USER || process.env.EMAIL_USER,
+        to: toEmail,
+        subject: 'Your password reset code',
+        html: htmlContent,
+        text: textContent,
+    };
+
+    return sendEmailWithFallback({ emailParams, mailOptions, label: `Password Reset OTP to ${toEmail}` });
 };
 
 // ---------------------------------------------------------

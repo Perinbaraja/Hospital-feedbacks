@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import API from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -9,10 +8,6 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-
-    const [isResetMode, setIsResetMode] = useState(false);
-    const [newPass, setNewPass] = useState('');
-    const [confirmPass, setConfirmPass] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const { login, user: authenticatedUser } = useAuth();
@@ -34,19 +29,14 @@ const Login = () => {
             const cleanEmail = email.trim().toLowerCase();
             const userData = await login(cleanEmail, password);
             const role = (userData.role || '').toLowerCase().replace(/[^a-z]/g, '');
-            console.log(`[LOGIN] User Logged In: ${cleanEmail}, role: ${userData.role}`);
 
             if (role === 'superadmin') {
-                console.log('[LOGIN] Redirecting to /super-admin');
                 navigate('/super-admin');
             } else if (['admin', 'hospitaladmin'].includes(role)) {
-                console.log('[LOGIN] Redirecting to /admin');
                 navigate('/admin');
             } else if (role === 'depthead') {
-                console.log(`[LOGIN] SUCCESS: Redirecting ${userData.name} to Department Head dashboard (${userData.department || 'All'})`);
                 navigate('/dept');
             } else {
-                console.log('[LOGIN] Unknown role, staying at /login');
                 navigate('/login');
             }
             toast.success('Welcome back!');
@@ -58,100 +48,16 @@ const Login = () => {
         }
     };
 
-    const handleResetPassword = async (e) => {
-        e.preventDefault();
-        if (!newPass || !confirmPass) {
-            toast.error('Please enter and confirm your new password.');
-            return;
-        }
-        if (newPass !== confirmPass) {
-            toast.error('New password and confirmation do not match.');
-            return;
-        }
-        setLoading(true);
-        try {
-            await API.post('/users/reset-password', { email, newPassword: newPass });
-            toast.success('Password updated successfully! Please login with your new password.');
-            setIsResetMode(false);
-            setNewPass('');
-            setConfirmPass('');
-            setPassword('');
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Reset failed');
-        } finally {
-            setLoading(false);
-        }
+    const handleForgotPassword = () => {
+        navigate('/forgot-password', { state: { email } });
     };
 
-    if (isResetMode) {
+    if (authenticatedUser) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
-                <Toaster />
-                <div className="card" style={{ width: '100%', maxWidth: '28rem', padding: '2.5rem' }}>
-                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                        <h2 style={{ fontSize: '1.875rem' }}>Reset Password</h2>
-                        <p style={{ color: '#6B7280' }}>Enter your registered email and choose a new password</p>
-                    </div>
-                    <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label className="form-label">Email Address</label>
-                            <input type="email" className="form-control" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your Email" />
-                        </div>
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label className="form-label">New Password</label>
-                            <div className="password-wrapper">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    className="form-control"
-                                    required
-                                    value={newPass}
-                                    onChange={(e) => setNewPass(e.target.value)}
-                                    placeholder="New Password (min 6 chars)"
-                                />
-                                <button
-                                    type="button"
-                                    className="password-toggle"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    title={showPassword ? "Hide Password" : "Show Password"}
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label className="form-label">Confirm New Password</label>
-                            <div className="password-wrapper">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    className="form-control"
-                                    required
-                                    value={confirmPass}
-                                    onChange={(e) => setConfirmPass(e.target.value)}
-                                    placeholder="Confirm New Password"
-                                />
-                                <button
-                                    type="button"
-                                    className="password-toggle"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    title={showPassword ? "Hide Password" : "Show Password"}
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-                        </div>
-                        <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Resetting...' : 'Update Password'}</button>
-                        <button type="button" className="btn-outline" onClick={() => { setIsResetMode(false); setNewPass(''); setConfirmPass(''); }}>Back to Login</button>
-                    </form>
-                </div>
+                <div className="spinner"></div>
             </div>
         );
-    }
-
-    // Hide login form if already authenticated (prevents flash during redirect)
-    if (authenticatedUser) {
-        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
-            <div className="spinner"></div>
-        </div>;
     }
 
     return (
@@ -181,7 +87,7 @@ const Login = () => {
                         <label className="form-label">Password</label>
                         <div className="password-wrapper">
                             <input
-                                type={showPassword ? "text" : "password"}
+                                type={showPassword ? 'text' : 'password'}
                                 className="form-control"
                                 required
                                 autoComplete="new-password"
@@ -193,7 +99,7 @@ const Login = () => {
                                 type="button"
                                 className="password-toggle"
                                 onClick={() => setShowPassword(!showPassword)}
-                                title={showPassword ? "Hide Password" : "Show Password"}
+                                title={showPassword ? 'Hide Password' : 'Show Password'}
                             >
                                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                             </button>
@@ -202,7 +108,7 @@ const Login = () => {
                             <button
                                 type="button"
                                 style={{ background: 'none', border: 'none', color: '#4F46E5', fontSize: '0.8rem', cursor: 'pointer' }}
-                                onClick={() => setIsResetMode(true)}
+                                onClick={handleForgotPassword}
                             >
                                 Forgot password?
                             </button>

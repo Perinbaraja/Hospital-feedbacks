@@ -17,6 +17,12 @@ const userSchema = mongoose.Schema(
       required: true,
       minlength: [6, 'Password must be at least 6 characters'],
     },
+    passwordResetOTP: {
+      type: String,
+    },
+    passwordResetExpires: {
+      type: Date,
+    },
     role: {
       type: String,
       enum: ['Super_Admin', 'super_admin', 'Admin', 'hospital_admin', 'Dept_Head'],

@@ -1,10 +1,12 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import _User from '../models/User.js';
 import _Hospital from '../models/Hospital.js';
 import _Feedback from '../models/Feedback.js';
 import { validateUserInput } from '../middleware/validation.js';
+import { sendPasswordResetOtpEmail } from '../services/emailService.js';
 
 const User = _User?.default || _User;
 const Hospital = _Hospital?.default || _Hospital;
@@ -167,6 +169,73 @@ console.log(`password: ${password}`);
     } catch (error) {
         console.error('[LOGIN] Server Error:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @desc    Request a password reset OTP
+// @route   POST /api/users/forgot-password
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    try {
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            return res.status(404).json({ message: `No account found for ${normalizedEmail}` });
+        }
+
+        const otp = String(crypto.randomInt(100000, 1000000)).padStart(6, '0');
+        const expires = new Date(Date.now() + 5 * 60 * 1000);
+
+        user.passwordResetOTP = otp;
+        user.passwordResetExpires = expires;
+        await user.save();
+
+        await sendPasswordResetOtpEmail(normalizedEmail, otp, req);
+
+        res.json({ message: 'Password reset code sent to your email. It expires in 5 minutes.' });
+    } catch (error) {
+        console.error('[FORGOT PASSWORD] Server Error:', error);
+        res.status(500).json({ message: 'Failed to send password reset code' });
+    }
+});
+
+// @desc    Verify the password reset OTP
+// @route   POST /api/users/verify-otp
+router.post('/verify-otp', async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    try {
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            return res.status(404).json({ message: `No account found for ${normalizedEmail}` });
+        }
+
+        if (!user.passwordResetOTP || !user.passwordResetExpires) {
+            return res.status(400).json({ message: 'No pending reset request found. Please request a new OTP.' });
+        }
+
+        if (new Date(user.passwordResetExpires) < new Date()) {
+            return res.status(400).json({ message: 'OTP has expired. Request a new code.' });
+        }
+
+        if (user.passwordResetOTP !== otp.trim()) {
+            return res.status(400).json({ message: 'Invalid OTP code' });
+        }
+
+        res.json({ message: 'OTP verified. You may now reset your password.' });
+    } catch (error) {
+        console.error('[VERIFY OTP] Server Error:', error);
+        res.status(500).json({ message: 'Failed to verify OTP' });
     }
 });
 
@@ -395,10 +464,10 @@ router.put('/:id/role', protect, admin, async (req, res) => {
 // @desc    Self Reset password (Password reset by email only)
 // @route   POST /api/users/reset-password
 router.post('/reset-password', async (req, res) => {
-    const { email, newPassword } = req.body;
+    const { email, otp, newPassword } = req.body;
     try {
-        if (!email || !newPassword) {
-            return res.status(400).json({ message: 'Email and new password are required' });
+        if (!email || !newPassword || !otp) {
+            return res.status(400).json({ message: 'Email, OTP, and new password are required' });
         }
 
         const normalizedEmail = email.trim().toLowerCase();
@@ -407,7 +476,21 @@ router.post('/reset-password', async (req, res) => {
             return res.status(404).json({ message: `No account found for ${normalizedEmail}` });
         }
 
+        if (!user.passwordResetOTP || !user.passwordResetExpires) {
+            return res.status(400).json({ message: 'No pending reset request found. Please request a new code.' });
+        }
+
+        if (new Date(user.passwordResetExpires) < new Date()) {
+            return res.status(400).json({ message: 'OTP has expired. Request a new code.' });
+        }
+
+        if (user.passwordResetOTP !== otp.trim()) {
+            return res.status(400).json({ message: 'Invalid OTP code' });
+        }
+
         user.password = newPassword;
+        user.passwordResetOTP = undefined;
+        user.passwordResetExpires = undefined;
         await user.save();
         res.json({ message: 'Password updated successfully' });
     } catch (error) {

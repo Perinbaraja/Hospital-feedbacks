@@ -15,6 +15,7 @@ import AdminFeedback from './pages/AdminFeedback';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminTvMonitor from './pages/AdminTvMonitor';
 import DeptDashboard from './pages/DeptDashboard';
+import ForgotPassword from './pages/ForgotPassword';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SuperAdminHospitalDetail from './pages/SuperAdminHospitalDetail';
 import SuperAdminAddHospital from './pages/SuperAdminAddHospital';
@@ -43,6 +44,7 @@ function App() {
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/feedback/:qrId" element={<PublicFeedback />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Super Admin Dashboard (Purple Theme) */}
         <Route element={<ProtectedRoute allowedRoles={['Super_Admin', 'super_admin']} />}>
