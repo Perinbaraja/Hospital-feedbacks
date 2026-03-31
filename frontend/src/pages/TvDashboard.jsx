@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import API, { getAssetUrl } from '../api';
 import './TvDashboard.css';
+import { getHospitalConfig } from '../services/hospitalConfig';
 
 const TvDashboard = () => {
     const [searchParams] = useSearchParams();
@@ -29,11 +30,11 @@ const TvDashboard = () => {
 
             // Fetch hospital and departments in parallel
             const [hospRes, deptRes] = await Promise.all([
-                API.get(`/hospital?hospitalId=${hospitalId}`),
+                getHospitalConfig({ hospitalId }),
                 API.get(`/departments?hospitalId=${hospitalId}`)
             ]);
             
-            setHospital(hospRes.data);
+            setHospital(hospRes);
             setDepartments(deptRes.data || []);
 
             // Fetch TV feedback with optional departmentId from state

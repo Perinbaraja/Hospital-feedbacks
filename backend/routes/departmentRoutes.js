@@ -4,6 +4,7 @@ import _Department from '../models/Department.js';
 import _Hospital from '../models/Hospital.js';
 import { protect, admin } from './userRoutes.js';
 import { sendDepartmentAssignmentEmail } from '../services/emailService.js';
+import { cacheHospitalConfig, invalidateHospitalConfigCache } from '../utils/hospitalConfigCache.js';
 
 const Department = _Department?.default || _Department;
 const Hospital = _Hospital?.default || _Hospital;
@@ -103,6 +104,8 @@ router.post('/', protect, admin, async (req, res) => {
                 incharges: incharges || []
             });
             await hospital.save();
+            invalidateHospitalConfigCache(hospital);
+            cacheHospitalConfig(hospital);
         }
 
         res.status(201).json(dept);
@@ -205,6 +208,8 @@ router.put('/:id', protect, admin, async (req, res) => {
                     });
                 }
                 await hospital.save();
+                invalidateHospitalConfigCache(hospital);
+                cacheHospitalConfig(hospital);
                 console.log(`[DEPT-UPDATE-SYNC] Nested hospital array synchronized.`);
             }
         }
@@ -259,6 +264,8 @@ router.delete('/:id', protect, admin, async (req, res) => {
             
             console.log(`[DEPT-DELETE] Hospital Sync: Removed ${originalCount - hospital.departments.length} items from nested array`);
             await hospital.save();
+            invalidateHospitalConfigCache(hospital);
+            cacheHospitalConfig(hospital);
         }
 
         res.json({ message: 'Department removed successfully', id: req.params.id });

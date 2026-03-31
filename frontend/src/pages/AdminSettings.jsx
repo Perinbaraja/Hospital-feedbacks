@@ -4,6 +4,7 @@ import API, { BASE_ASSET_URL, getAssetUrl, API_BASE_URL } from '../api';
 import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, Edit, ImageOff, Upload } from 'lucide-react';
+import { getHospitalConfig, setHospitalConfigCache } from '../services/hospitalConfig';
 
 
 const AdminSettings = () => {
@@ -47,20 +48,19 @@ const AdminSettings = () => {
 
     const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
-            const hUrl = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
             const dUrl = hospitalId ? `/departments?hospitalId=${hospitalId}` : '/departments';
 
             const [hRes, dRes] = await Promise.all([
-                API.get(hUrl),
+                getHospitalConfig(hospitalId ? { hospitalId } : {}),
                 API.get(dUrl)
             ]);
 
-            if (hRes.data) {
+            if (hRes) {
                 setHospital({
                     themeColor: '#0ca678',
                     qrId: '1',
-                    ...hRes.data,
-                    departments: (dRes.data && dRes.data.length > 0) ? dRes.data : (hRes.data.departments || [])
+                    ...hRes,
+                    departments: (dRes.data && dRes.data.length > 0) ? dRes.data : (hRes.departments || [])
                 });
             } else {
                 toast.error('Hospital configuration not found');
@@ -121,8 +121,12 @@ const AdminSettings = () => {
                 if (url) updatedHospital.feedbackBgUrl = url;
             }
             const url = hospitalId ? `/hospital?hospitalId=${hospitalId}` : '/hospital';
-            await API.put(url, updatedHospital);
-            setHospital(updatedHospital);
+            const { data } = await API.put(url, updatedHospital);
+            setHospital(prev => ({
+                ...prev,
+                ...data
+            }));
+            setHospitalConfigCache(data);
             setLogoFile(null);
             setBgFile(null);
             setQrModified(false);

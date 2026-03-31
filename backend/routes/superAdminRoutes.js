@@ -6,6 +6,7 @@ import _Feedback from '../models/Feedback.js';
 import _Department from '../models/Department.js';
 import { protect, superAdmin } from './userRoutes.js';
 import { sendAdminCredentialsEmail } from '../services/emailService.js';
+import { cacheHospitalConfig, invalidateHospitalConfigCache } from '../utils/hospitalConfigCache.js';
 
 const Hospital = _Hospital?.default || _Hospital;
 const User = _User?.default || _User;
@@ -99,6 +100,7 @@ router.post('/hospitals', protect, superAdmin, async (req, res) => {
             themeColor: themeColor || '#4338ca',
             departments: depts
         });
+        cacheHospitalConfig(hospital);
 
         // 3a. Create individual Department documents in the Department collection
         if (depts.length > 0) {
@@ -161,6 +163,8 @@ router.put('/hospitals/:id/status', protect, superAdmin, async (req, res) => {
         if (hospital) {
             hospital.isActive = req.body.isActive !== undefined ? req.body.isActive : !hospital.isActive;
             const updatedHospital = await hospital.save();
+            invalidateHospitalConfigCache(updatedHospital);
+            cacheHospitalConfig(updatedHospital);
             res.json(updatedHospital);
         } else {
             res.status(404).json({ message: 'Hospital not found' });
@@ -225,6 +229,7 @@ router.delete('/hospitals/:id', protect, superAdmin, async (req, res) => {
         }
 
         const hName = hospital.name;
+        invalidateHospitalConfigCache(hospital);
 
         // 1. Delete associated Feedbacks
         const fbResult = await Feedback.deleteMany({ hospital: id });

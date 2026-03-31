@@ -100,6 +100,9 @@ hospitalSchema.pre('save', async function() {
     }
 });
 
+hospitalSchema.index({ uniqueId: 1 });
+hospitalSchema.index({ hospitalId: 1 });
+
 // Add a default set if none provided (can be changed via seed or admin)
 hospitalSchema.path('departments').default(() => [
     { name: 'Canteen', imageUrl: 'https://cdn-icons-png.flaticon.com/512/2082/2082045.png', description: 'Dining and canteen services' },

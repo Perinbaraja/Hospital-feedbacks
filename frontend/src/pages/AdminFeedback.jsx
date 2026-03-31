@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
 import './AdminFeedback.css';
+import { getHospitalConfig } from '../services/hospitalConfig';
 
 const StatusBadge = ({ status }) => {
     const statusClasses = {
@@ -41,15 +42,14 @@ const AdminFeedback = () => {
         try {
             const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
 
-            // Fetch hospital and feedbacks separately for better error isolation
-            const hospResponse = await API.get(`/hospital${hIdParam}`).catch(err => {
+            const hospResponse = await getHospitalConfig(hospitalId ? { hospitalId } : {}).catch(err => {
                 console.warn('Hospital fetch failed:', err);
                 return null;
             });
 
             if (!isMountedRef.current) return;
             if (hospResponse) {
-                setHospital(hospResponse.data);
+                setHospital(hospResponse);
             }
 
             const fbResponse = await API.get(`/feedback${hIdParam}`);

@@ -5,6 +5,7 @@ import { Monitor, ExternalLink, QrCode as QrIcon, Copy } from 'lucide-react';
 import API from '../api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { getHospitalConfig, setHospitalConfigCache } from '../services/hospitalConfig';
 
 const AdminTvMonitor = () => {
     const { user } = useAuth();
@@ -33,11 +34,11 @@ const AdminTvMonitor = () => {
 
                 const query = `?hospitalId=${effectiveHospitalId}`;
                 const [hRes, dRes] = await Promise.all([
-                    API.get(`/hospital${query}`),
+                    getHospitalConfig({ hospitalId: effectiveHospitalId }),
                     API.get(`/departments${query}`)
                 ]);
                 
-                const data = hRes.data;
+                const data = hRes;
                 const depts = dRes.data || [];
                 
                 setHospital({
@@ -75,7 +76,13 @@ const AdminTvMonitor = () => {
         setIsSaving(true);
         try {
             const query = effectiveHospitalId ? `?hospitalId=${effectiveHospitalId}` : '';
-            await API.put(`/hospital/tv-filters${query}`, tvFilters);
+            const { data } = await API.put(`/hospital/tv-filters${query}`, tvFilters);
+            if (hospital) {
+                setHospitalConfigCache({
+                    ...hospital,
+                    tvFilters: data
+                });
+            }
             toast.success('TV dashboard filters applied successfully');
         } catch (error) {
             console.error('Failed to apply filters', error);

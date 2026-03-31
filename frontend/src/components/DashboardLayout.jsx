@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import API, { getAssetUrl } from '../api';
+import { getAssetUrl } from '../api';
 import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft, Monitor } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { getHospitalConfig } from '../services/hospitalConfig';
 
 const normalizeRole = (role) => {
     return (role || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -193,8 +194,7 @@ const DashboardLayout = ({ allowedRoles }) => {
     useEffect(() => {
         const fetchHospital = async () => {
             try {
-                const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
-                const { data } = await API.get(`/hospital${hIdParam}`);
+                const data = await getHospitalConfig(hospitalId ? { hospitalId } : {});
                 setHospital(data);
             } catch (error) {
                 console.error('Failed to load hospital data', error);

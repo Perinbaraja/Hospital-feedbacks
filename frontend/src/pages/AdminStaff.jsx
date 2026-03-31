@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { getHospitalConfig } from '../services/hospitalConfig';
 
 const AdminStaff = () => {
     const { user } = useAuth();
@@ -34,10 +35,10 @@ const AdminStaff = () => {
         try {
             const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
             const [hospRes, staffRes] = await Promise.all([
-                API.get(`/hospital${hIdParam}`),
+                getHospitalConfig(hospitalId ? { hospitalId } : {}),
                 API.get(`/users${hIdParam}`)
             ]);
-            setHospital(hospRes.data);
+            setHospital(hospRes);
             // Show only clinical/department staff (Dept Heads) in the directory
             setStaffList(staffRes.data.filter(u => ['Dept_Head', 'Admin', 'hospital_admin'].includes(u.role)));
         } catch {

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import './PublicFeedback.css';
+import { getHospitalConfig } from '../services/hospitalConfig';
 
 
 const DEFAULT_ISSUES = {
@@ -63,7 +64,7 @@ const PublicFeedback = () => {
             }
 
             try {
-                const { data } = await API.get(`/hospital?qrId=${qrId}`);
+                const data = await getHospitalConfig({ qrId });
                 setHospital(data);
 
                 if (data.themeColor) {
