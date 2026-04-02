@@ -1,0 +1,409 @@
+/* Base Layout & Responsiveness */
+.feedback-container {
+    min-height: 100vh;
+    transition: all 0.5s ease;
+    padding: 2rem 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .feedback-container {
+        padding: 1rem 0.75rem;
+    }
+}
+
+.feedback-wrapper {
+    max-width: 42rem;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.feedback-card {
+    padding: 3.5rem;
+    border-radius: 2rem;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+    /* Premium soft shadow */
+    transition: transform 0.3s ease;
+}
+
+.feedback-card:hover {
+    transform: translateY(-4px);
+}
+
+@media (max-width: 640px) {
+    .feedback-card {
+        padding: 1.25rem;
+        border-radius: 1rem;
+    }
+}
+
+/* Header Sections */
+.feedback-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.feedback-logo {
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+    .feedback-logo {
+        height: 60px;
+    }
+
+    .feedback-title {
+        font-size: 1.5rem !important;
+    }
+}
+
+/* Progress Stepper */
+.stepper-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.875rem;
+    transition: var(--transitions);
+}
+
+.step-line {
+    width: 40px;
+    height: 2px;
+    transition: var(--transitions);
+}
+
+@media (max-width: 480px) {
+    .step-line {
+        width: 20px;
+    }
+}
+
+/* Grids & Cards */
+.dept-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1.25rem;
+    justify-content: center;
+}
+
+@media (max-width: 480px) {
+    .dept-selection-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+}
+
+.issues-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .issues-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
+.evidence-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 480px) {
+    .evidence-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dept Header in Step 3 */
+.dept-header-visual {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    background: #f8fafc;
+    overflow: hidden;
+}
+
+@media (max-width: 640px) {
+    .dept-header-visual {
+        height: 140px;
+    }
+
+    .dept-header-title {
+        font-size: 1.5rem !important;
+    }
+}
+
+/* Button Groups */
+.btn-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+@media (max-width: 480px) {
+    .btn-group {
+        flex-direction: column-reverse;
+    }
+}
+
+/* Final Steps & Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Photo Gallery Preview */
+.photo-selection-status {
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+    .photo-selection-status {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+.photo-preview-card {
+    margin-top: 0.9rem;
+    border: 1px solid #dbeafe;
+    border-radius: 1rem;
+    background: #f8fbff;
+    padding: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    position: relative;
+}
+
+.photo-preview-image {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 0.85rem;
+    border: 1px solid #cbd5e1;
+    background: white;
+    flex-shrink: 0;
+}
+
+.photo-preview-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.photo-preview-meta .photo-selection-status {
+    margin-top: 0;
+}
+
+.photo-remove-btn {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    background: rgba(255, 255, 255, 0.95);
+    color: #dc2626;
+    border-radius: 999px;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.photo-remove-btn:hover {
+    background: #ffe4e6;
+    border-color: #fda4af;
+}
+
+@media (max-width: 480px) {
+    .photo-preview-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .photo-preview-image {
+        width: 100%;
+        height: 180px;
+    }
+
+    .photo-remove-btn {
+        top: 0.65rem;
+        right: 0.65rem;
+    }
+}
+
+.feedback-container.branded-bg {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bg-blob-1,
+.bg-blob-2 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    z-index: 0;
+}
+
+.bg-blob-1 {
+    width: 500px;
+    height: 500px;
+    top: -100px;
+    right: -100px;
+}
+
+.bg-blob-2 {
+    width: 400px;
+    height: 400px;
+    bottom: -100px;
+    left: -100px;
+}
+
+.feedback-wrapper {
+    position: relative;
+    z-index: 10;
+}
+
+.premium-card {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Loader Styling */
+.loader {
+    width: 48px;
+    height: 48px;
+    border: 5px solid rgba(0, 0, 0, 0.1);
+    border-bottom-color: var(--primary);
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 640px) {
+    .feedback-card {
+        padding: 1.5rem;
+        margin: 0.5rem;
+    }
+}
+
+/* Camera Modal Buttons */
+.camera-btn-cancel {
+    padding: 0.75rem 1.5rem !important;
+    background-color: #EF4444 !important;
+    background-image: none !important;
+    background: #EF4444 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 0.75rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    font-size: 0.95rem !important;
+    font-family: inherit !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4) !important;
+    text-decoration: none !important;
+    outline: none !important;
+    transform: none !important;
+}
+
+.camera-btn-cancel:hover {
+    background-color: #DC2626 !important;
+    background: #DC2626 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5) !important;
+}
+
+.camera-btn-cancel:active {
+    background-color: #B91C1C !important;
+    background: #B91C1C !important;
+    transform: translateY(0) !important;
+}
+
+.camera-btn-capture {
+    padding: 0.75rem 1.5rem !important;
+    background: linear-gradient(135deg, #0ca678 0%, #20c997 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 0.75rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    font-size: 0.95rem !important;
+    font-family: inherit !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 14px rgba(12, 166, 119, 0.4) !important;
+    text-decoration: none !important;
+    outline: none !important;
+}
+
+.camera-btn-capture:hover {
+    filter: brightness(1.1) !important;
+    transform: none !important;
+    box-shadow: 0 6px 20px rgba(12, 166, 119, 0.5) !important;
+}

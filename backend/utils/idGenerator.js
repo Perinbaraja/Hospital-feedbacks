@@ -1,0 +1,17 @@
+import _Counter from '../models/Counter.js';
+
+const Counter = _Counter?.default || _Counter;
+
+export const generateFeedbackId = async () => {
+    const year = new Date().getFullYear();
+    const counterId = `feedback_${year}`;
+
+    const counter = await Counter.findOneAndUpdate(
+        { id: counterId },
+        { $inc: { seq: 1 } },
+        { returnDocument: 'after', upsert: true }
+    );
+
+    const sequenceNumber = counter.seq.toString().padStart(3, '0');
+    return `HFB-${year}-${sequenceNumber}`;
+};

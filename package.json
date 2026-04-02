@@ -1,0 +1,32 @@
+{
+  "name": "hospital",
+  "version": "1.0.0",
+  "description": "Hospital Feedback System",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install-all": "npm install && npm run install:backend && npm run install:frontend",
+    "setup": "npm run install-all && npm run dev",
+    "build:frontend": "cd frontend && npm ci --include=dev && npm run build",
+    "build": "npm run install-all && npm run build:frontend",
+    "start": "cd backend && npm start",
+    "netlify:dev": "cd frontend && npm run build && cd .. && netlify dev",
+    "netlify:build": "npm run build && netlify build"
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "serverless-http": "^3.0.0",
+    "express": "^5.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "mongoose": "^9.2.3",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.0",
+    "nodemailer": "^8.0.1",
+    "mailersend": "^2.6.0"
+  }
+}
