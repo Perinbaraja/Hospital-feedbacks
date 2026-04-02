@@ -43,12 +43,13 @@ const AdminFeedback = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalResults, setTotalResults] = useState(0);
+    const [pageCount, setPageCount] = useState(1);
     const ITEMS_PER_PAGE = 10;
 
     const fetchData = useCallback(async (retryCount = 0) => {
         try {
-            const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
-
+            setLoading(true);
             const hospResponse = await getHospitalConfig(hospitalId ? { hospitalId } : {}).catch(err => {
                 console.warn('Hospital fetch failed:', err);
                 return null;
@@ -59,10 +60,21 @@ const AdminFeedback = () => {
                 setHospital(hospResponse);
             }
 
-            const fbResponse = await API.get(`/feedback${hIdParam}`);
+            const fbResponse = await API.get('/feedback', {
+                params: {
+                    ...(hospitalId ? { hospitalId } : {}),
+                    ...(filterDept ? { department: filterDept } : {}),
+                    ...(startDate ? { dateFrom: startDate } : {}),
+                    ...(endDate ? { dateTo: endDate } : {}),
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE
+                }
+            });
             if (!isMountedRef.current) return;
 
-            setFeedbacks(fbResponse.data);
+            setFeedbacks(fbResponse.data.items || []);
+            setTotalResults(fbResponse.data.pagination?.total || 0);
+            setPageCount(fbResponse.data.pagination?.totalPages || 1);
             setLoading(false);
             setLastUpdated(new Date());
         } catch (error) {
@@ -77,7 +89,7 @@ const AdminFeedback = () => {
                 setLoading(false);
             }
         }
-    }, [hospitalId]);
+    }, [hospitalId, filterDept, startDate, endDate, currentPage]);
 
     // Refresh side-panel data when feedbacks change
     useEffect(() => {
@@ -155,46 +167,23 @@ const AdminFeedback = () => {
         try {
             await API.delete(`/feedback/${id}`);
             toast.success('Feedback deleted successfully');
-            setFeedbacks(prev => prev.filter(f => f._id !== id));
+            if (paginatedFeedbacks.length === 1 && safeCurrentPage > 1) {
+                setCurrentPage((prev) => prev - 1);
+            } else {
+                fetchData();
+            }
         } catch (error) {
             console.error('Delete error:', error);
             toast.error('Failed to delete feedback');
         }
     };
 
-    // Filtering Logic
-    const filteredFeedbacks = feedbacks.filter(fb => {
-        const target = filterDept.toLowerCase().trim();
-        const matchesDept = filterDept === '' ||
-            fb.categories?.some(c => c.department && c.department.toLowerCase().includes(target)) ||
-            (fb.assignedTo && fb.assignedTo.toLowerCase().includes(target));
-
-        // Match local date parts to YYYY-MM-DD for accurate local filtering
-        const fbDate = new Date(fb.createdAt);
-        let fbDateStr = '';
-        if (!isNaN(fbDate)) {
-            const y = fbDate.getFullYear();
-            const m = String(fbDate.getMonth() + 1).padStart(2, '0');
-            const d = String(fbDate.getDate()).padStart(2, '0');
-            fbDateStr = `${y}-${m}-${d}`;
-        }
-
-        const matchesStart = startDate === '' || fbDateStr >= startDate;
-        const matchesEnd = endDate === '' || fbDateStr <= endDate;
-
-        return matchesDept && matchesStart && matchesEnd;
-    });
-
     useEffect(() => {
         setCurrentPage(1);
-    }, [filterDept, startDate, endDate, feedbacks.length]);
+    }, [filterDept, startDate, endDate]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredFeedbacks.length / ITEMS_PER_PAGE));
-    const safeCurrentPage = Math.min(currentPage, totalPages);
-    const paginatedFeedbacks = filteredFeedbacks.slice(
-        (safeCurrentPage - 1) * ITEMS_PER_PAGE,
-        safeCurrentPage * ITEMS_PER_PAGE
-    );
+    const safeCurrentPage = Math.min(currentPage, pageCount);
+    const paginatedFeedbacks = feedbacks;
 
     // Helper to split tags for display (Backward compatible: supports ; and ,)
     const splitTags = (val) => {
@@ -274,7 +263,7 @@ const AdminFeedback = () => {
 
                     <div className="results-count">
                         <span>
-                            Showing <b>{paginatedFeedbacks.length}</b> of <b>{filteredFeedbacks.length}</b> result{filteredFeedbacks.length !== 1 ? 's' : ''}
+                            Showing <b>{paginatedFeedbacks.length}</b> of <b>{totalResults}</b> result{totalResults !== 1 ? 's' : ''}
                         </span>
                     </div>
                 </div>
@@ -295,7 +284,7 @@ const AdminFeedback = () => {
                     </div>
                 )}
 
-                {filteredFeedbacks.length === 0 && !loading ? (
+                {paginatedFeedbacks.length === 0 && !loading ? (
                     <div className="card empty-state">
                         <div className="empty-state-icon">🔍</div>
                         <h3 className="empty-state-title">No results found</h3>
@@ -635,7 +624,7 @@ const AdminFeedback = () => {
                 )}
             </div>
 
-            {filteredFeedbacks.length > ITEMS_PER_PAGE && (
+            {totalResults > ITEMS_PER_PAGE && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -654,14 +643,14 @@ const AdminFeedback = () => {
                         Previous
                     </button>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#475569' }}>
-                        Page {safeCurrentPage} of {totalPages}
+                        Page {safeCurrentPage} of {pageCount}
                     </div>
                     <button
                         type="button"
                         className="btn-outline"
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        disabled={safeCurrentPage === totalPages}
-                        style={{ minWidth: '100px', opacity: safeCurrentPage === totalPages ? 0.5 : 1 }}
+                        onClick={() => setCurrentPage((prev) => Math.min(pageCount, prev + 1))}
+                        disabled={safeCurrentPage === pageCount}
+                        style={{ minWidth: '100px', opacity: safeCurrentPage === pageCount ? 0.5 : 1 }}
                     >
                         Next
                     </button>

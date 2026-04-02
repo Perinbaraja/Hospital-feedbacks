@@ -210,6 +210,9 @@ router.get('/', protect, admin, async (req, res) => {
         const query = {};
         const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
         const isSuperAdmin = normalizedAuthRole === 'superadmin';
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+        const skip = (page - 1) * limit;
 
         if (!isSuperAdmin) {
             query.hospitalId = req.user.hospitalId;
@@ -257,8 +260,23 @@ router.get('/', protect, admin, async (req, res) => {
             { 'categories.reviewType': 'Mixed' }
         ];
 
-        const feedbacks = await Feedback.find(query).sort({ createdAt: -1 });
-        res.json(feedbacks);
+        const [feedbacks, total] = await Promise.all([
+            Feedback.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Feedback.countDocuments(query)
+        ]);
+
+        res.json({
+            items: feedbacks,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / limit))
+            }
+        });
     } catch (error) {
         console.error('Feedback fetch error:', error);
         res.status(500).json({ message: 'Error fetching feedback' });

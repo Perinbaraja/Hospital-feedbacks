@@ -563,11 +563,62 @@ const AdminSettings = () => {
                                                 onChange={(e) => setHospital({ ...hospital, logoUrl: e.target.value })}
                                                 style={{ marginBottom: '0.75rem' }}
                                             />
+                                            <label
+                                                htmlFor="brand-logo-file"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: '1rem',
+                                                    width: '100%',
+                                                    padding: '0.95rem 1rem',
+                                                    border: '1px dashed #cbd5e1',
+                                                    borderRadius: '1rem',
+                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #eefaf6 100%)',
+                                                    cursor: 'pointer',
+                                                    transition: 'var(--transitions)'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                                                    <div style={{
+                                                        width: '42px',
+                                                        height: '42px',
+                                                        borderRadius: '0.9rem',
+                                                        background: 'var(--grad-primary)',
+                                                        color: 'white',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 8px 18px rgba(12, 166, 120, 0.18)'
+                                                    }}>
+                                                        <Upload size={18} />
+                                                    </div>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>Choose brand logo</div>
+                                                        <div style={{ color: '#64748b', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {logoFile ? logoFile.name : 'PNG, JPG, or SVG image'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span style={{
+                                                    flexShrink: 0,
+                                                    padding: '0.45rem 0.8rem',
+                                                    borderRadius: '999px',
+                                                    background: 'white',
+                                                    border: '1px solid #dbe4ee',
+                                                    color: 'var(--primary)',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.78rem'
+                                                }}>
+                                                    Browse
+                                                </span>
+                                            </label>
                                             <input
+                                                id="brand-logo-file"
                                                 type="file"
-                                                className="form-control"
                                                 onChange={(e) => setLogoFile(e.target.files[0])}
                                                 accept="image/*"
+                                                style={{ display: 'none' }}
                                             />
                                         </div>
                                         {(hospital.logoUrl || logoFile) && (
@@ -616,11 +667,62 @@ const AdminSettings = () => {
                                                 onChange={(e) => setHospital({ ...hospital, feedbackBgUrl: e.target.value })}
                                                 style={{ marginBottom: '0.75rem' }}
                                             />
+                                            <label
+                                                htmlFor="feedback-bg-file"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: '1rem',
+                                                    width: '100%',
+                                                    padding: '0.95rem 1rem',
+                                                    border: '1px dashed #cbd5e1',
+                                                    borderRadius: '1rem',
+                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%)',
+                                                    cursor: 'pointer',
+                                                    transition: 'var(--transitions)'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                                                    <div style={{
+                                                        width: '42px',
+                                                        height: '42px',
+                                                        borderRadius: '0.9rem',
+                                                        background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
+                                                        color: 'white',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 8px 18px rgba(99, 102, 241, 0.18)'
+                                                    }}>
+                                                        <Upload size={18} />
+                                                    </div>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>Choose background image</div>
+                                                        <div style={{ color: '#64748b', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {bgFile ? bgFile.name : 'Upload the form background image'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span style={{
+                                                    flexShrink: 0,
+                                                    padding: '0.45rem 0.8rem',
+                                                    borderRadius: '999px',
+                                                    background: 'white',
+                                                    border: '1px solid #dbe4ee',
+                                                    color: '#4f46e5',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.78rem'
+                                                }}>
+                                                    Browse
+                                                </span>
+                                            </label>
                                             <input
+                                                id="feedback-bg-file"
                                                 type="file"
-                                                className="form-control"
                                                 onChange={(e) => setBgFile(e.target.files[0])}
                                                 accept="image/*"
+                                                style={{ display: 'none' }}
                                             />
                                         </div>
                                         {(hospital.feedbackBgUrl || bgFile) && (
@@ -737,12 +839,62 @@ const AdminSettings = () => {
                                             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: '0.75rem' }}>
                                                 You can either paste an image URL or upload a file
                                             </p>
+                                            <label
+                                                htmlFor="dept-icon-upload"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: '1rem',
+                                                    width: '100%',
+                                                    padding: '0.95rem 1rem',
+                                                    border: '1px dashed #cbd5e1',
+                                                    borderRadius: '1rem',
+                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #eefaf6 100%)',
+                                                    cursor: 'pointer',
+                                                    transition: 'var(--transitions)'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                                                    <div style={{
+                                                        width: '42px',
+                                                        height: '42px',
+                                                        borderRadius: '0.9rem',
+                                                        background: 'var(--grad-primary)',
+                                                        color: 'white',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 8px 18px rgba(12, 166, 120, 0.18)'
+                                                    }}>
+                                                        <Upload size={18} />
+                                                    </div>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>Choose department icon</div>
+                                                        <div style={{ color: '#64748b', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {newDept.imageFile ? newDept.imageFile.name : 'PNG, JPG, or SVG image'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span style={{
+                                                    flexShrink: 0,
+                                                    padding: '0.45rem 0.8rem',
+                                                    borderRadius: '999px',
+                                                    background: 'white',
+                                                    border: '1px solid #dbe4ee',
+                                                    color: 'var(--primary)',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.78rem'
+                                                }}>
+                                                    Browse
+                                                </span>
+                                            </label>
                                             <input
                                                 id="dept-icon-upload"
                                                 type="file"
-                                                className="form-control"
                                                 accept="image/*"
                                                 onChange={(e) => updateNewDept({ imageFile: e.target.files[0] })}
+                                                style={{ display: 'none' }}
                                             />
                                         </div>
                                         {(newDept.imageFile || newDept.imageUrl) ? (
