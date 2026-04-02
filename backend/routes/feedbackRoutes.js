@@ -180,6 +180,7 @@ router.post('/', validateFeedbackInput, async (req, res) => {
                         patientName,
                         patientEmail,
                         comment: cat.note || req.body.comments || '',
+                        image: cat.image || '',
                         req
                     });
                 } catch (emailError) {
