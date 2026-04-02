@@ -5,9 +5,11 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { getHospitalConfig } from '../services/hospitalConfig';
+import useIsMobile from '../hooks/useIsMobile';
 
 const AdminStaff = () => {
     const { user } = useAuth();
+    const isMobile = useIsMobile(768);
     const { search } = window.location;
     const queryParams = new URLSearchParams(search);
     const hospitalId = queryParams.get('hospitalId');
@@ -24,6 +26,10 @@ const AdminStaff = () => {
     const [department, setDepartment] = useState('');
     const [creating, setCreating] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [resetTarget, setResetTarget] = useState(null);
+    const [resetPassword, setResetPassword] = useState('password123');
+    const [showResetPassword, setShowResetPassword] = useState(false);
+    const [resettingPassword, setResettingPassword] = useState(false);
 
     // CRITICAL: Block Super Admin from accessing staff management
     if (user?.role?.toLowerCase() === 'super_admin') {
@@ -113,15 +119,23 @@ const AdminStaff = () => {
         }
     };
 
-    const handleResetPassword = async (id, name) => {
-        const newPassword = window.prompt(`Enter new password for ${name}:`, 'password123');
-        if (newPassword === null) return;
-
+    const handleResetPassword = async () => {
+        if (!resetTarget) return;
+        if (!resetPassword.trim()) {
+            toast.error('Please enter a new password');
+            return;
+        }
         try {
-            await API.post(`/users/${id}/reset-password`, { newPassword });
-            toast.success(`Password updated for ${name}`);
+            setResettingPassword(true);
+            await API.post(`/users/${resetTarget.id}/reset-password`, { newPassword: resetPassword.trim() });
+            toast.success(`Password updated for ${resetTarget.name}`);
+            setResetTarget(null);
+            setResetPassword('password123');
+            setShowResetPassword(false);
         } catch (error) {
             toast.error(error.response?.data?.message || 'Error resetting password');
+        } finally {
+            setResettingPassword(false);
         }
     };
 
@@ -166,7 +180,7 @@ const AdminStaff = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 400px) 1fr', gap: '2rem', alignItems: 'start' }}>
+            <div className="responsive-aside-grid" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(300px, 400px) 1fr', gap: '2rem', alignItems: 'start' }}>
 
                 {/* Create Staff Form */}
                 <div className="card">
@@ -306,7 +320,11 @@ const AdminStaff = () => {
                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
 
                                                         <button
-                                                            onClick={() => handleResetPassword(staff._id, staff.name)}
+                                                            onClick={() => {
+                                                                setResetTarget({ id: staff._id, name: staff.name });
+                                                                setResetPassword('password123');
+                                                                setShowResetPassword(false);
+                                                            }}
                                                             className="btn-outline"
                                                             style={{
                                                                 padding: '0.3rem 0.6rem',
@@ -341,6 +359,96 @@ const AdminStaff = () => {
                 </div>
 
             </div>
+
+            {resetTarget && (
+                <>
+                    <button
+                        type="button"
+                        className="responsive-sidebar-backdrop"
+                        style={{ zIndex: 999 }}
+                        onClick={() => {
+                            if (!resettingPassword) setResetTarget(null);
+                        }}
+                    />
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: isMobile ? 'calc(100vw - 2rem)' : 'min(460px, calc(100vw - 2rem))',
+                            background: 'white',
+                            border: '1px solid var(--border)',
+                            borderRadius: '1.25rem',
+                            boxShadow: '0 20px 60px rgba(15, 23, 42, 0.22)',
+                            padding: isMobile ? '1rem' : '1.5rem',
+                            zIndex: 1000,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1rem'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                            <div>
+                                <h3 style={{ margin: 0 }}>Reset Password</h3>
+                                <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                    Enter new password for <strong>{resetTarget.name}</strong>
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                className="btn-outline"
+                                style={{ width: '40px', height: '40px', padding: 0, borderRadius: '999px' }}
+                                onClick={() => {
+                                    if (!resettingPassword) setResetTarget(null);
+                                }}
+                            >
+                                X
+                            </button>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">New Password</label>
+                            <div className="password-wrapper">
+                                <input
+                                    type={showResetPassword ? 'text' : 'password'}
+                                    className="form-control"
+                                    value={resetPassword}
+                                    onChange={(e) => setResetPassword(e.target.value)}
+                                    placeholder="Enter new password"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => setShowResetPassword((prev) => !prev)}
+                                >
+                                    {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="responsive-stack-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                            <button
+                                type="button"
+                                className="btn-outline"
+                                onClick={() => setResetTarget(null)}
+                                disabled={resettingPassword}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={handleResetPassword}
+                                disabled={resettingPassword}
+                            >
+                                {resettingPassword ? 'Updating...' : 'Update Password'}
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 };

@@ -5,6 +5,7 @@ import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, Edit, ImageOff, Upload } from 'lucide-react';
 import { getHospitalConfig, setHospitalConfigCache } from '../services/hospitalConfig';
+import useIsMobile from '../hooks/useIsMobile';
 
 const createEmptyFeedbackField = (type = 'positive') => ({
     type,
@@ -125,9 +126,26 @@ const buildFeedbackConfigPayload = (feedbackConfigs = []) => {
     })).filter((config) => config.label);
 };
 
+const slugifyQrSegment = (value = '') => (
+    String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+);
+
+const buildPublicFeedbackIdentifier = (hospital = {}) => {
+    const hospitalKey = String(hospital.hospitalId || hospital._id || hospital.uniqueId || '').trim();
+    const locationKey = slugifyQrSegment(hospital.location) || 'general';
+    const qrKey = String(hospital.uniqueId || hospital.qrId || '').trim();
+
+    return [hospitalKey, locationKey, qrKey].filter(Boolean).join('--');
+};
+
 
 const AdminSettings = () => {
     const { user, updateUser } = useAuth();
+    const isMobile = useIsMobile(768);
     const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
     const { search } = window.location;
     const queryParams = new URLSearchParams(search);
@@ -162,7 +180,6 @@ const AdminSettings = () => {
     const [adminProfile, setAdminProfile] = useState({ name: '', email: '', password: '', phone: '' });
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [qrModified, setQrModified] = useState(false);
     const [editingDeptId, setEditingDeptId] = useState(null);
     const resetDeptForm = useCallback(() => ({
         name: '',
@@ -278,7 +295,6 @@ const AdminSettings = () => {
             setHospitalConfigCache(data);
             setLogoFile(null);
             setBgFile(null);
-            setQrModified(false);
             toast.success('Settings updated successfully');
         } catch {
             toast.error('Error saving settings');
@@ -432,14 +448,8 @@ const AdminSettings = () => {
         }
     };
 
-    const handleGenerateNewQR = () => {
-        const newId = Math.random().toString(36).substr(2, 8);
-        setHospital({ ...hospital, qrId: newId });
-        setQrModified(true);
-        toast.success('New QR ID generated! Save to apply.');
-    };
-
-    const feedbackUrl = `${window.location.origin}/feedback/${hospital.qrId || '1'}`;
+    const publicFeedbackIdentifier = buildPublicFeedbackIdentifier(hospital);
+    const feedbackUrl = `${window.location.origin}/feedback/${publicFeedbackIdentifier || hospital.qrId || '1'}`;
 
     return (
         <div style={{ position: 'relative' }}>
@@ -463,7 +473,7 @@ const AdminSettings = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) 1fr', gap: '2rem', alignItems: 'start' }}>
+            <div className="responsive-aside-grid" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.5fr) 1fr', gap: '2rem', alignItems: 'start' }}>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
@@ -488,7 +498,7 @@ const AdminSettings = () => {
 
                                 {isSuperAdmin && (
                                     <>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                        <div className="responsive-two-col" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
                                             <div className="form-group">
                                                 <label className="form-label">Contact Number (10 Digits)</label>
                                                 <input
@@ -515,7 +525,7 @@ const AdminSettings = () => {
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                        <div className="responsive-two-col" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
                                             <div className="form-group">
                                                 <label className="form-label">City</label>
                                                 <input
@@ -1076,38 +1086,14 @@ const AdminSettings = () => {
                         </div>
                         <div style={{ padding: '0.75rem', background: '#f1f5f9', borderRadius: '0.5rem', fontSize: '0.75rem', wordBreak: 'break-all', color: '#475569', marginBottom: '1rem' }}>{feedbackUrl}</div>
 
-                        <button
-                            type="button"
-                            onClick={handleGenerateNewQR}
-                            style={{
-                                width: '100%',
-                                marginBottom: '0.75rem',
-                                padding: '10px',
-                                borderRadius: '8px',
-                                border: '2px dashed #4F46E5',
-                                color: '#4F46E5',
-                                background: '#f5f3ff',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                fontSize: '0.85rem'
-                            }}
-                        >
-                            🔄 Generate New QR ID
-                        </button>
-
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(feedbackUrl); toast.success('Link Copied!'); }} className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: qrModified ? 0.6 : 1 }}>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText(feedbackUrl); toast.success('Link Copied!'); }} className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 <ClipboardCopy size={16} /> Copy
                             </button>
-                            <a href={feedbackUrl} target="_blank" rel="noreferrer" className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: qrModified ? 0.6 : 1 }}>
+                            <a href={feedbackUrl} target="_blank" rel="noreferrer" className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 <ExternalLink size={16} /> View
                             </a>
                         </div>
-                        {qrModified && (
-                            <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '8px', color: '#c2410c', fontSize: '0.75rem', fontWeight: 600 }}>
-                                ⚠️ This new QR ID is not active yet. You must click "Finalize & Save" below to enable it.
-                            </div>
-                        )}
 
                     </div>
 

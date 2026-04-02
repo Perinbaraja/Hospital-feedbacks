@@ -3,9 +3,11 @@ import API from '../api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronLeft, Save, X, ShieldCheck, User, Mail, Phone, Lock, Smartphone, Eye, EyeOff } from 'lucide-react';
+import useIsMobile from '../hooks/useIsMobile';
 
 const SuperAdminAddHospital = () => {
     const navigate = useNavigate();
+    const isMobile = useIsMobile(768);
     const [submitting, setSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -53,7 +55,7 @@ const SuperAdminAddHospital = () => {
                 >
                     <ChevronLeft size={18} /> Return to Dashboard
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div className="responsive-content-row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <div style={{
                         width: '56px', height: '56px', background: 'linear-gradient(135deg, #4338ca 0%, #312e81 100%)',
                         borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -73,8 +75,8 @@ const SuperAdminAddHospital = () => {
 
             <div className="card" style={{ padding: '0', border: '1px solid #e2e8f0', background: 'white', borderRadius: '1.5rem', overflow: 'hidden' }}>
                 <form onSubmit={handleCreateHospital} autoComplete="off">
-                    <div style={{ padding: '3rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                    <div style={{ padding: isMobile ? '1.25rem' : '3rem' }}>
+                        <div className="responsive-two-col" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem' }}>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '1.5rem' }}>Facility Details</h3>
                             </div>

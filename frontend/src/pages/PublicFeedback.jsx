@@ -72,6 +72,33 @@ const getDepartmentFeedbackOptions = (dept) => {
     return DEPARTMENT_ISSUES[hardcodedIssues] || DEFAULT_ISSUES;
 };
 
+const parsePublicFeedbackIdentifier = (value = '') => {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) {
+        return { qrId: '', hospitalId: '' };
+    }
+
+    const parts = rawValue.split('--').map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+        return {
+            hospitalId: parts[0],
+            qrId: parts[parts.length - 1]
+        };
+    }
+
+    if (parts.length >= 2) {
+        return {
+            hospitalId: parts[0],
+            qrId: ''
+        };
+    }
+
+    return {
+        qrId: rawValue,
+        hospitalId: rawValue
+    };
+};
+
 const PublicFeedback = () => {
 
     const { qrId } = useParams();
@@ -97,7 +124,17 @@ const PublicFeedback = () => {
             }
 
             try {
-                const data = await getHospitalConfig({ qrId });
+                const parsedIdentifier = parsePublicFeedbackIdentifier(qrId);
+                let data = null;
+
+                if (parsedIdentifier.qrId) {
+                    data = await getHospitalConfig({ qrId: parsedIdentifier.qrId }).catch(() => null);
+                }
+
+                if (!data && parsedIdentifier.hospitalId) {
+                    data = await getHospitalConfig({ hospitalId: parsedIdentifier.hospitalId });
+                }
+
                 setHospital(data);
 
                 if (data.themeColor) {

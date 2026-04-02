@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../api';
 import toast from 'react-hot-toast';
+import useIsMobile from '../hooks/useIsMobile';
 
 const StatusBadge = ({ status }) => {
     const statusClasses = {
@@ -14,6 +15,7 @@ const StatusBadge = ({ status }) => {
 
 const DeptDashboard = () => {
     const { user } = useAuth();
+    const isMobile = useIsMobile(768);
     const [feedbacks, setFeedbacks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedFeedback, setSelectedFeedback] = useState(null); // For Note Modal
@@ -238,9 +240,9 @@ const DeptDashboard = () => {
             {/* Notes Side-Panel */}
             {selectedFeedback && (
                 <div style={{
-                    position: 'fixed', top: 0, right: 0, width: '400px', height: '100vh',
+                    position: 'fixed', top: 0, right: 0, width: isMobile ? '100%' : '400px', height: '100vh',
                     background: 'white', boxShadow: '-10px 0 30px rgba(0,0,0,0.1)',
-                    zIndex: 1000, padding: '2rem', display: 'flex', flexDirection: 'column'
+                    zIndex: 1000, padding: isMobile ? '1rem' : '2rem', display: 'flex', flexDirection: 'column'
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                         <h3 style={{ fontSize: '1.25rem' }}>Staff Discussion</h3>

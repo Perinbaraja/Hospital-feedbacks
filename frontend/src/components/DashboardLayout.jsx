@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAssetUrl } from '../api';
-import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft, Monitor } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Settings, UserPlus, ClipboardList, ChevronLeft, Monitor, Menu } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { getHospitalConfig } from '../services/hospitalConfig';
+import useIsMobile from '../hooks/useIsMobile';
 
 const normalizeRole = (role) => {
     return (role || '').toLowerCase().replace(/[^a-z]/g, '');
 };
 
-const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
+const Sidebar = ({ hospital, isCollapsed, onToggle, isMobile, isOpen, onClose }) => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const params = new URLSearchParams(location.search);
@@ -43,8 +44,8 @@ const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
 
     return (
         <div style={{
-            width: isCollapsed ? '80px' : '280px',
-            minWidth: isCollapsed ? '80px' : '280px',
+            width: isMobile ? 'min(86vw, 320px)' : (isCollapsed ? '80px' : '280px'),
+            minWidth: isMobile ? 'min(86vw, 320px)' : (isCollapsed ? '80px' : '280px'),
             background: 'var(--grad-header)',
             color: 'white',
             padding: isCollapsed ? '2.5rem 0.75rem' : '2.5rem 1.25rem',
@@ -53,12 +54,20 @@ const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
             justifyContent: 'space-between',
             boxShadow: '4px 0 20px rgba(0, 0, 0, 0.1)',
             zIndex: 100,
+            alignSelf: isMobile ? 'auto' : 'stretch',
+            minHeight: isMobile ? '100vh' : '100%',
             transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            position: 'relative'
+            position: isMobile ? 'fixed' : 'relative',
+            top: 0,
+            left: 0,
+            height: isMobile ? '100vh' : 'auto',
+            transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+            transition: isMobile ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}>
             <button 
                 onClick={onToggle}
                 style={{
+                    display: isMobile ? 'none' : 'flex',
                     position: 'absolute',
                     right: '-12px',
                     top: '32px',
@@ -178,18 +187,30 @@ const Sidebar = ({ hospital, isCollapsed, onToggle }) => {
 
 const DashboardLayout = ({ allowedRoles }) => {
     const { user, loading } = useAuth();
+    const isMobile = useIsMobile(900);
 
     const [hospital, setHospital] = useState(null);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         return localStorage.getItem('sidebar_collapsed') === 'true';
     });
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const hospitalId = new URLSearchParams(useLocation().search).get('hospitalId');
 
     const toggleSidebar = () => {
+        if (isMobile) {
+            setMobileSidebarOpen((prev) => !prev);
+            return;
+        }
         const next = !isCollapsed;
         setIsCollapsed(next);
         localStorage.setItem('sidebar_collapsed', next);
     };
+
+    useEffect(() => {
+        if (!isMobile) {
+            setMobileSidebarOpen(false);
+        }
+    }, [isMobile]);
 
     useEffect(() => {
         const fetchHospital = async () => {
@@ -218,8 +239,29 @@ const DashboardLayout = ({ allowedRoles }) => {
     return (
         <div className="layout-container" style={{ display: 'flex', minHeight: '100vh' }}>
             <Toaster position="top-right" />
-            <Sidebar hospital={hospital} isCollapsed={isCollapsed} onToggle={toggleSidebar} />
-            <main className="main-content" style={{ flex: 1, padding: isCollapsed ? '2rem 3rem' : '2rem' }}>
+            {isMobile && mobileSidebarOpen && (
+                <button
+                    type="button"
+                    aria-label="Close menu"
+                    className="responsive-sidebar-backdrop"
+                    onClick={() => setMobileSidebarOpen(false)}
+                />
+            )}
+            <Sidebar
+                hospital={hospital}
+                isCollapsed={isMobile ? false : isCollapsed}
+                onToggle={toggleSidebar}
+                isMobile={isMobile}
+                isOpen={mobileSidebarOpen}
+                onClose={() => setMobileSidebarOpen(false)}
+            />
+            <main className="main-content" style={{ flex: 1, padding: isMobile ? '1rem' : (isCollapsed ? '2rem 3rem' : '2rem') }}>
+                {isMobile && (
+                    <button type="button" className="mobile-nav-toggle" onClick={() => setMobileSidebarOpen(true)}>
+                        <Menu size={18} />
+                        Menu
+                    </button>
+                )}
                 <Outlet />
             </main>
         </div>
