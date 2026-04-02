@@ -51,6 +51,16 @@ const getDefaultDepartmentFeedbackConfigs = (departmentName = '') => {
     ];
 };
 
+const hasMeaningfulFeedbackConfigs = (feedbackConfigs = []) => (
+    Array.isArray(feedbackConfigs)
+    && feedbackConfigs.some((config) => (
+        String(config?.label || '').trim()
+        || config?.emailEnabled
+        || String(config?.recipientName || '').trim()
+        || String(config?.recipientEmail || '').trim()
+    ))
+);
+
 const normalizeFeedbackConfigsForForm = (feedbackConfigs = [], fallbackPositive = '', fallbackNegative = '', departmentName = '') => {
     if (Array.isArray(feedbackConfigs) && feedbackConfigs.length > 0) {
         return feedbackConfigs.map((config) => ({
@@ -75,6 +85,34 @@ const normalizeFeedbackConfigsForForm = (feedbackConfigs = [], fallbackPositive 
     }
 
     return getDefaultDepartmentFeedbackConfigs(departmentName);
+};
+
+const hydrateDepartmentFeedbackConfigs = (department = {}) => {
+    const normalizedConfigs = normalizeFeedbackConfigsForForm(
+        department.feedbackConfigs,
+        department.positive_feedback || (department.positiveIssues || []).join('; '),
+        department.negative_feedback || (department.negativeIssues || []).join('; '),
+        department.name
+    );
+
+    const positiveLabels = normalizedConfigs
+        .filter((config) => config.type === 'positive')
+        .map((config) => config.label)
+        .filter(Boolean);
+
+    const negativeLabels = normalizedConfigs
+        .filter((config) => config.type === 'negative')
+        .map((config) => config.label)
+        .filter(Boolean);
+
+    return {
+        ...department,
+        feedbackConfigs: normalizedConfigs,
+        positive_feedback: positiveLabels.join('; '),
+        negative_feedback: negativeLabels.join('; '),
+        positiveIssues: positiveLabels,
+        negativeIssues: negativeLabels
+    };
 };
 
 const buildFeedbackConfigPayload = (feedbackConfigs = []) => {
@@ -138,6 +176,22 @@ const AdminSettings = () => {
         setNewDept((prev) => (typeof updater === 'function' ? updater(prev) : { ...prev, ...updater }));
     }, []);
 
+    const handleDeptNameChange = useCallback((value) => {
+        setNewDept((prev) => {
+            const nextName = value;
+            const shouldAutofillDefaults = !hasMeaningfulFeedbackConfigs(prev.feedbackConfigs);
+            const defaultConfigs = getDefaultDepartmentFeedbackConfigs(nextName);
+
+            return {
+                ...prev,
+                name: nextName,
+                feedbackConfigs: shouldAutofillDefaults && defaultConfigs.length > 0
+                    ? defaultConfigs
+                    : prev.feedbackConfigs
+            };
+        });
+    }, []);
+
     const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
             const dUrl = hospitalId ? `/departments?hospitalId=${hospitalId}` : '/departments';
@@ -148,11 +202,14 @@ const AdminSettings = () => {
             ]);
 
             if (hRes) {
+                const departments = ((dRes.data && dRes.data.length > 0) ? dRes.data : (hRes.departments || []))
+                    .map(hydrateDepartmentFeedbackConfigs);
+
                 setHospital({
                     themeColor: '#0ca678',
                     qrId: '1',
                     ...hRes,
-                    departments: (dRes.data && dRes.data.length > 0) ? dRes.data : (hRes.departments || [])
+                    departments
                 });
             } else {
                 toast.error('Hospital configuration not found');
@@ -276,7 +333,7 @@ const AdminSettings = () => {
 
                 setHospital(prev => ({
                     ...prev,
-                    departments: prev.departments.map(d => d._id === editingDeptId ? data : d)
+                    departments: prev.departments.map(d => d._id === editingDeptId ? hydrateDepartmentFeedbackConfigs(data) : d)
                 }));
                 toast.success('Department updated successfully.');
             } else {
@@ -293,7 +350,7 @@ const AdminSettings = () => {
                 
                 setHospital(prev => ({ 
                     ...prev, 
-                    departments: [...prev.departments, data] 
+                    departments: [...prev.departments, hydrateDepartmentFeedbackConfigs(data)] 
                 }));
                 toast.success('Department added successfully.');
             }
@@ -644,7 +701,7 @@ const AdminSettings = () => {
                                     className="form-control"
                                     placeholder="Department Name"
                                     value={newDept.name}
-                                    onChange={(e) => updateNewDept({ name: e.target.value })}
+                                    onChange={(e) => handleDeptNameChange(e.target.value)}
                                 />
                                 <div>
                                     <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem', display: 'block' }}>Department Icon</label>
