@@ -32,7 +32,6 @@ const DeptDashboard = () => {
         } catch (error) {
             console.error('Dept fetch error:', error);
             if (retryCount < 2) {
-                console.log(`Retrying dept fetch (${retryCount + 1})...`);
                 setTimeout(() => fetchDeptFeedbacks(retryCount + 1), 1500);
             } else {
                 toast.error('Failed to load assignments. Please refresh or check connection.');

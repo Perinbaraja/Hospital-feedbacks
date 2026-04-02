@@ -69,7 +69,6 @@ const buildAttachmentFromDataUrl = (dataUrl, fallbackBaseName = 'feedback-photo'
 const fireAndForgetEmail = (emailParams, label) => {
     return mailersend.email.send(emailParams)
         .then(response => {
-            console.log(`[Email Service] ${label} - Success:`, response.statusCode);
             return response;
         })
         .catch(error => {
@@ -277,7 +276,6 @@ const sendViaNodemailer = async (mailOptions, label) => {
     try {
         const transporter = createGmailTransporter();
         const info = await transporter.sendMail(mailOptions);
-        console.log(`[Email Service] ${label} - Success: ${info.messageId}`);
         return info;
     } catch (error) {
         console.error(`[Email Service] ${label} - Error:`, error.message || error);
@@ -387,7 +385,6 @@ export const sendDepartmentAssignmentEmail = async (toEmail, inchargeName, dept)
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log(`[Gmail Service] Dept Assignment email sent to ${toEmail}: ${info.messageId}`);
         return info;
     } catch (error) {
         console.error(`[Gmail Service] Error sending to ${toEmail}:`, error.message);

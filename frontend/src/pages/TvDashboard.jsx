@@ -45,7 +45,6 @@ const TvDashboard = () => {
             setLastUpdated(new Date());
             setLoading(false);
         } catch (error) {
-            console.error('[TV Dashboard] Sync error:', error.message);
             if (error.response?.status >= 400) {
                 setLoading(false);
             }
@@ -55,8 +54,8 @@ const TvDashboard = () => {
     useEffect(() => {
         if (hospitalId) {
             fetchData();
-            // Requirement 5: Automatic Data Refresh every 10 seconds
-            const refreshTimer = setInterval(fetchData, 10000);
+            // Automatic data refresh every 30 seconds
+            const refreshTimer = setInterval(fetchData, 30000);
             const clockTimer = setInterval(() => setCurrentTime(new Date()), 1000);
             return () => {
                 clearInterval(refreshTimer);
@@ -72,7 +71,7 @@ const TvDashboard = () => {
         if (feedbacks.length === 0 && departments.length > 0) {
             const slideTimer = setInterval(() => {
                 setSlideshowIndex(prev => (prev + 1) % departments.length);
-            }, 5000);
+            }, 60000);
             return () => clearInterval(slideTimer);
         }
     }, [feedbacks, departments]);
@@ -93,7 +92,7 @@ const TvDashboard = () => {
                 });
                 setIsTransitioning(false);
             }, 600); // Match CSS transition time
-        }, 5000); // Move every 5 seconds
+        }, 20000); // Move every 20 seconds
 
         return () => clearInterval(tickerTimer);
     }, [feedbacks]);

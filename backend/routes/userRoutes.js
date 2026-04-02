@@ -141,15 +141,11 @@ router.get('/version', (req, res) => {
 router.post('/login', validateUserInput, async (req, res) => {
     const email = req?.body?.email?.trim();
     const password = req?.body?.password;
-console.log(`email: ${email}`);
-console.log(`password: ${password}`);
     if (!email || !password) {
-        console.warn("[LOGIN] Missing email or password");
         return res.status(400).json({ message: "Email and password are required" });
     }
 
     try {
-        console.log(`[LOGIN] Attempt for email: ${email}`);
 
         const user = await User.findOne({
             email: email.toLowerCase()

@@ -42,6 +42,8 @@ const AdminFeedback = () => {
     const [filterDept, setFilterDept] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     const fetchData = useCallback(async (retryCount = 0) => {
         try {
@@ -60,7 +62,6 @@ const AdminFeedback = () => {
             const fbResponse = await API.get(`/feedback${hIdParam}`);
             if (!isMountedRef.current) return;
 
-            console.log("Feedbacks received from API:", fbResponse.data);
             setFeedbacks(fbResponse.data);
             setLoading(false);
             setLastUpdated(new Date());
@@ -68,7 +69,6 @@ const AdminFeedback = () => {
             if (!isMountedRef.current) return;
             console.error('Fetch error:', error);
             if (retryCount < 2) { // Retry up to 2 times
-                console.log(`Retrying fetch (${retryCount + 1})...`);
                 setTimeout(() => {
                     if (isMountedRef.current) fetchData(retryCount + 1);
                 }, 1500);
@@ -150,7 +150,6 @@ const AdminFeedback = () => {
 
 
     const handleDelete = async (id) => {
-        console.log("Deleting ID:", id);
         if (!window.confirm('Are you sure you want to delete this feedback?')) return;
         
         try {
@@ -185,6 +184,17 @@ const AdminFeedback = () => {
 
         return matchesDept && matchesStart && matchesEnd;
     });
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterDept, startDate, endDate, feedbacks.length]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredFeedbacks.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const paginatedFeedbacks = filteredFeedbacks.slice(
+        (safeCurrentPage - 1) * ITEMS_PER_PAGE,
+        safeCurrentPage * ITEMS_PER_PAGE
+    );
 
     // Helper to split tags for display (Backward compatible: supports ; and ,)
     const splitTags = (val) => {
@@ -264,7 +274,7 @@ const AdminFeedback = () => {
 
                     <div className="results-count">
                         <span>
-                            Showing <b>{filteredFeedbacks.length}</b> result{filteredFeedbacks.length !== 1 ? 's' : ''}
+                            Showing <b>{paginatedFeedbacks.length}</b> of <b>{filteredFeedbacks.length}</b> result{filteredFeedbacks.length !== 1 ? 's' : ''}
                         </span>
                     </div>
                 </div>
@@ -314,7 +324,7 @@ const AdminFeedback = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredFeedbacks.map((fb, index) => {
+                                {paginatedFeedbacks.map((fb, index) => {
                                     const cat = fb.categories?.[0] || {};
                                     const reviewType = (cat.reviewType || '').toLowerCase();
                                     const isPositive = ['positive', 'completely_satisfied', 'completely satisfied'].includes(reviewType);
@@ -339,7 +349,7 @@ const AdminFeedback = () => {
                                                     fontWeight: 600,
                                                     color: '#64748b'
                                                 }}>
-                                                    {index + 1}
+                                                    {(safeCurrentPage - 1) * ITEMS_PER_PAGE + index + 1}
                                                 </div>
                                             </td>
                                             <td>
@@ -624,6 +634,39 @@ const AdminFeedback = () => {
                     </div>
                 )}
             </div>
+
+            {filteredFeedbacks.length > ITEMS_PER_PAGE && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.75rem',
+                    marginTop: '1.25rem',
+                    flexWrap: 'wrap'
+                }}>
+                    <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={safeCurrentPage === 1}
+                        style={{ minWidth: '100px', opacity: safeCurrentPage === 1 ? 0.5 : 1 }}
+                    >
+                        Previous
+                    </button>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#475569' }}>
+                        Page {safeCurrentPage} of {totalPages}
+                    </div>
+                    <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        disabled={safeCurrentPage === totalPages}
+                        style={{ minWidth: '100px', opacity: safeCurrentPage === totalPages ? 0.5 : 1 }}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
 
             {/* Internal Notes Side-Panel */}
             {selectedFeedbackForNotes && (
