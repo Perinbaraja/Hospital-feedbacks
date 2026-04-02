@@ -40,6 +40,13 @@
   padding: 0;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
 
 h1,
 h2,
@@ -99,6 +106,14 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   line-height: 1.5;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
 }
 
 .btn-outline {
@@ -367,6 +382,7 @@ body {
   overflow-y: auto;
   max-width: 1400px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .page-header {
@@ -399,19 +415,99 @@ body {
   letter-spacing: -0.025em;
 }
 
+.mobile-nav-toggle {
+  display: none;
+}
+
+.responsive-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 90;
+}
+
 @media (max-width: 768px) {
   .layout-container {
     flex-direction: column;
   }
 
   .main-content {
-    padding: 1.5rem;
+    padding: 1rem;
   }
 
   .page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+    padding: 1rem;
+  }
+
+  .page-title {
+    font-size: 1.45rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .btn-primary,
+  .btn-outline,
+  .btn-success,
+  .btn-danger {
+    width: 100%;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.875rem;
+    background: white;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .modern-table {
+    min-width: 860px;
+  }
+
+  .responsive-fixed-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 1rem !important;
+  }
+
+  .responsive-stack-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .responsive-stack-actions > * {
+    width: 100%;
+  }
+
+  .responsive-two-col,
+  .responsive-split,
+  .responsive-aside-grid,
+  .responsive-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .responsive-content-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .responsive-hide-divider {
+    display: none !important;
   }
 }
 

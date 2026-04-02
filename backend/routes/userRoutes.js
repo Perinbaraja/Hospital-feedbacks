@@ -59,12 +59,24 @@ export const optionalProtect = async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
             if (process.env.JWT_SECRET) {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                const user = await User.findById(decoded.id).populate('hospital');
+                const user = await User.findById(decoded.id)
+                    .select('role isActive hospitalId hospital')
+                    .lean();
+
                 if (user && user.isActive) {
-                    // Only set req.user if hospital is also active OR user is super admin
+                    // Only fetch hospital activity when we actually need to validate a non-super-admin user.
                     const normalizedRole = (user.role || '').toLowerCase().replace(/[^a-z]/g, '');
                     const isSuper = normalizedRole === 'superadmin';
-                    if (isSuper || (user.hospital && user.hospital.isActive)) {
+
+                    let hospitalIsActive = false;
+                    if (!isSuper && user.hospital) {
+                        const hospital = await Hospital.findById(user.hospital)
+                            .select('isActive')
+                            .lean();
+                        hospitalIsActive = Boolean(hospital?.isActive);
+                    }
+
+                    if (isSuper || hospitalIsActive) {
                         req.user = user;
                         req.user.hospitalId = user.hospitalId || (user.hospital?._id || user.hospital || '').toString();
                     }

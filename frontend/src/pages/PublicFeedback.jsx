@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import './PublicFeedback.css';
+import { getHospitalConfig } from '../services/hospitalConfig';
 
 
 const DEFAULT_ISSUES = {
@@ -38,6 +39,66 @@ const DEPARTMENT_ISSUES = {
     }
 };
 
+const normalizeFeedbackConfigs = (dept) => {
+    if (Array.isArray(dept?.feedbackConfigs) && dept.feedbackConfigs.length > 0) {
+        return dept.feedbackConfigs
+            .map((config) => ({
+                type: config?.type === 'negative' ? 'negative' : 'positive',
+                label: (config?.label || '').trim()
+            }))
+            .filter((config) => config.label);
+    }
+
+    const positives = (dept?.positive_feedback ? dept.positive_feedback.split(';').map((item) => item.trim()).filter(Boolean) : (dept?.positiveIssues || []));
+    const negatives = (dept?.negative_feedback ? dept.negative_feedback.split(';').map((item) => item.trim()).filter(Boolean) : (dept?.negativeIssues || []));
+
+    return [
+        ...positives.map((label) => ({ type: 'positive', label })),
+        ...negatives.map((label) => ({ type: 'negative', label }))
+    ];
+};
+
+const getDepartmentFeedbackOptions = (dept) => {
+    const configured = normalizeFeedbackConfigs(dept);
+    if (configured.length > 0) {
+        return {
+            positive: configured.filter((config) => config.type === 'positive').map((config) => config.label),
+            negative: configured.filter((config) => config.type === 'negative').map((config) => config.label)
+        };
+    }
+
+    const deptNameNormalized = (dept?.name || '').toLowerCase();
+    const hardcodedIssues = Object.keys(DEPARTMENT_ISSUES).find((key) => key.toLowerCase() === deptNameNormalized);
+    return DEPARTMENT_ISSUES[hardcodedIssues] || DEFAULT_ISSUES;
+};
+
+const parsePublicFeedbackIdentifier = (value = '') => {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) {
+        return { qrId: '', hospitalId: '' };
+    }
+
+    const parts = rawValue.split('--').map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+        return {
+            hospitalId: parts[0],
+            qrId: parts[parts.length - 1]
+        };
+    }
+
+    if (parts.length >= 2) {
+        return {
+            hospitalId: parts[0],
+            qrId: ''
+        };
+    }
+
+    return {
+        qrId: rawValue,
+        hospitalId: rawValue
+    };
+};
+
 const PublicFeedback = () => {
 
     const { qrId } = useParams();
@@ -63,7 +124,17 @@ const PublicFeedback = () => {
             }
 
             try {
-                const { data } = await API.get(`/hospital?qrId=${qrId}`);
+                const parsedIdentifier = parsePublicFeedbackIdentifier(qrId);
+                let data = null;
+
+                if (parsedIdentifier.qrId) {
+                    data = await getHospitalConfig({ qrId: parsedIdentifier.qrId }).catch(() => null);
+                }
+
+                if (!data && parsedIdentifier.hospitalId) {
+                    data = await getHospitalConfig({ hospitalId: parsedIdentifier.hospitalId });
+                }
+
                 setHospital(data);
 
                 if (data.themeColor) {
@@ -346,14 +417,7 @@ const PublicFeedback = () => {
                 hospital: hospital._id,
                 categories: selectedCategories.map(c => {
                     const dbDept = hospital?.departments?.find(d => d.name.toLowerCase() === c.department.toLowerCase());
-                    const deptNameNormalized = c.department.toLowerCase();
-                    const hardcodedIssues = Object.keys(DEPARTMENT_ISSUES).find(k => k.toLowerCase() === deptNameNormalized);
-                    const deptData = (dbDept?.positive_feedback || dbDept?.negative_feedback || dbDept?.positiveIssues?.length > 0 || dbDept?.negativeIssues?.length > 0)
-                        ? { 
-                            positive: (dbDept?.positive_feedback ? dbDept.positive_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.positiveIssues || [])),
-                            negative: (dbDept?.negative_feedback ? dbDept.negative_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.negativeIssues || []))
-                        }
-                        : (DEPARTMENT_ISSUES[hardcodedIssues] || DEFAULT_ISSUES);
+                    const deptData = getDepartmentFeedbackOptions(dbDept || { name: c.department });
 
                     return {
                         department: c.department,
@@ -570,14 +634,7 @@ const PublicFeedback = () => {
                             <form onSubmit={handleSubmit}>
                                 {selectedCategories.map((cat) => {
                                     const dbDept = hospital?.departments?.find(d => d.name.toLowerCase() === cat.department.toLowerCase());
-                                    const deptNameNormalized = cat.department.toLowerCase();
-                                    const hardcodedIssues = Object.keys(DEPARTMENT_ISSUES).find(k => k.toLowerCase() === deptNameNormalized);
-                                    const deptData = (dbDept?.positive_feedback || dbDept?.negative_feedback || dbDept?.positiveIssues?.length > 0 || dbDept?.negativeIssues?.length > 0)
-                                        ? { 
-                                            positive: (dbDept?.positive_feedback ? dbDept.positive_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.positiveIssues || [])),
-                                            negative: (dbDept?.negative_feedback ? dbDept.negative_feedback.split(';').map(s => s.trim()).filter(s => s) : (dbDept?.negativeIssues || []))
-                                        }
-                                        : (DEPARTMENT_ISSUES[hardcodedIssues] || DEFAULT_ISSUES);
+                                    const deptData = getDepartmentFeedbackOptions(dbDept || { name: cat.department });
 
                                     return (
                                         <div key={cat.department} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E5E7EB', borderRadius: '1.25rem' }}>

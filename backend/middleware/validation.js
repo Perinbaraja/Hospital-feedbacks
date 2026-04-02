@@ -5,6 +5,41 @@ export const validateEmail = (email) => {
     return emailRegex.test(email);
 };
 
+export const validateFeedbackConfigs = (feedbackConfigs = []) => {
+    if (!Array.isArray(feedbackConfigs)) {
+        return 'Feedback configuration must be an array';
+    }
+
+    for (const config of feedbackConfigs) {
+        const label = config?.label?.trim?.();
+        const type = (config?.type || '').toLowerCase();
+        const emailEnabled = Boolean(config?.emailEnabled);
+        const recipientEmail = config?.recipientEmail?.trim?.();
+
+        if (!label) {
+            return 'Each feedback field requires a label';
+        }
+
+        if (!['positive', 'negative'].includes(type)) {
+            return 'Feedback field type must be positive or negative';
+        }
+
+        if (emailEnabled) {
+            if (!config?.recipientName?.trim?.()) {
+                return `Recipient name is required for "${label}"`;
+            }
+            if (!recipientEmail) {
+                return `Recipient email is required for "${label}"`;
+            }
+            if (!validateEmail(recipientEmail)) {
+                return `Recipient email is invalid for "${label}"`;
+            }
+        }
+    }
+
+    return null;
+};
+
 export const validatePassword = (password) => {
     // At least 6 characters, can be more restrictive if needed
     return password && password.length >= 6;

@@ -5,9 +5,12 @@ import { Monitor, ExternalLink, QrCode as QrIcon, Copy } from 'lucide-react';
 import API from '../api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { getHospitalConfig, setHospitalConfigCache } from '../services/hospitalConfig';
+import useIsMobile from '../hooks/useIsMobile';
 
 const AdminTvMonitor = () => {
     const { user } = useAuth();
+    const isMobile = useIsMobile(768);
     const location = useLocation();
     const params = new URLSearchParams(location.search);
     const hospitalId = params.get('hospitalId');
@@ -33,11 +36,11 @@ const AdminTvMonitor = () => {
 
                 const query = `?hospitalId=${effectiveHospitalId}`;
                 const [hRes, dRes] = await Promise.all([
-                    API.get(`/hospital${query}`),
+                    getHospitalConfig({ hospitalId: effectiveHospitalId }),
                     API.get(`/departments${query}`)
                 ]);
                 
-                const data = hRes.data;
+                const data = hRes;
                 const depts = dRes.data || [];
                 
                 setHospital({
@@ -75,7 +78,13 @@ const AdminTvMonitor = () => {
         setIsSaving(true);
         try {
             const query = effectiveHospitalId ? `?hospitalId=${effectiveHospitalId}` : '';
-            await API.put(`/hospital/tv-filters${query}`, tvFilters);
+            const { data } = await API.put(`/hospital/tv-filters${query}`, tvFilters);
+            if (hospital) {
+                setHospitalConfigCache({
+                    ...hospital,
+                    tvFilters: data
+                });
+            }
             toast.success('TV dashboard filters applied successfully');
         } catch (error) {
             console.error('Failed to apply filters', error);
@@ -147,9 +156,9 @@ const AdminTvMonitor = () => {
                     </p>
                 </div>
 
-                <div className="filters-grid" style={{ 
+                <div className="filters-grid responsive-two-col" style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr', 
+                    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
                     gap: '2.5rem',
                     marginBottom: '2rem'
                 }}>
@@ -229,7 +238,7 @@ const AdminTvMonitor = () => {
                         <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#334155', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
                             Advanced Record Filtering
                         </label>
-                        <div className="grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="grid responsive-two-col" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
                             <div className="filter-group">
                                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: '#475569' }}>Feedback Type</label>
                                 <select 
@@ -263,12 +272,12 @@ const AdminTvMonitor = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: isMobile ? 'stretch' : 'flex-end' }}>
                     <button 
                         className="btn-primary" 
                         onClick={handleApplyFilters} 
                         disabled={isSaving}
-                        style={{ padding: '0.875rem 2.5rem', minWidth: '180px' }}
+                        style={{ padding: '0.875rem 2.5rem', minWidth: isMobile ? '100%' : '180px' }}
                     >
                         {isSaving ? 'Applying...' : 'Apply Filters'}
                     </button>
@@ -276,7 +285,7 @@ const AdminTvMonitor = () => {
             </div>
 
             {/* Section 2: TV Dashboard Access (Link + QR) */}
-            <div className="grid" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '2rem', marginTop: '2rem' }}>
+            <div className="grid responsive-aside-grid" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 400px', gap: '2rem', marginTop: '2rem' }}>
                 <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '2.5rem', borderLeft: '4px solid var(--primary)' }}>
                     <div>
                         <div style={{ 

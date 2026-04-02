@@ -108,6 +108,73 @@ export const sendResolutionEmail = async (toEmail, name, req = null) => {
     return sendEmailWithFallback({ emailParams, mailOptions, label: `Resolution Email to ${toEmail}` });
 };
 
+export const sendFeedbackNotificationEmail = async ({
+    toEmail,
+    recipientName,
+    hospitalName,
+    departmentName,
+    feedbackType,
+    feedbackLabel,
+    patientName,
+    patientEmail,
+    comment,
+    req = null
+}) => {
+    if (!toEmail) {
+        throw new Error('Recipient email is required');
+    }
+
+    const safeRecipient = recipientName || 'Hospital Team';
+    const safePatientName = patientName || 'Anonymous Patient';
+    const safePatientEmail = patientEmail || 'Not provided';
+    const safeComment = comment || 'No additional comment provided.';
+    const safeType = feedbackType === 'positive' ? 'Positive' : 'Negative';
+
+    const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 680px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color: #0f172a; margin-top: 0;">New ${safeType} Feedback Notification</h2>
+            <p>Hi <strong>${safeRecipient}</strong>,</p>
+            <p>A new patient feedback item was submitted and matched your configured feedback rule.</p>
+            <div style="margin: 24px 0; padding: 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+                <p style="margin: 6px 0;"><strong>Hospital:</strong> ${hospitalName || 'Hospital'}</p>
+                <p style="margin: 6px 0;"><strong>Department:</strong> ${departmentName || 'Department'}</p>
+                <p style="margin: 6px 0;"><strong>Feedback Type:</strong> ${safeType}</p>
+                <p style="margin: 6px 0;"><strong>Configured Label:</strong> ${feedbackLabel || 'General Feedback'}</p>
+                <p style="margin: 6px 0;"><strong>Patient Name:</strong> ${safePatientName}</p>
+                <p style="margin: 6px 0;"><strong>Patient Email:</strong> ${safePatientEmail}</p>
+                <p style="margin: 6px 0;"><strong>Comment:</strong> ${safeComment}</p>
+            </div>
+            <p style="color: #64748b; font-size: 0.9rem;">This message was generated automatically by the hospital feedback system.</p>
+        </div>
+    `;
+
+    const textContent = `New ${safeType} feedback notification
+
+Hospital: ${hospitalName || 'Hospital'}
+Department: ${departmentName || 'Department'}
+Configured Label: ${feedbackLabel || 'General Feedback'}
+Patient Name: ${safePatientName}
+Patient Email: ${safePatientEmail}
+Comment: ${safeComment}`;
+
+    const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo([new Recipient(toEmail, safeRecipient)])
+        .setSubject(`New ${safeType} Feedback - ${departmentName || 'Department'}`)
+        .setHtml(htmlContent)
+        .setText(textContent);
+
+    const mailOptions = {
+        from: process.env.GMAIL_USER || process.env.EMAIL_USER,
+        to: toEmail,
+        subject: `New ${safeType} Feedback - ${departmentName || 'Department'}`,
+        html: htmlContent,
+        text: textContent,
+    };
+
+    return sendEmailWithFallback({ emailParams, mailOptions, label: `Feedback Notification to ${toEmail}` });
+};
+
 export const sendAdminCredentialsEmail = async (toEmail, name, email, password, req = null) => {
     if (!toEmail) {
         console.error('Credential email failed: Missing recipient');

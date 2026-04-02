@@ -1,5 +1,35 @@
 import mongoose from 'mongoose';
 
+const feedbackConfigSchema = mongoose.Schema(
+    {
+        type: {
+            type: String,
+            enum: ['positive', 'negative'],
+            required: true,
+        },
+        label: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        emailEnabled: {
+            type: Boolean,
+            default: false,
+        },
+        recipientName: {
+            type: String,
+            default: '',
+            trim: true,
+        },
+        recipientEmail: {
+            type: String,
+            default: '',
+            trim: true,
+        }
+    },
+    { _id: true }
+);
+
 const departmentSchema = mongoose.Schema(
     {
         name: {
@@ -32,7 +62,11 @@ const departmentSchema = mongoose.Schema(
                 name: { type: String },
                 email: { type: String }
             }
-        ]
+        ],
+        feedbackConfigs: {
+            type: [feedbackConfigSchema],
+            default: []
+        }
     },
     {
         timestamps: true,

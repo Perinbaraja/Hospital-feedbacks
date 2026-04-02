@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import API from '../api';
 import toast from 'react-hot-toast';
 import { ChevronLeft, ShieldCheck, Settings, Activity, ExternalLink } from 'lucide-react';
+import useIsMobile from '../hooks/useIsMobile';
 
 const SuperAdminHospitalDetail = () => {
+    const isMobile = useIsMobile(768);
     const { id } = useParams();
     const navigate = useNavigate();
     const [hospital, setHospital] = useState(null);
@@ -67,15 +69,15 @@ const SuperAdminHospitalDetail = () => {
                     </button>
 
                     {/* Header Card */}
-                    <div className="card" style={{ padding: '2.5rem', marginBottom: '2rem', border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                    <div className="card" style={{ padding: isMobile ? '1.25rem' : '2.5rem', marginBottom: '2rem', border: '1px solid #e2e8f0' }}>
+                        <div className="responsive-content-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                            <div className="responsive-content-row" style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                                 <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px' }}>
                                     🏥
                                 </div>
                                 <div>
                                     <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '0.5rem' }}>{hospital.name}</h1>
-                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                    <div className="responsive-content-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                         <code style={{ background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', color: '#64748b', fontSize: '0.9rem' }}>{hospital.uniqueId}</code>
                                         <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#cbd5e1' }}></span>
                                         <span style={{ fontSize: '0.9rem', color: hospital.isActive ? '#166534' : '#991b1b', fontWeight: 700 }}>
@@ -105,7 +107,7 @@ const SuperAdminHospitalDetail = () => {
                     </div>
 
                     {/* Grid for Actions and Info */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                    <div className="responsive-two-col" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem' }}>
 
                         {/* Facility Details */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

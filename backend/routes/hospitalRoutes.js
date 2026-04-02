@@ -4,10 +4,31 @@ import _Hospital from '../models/Hospital.js';
 import _Department from '../models/Department.js';
 import { protect, admin, optionalProtect } from './userRoutes.js';
 import { validateHospitalInput } from '../middleware/validation.js';
+import { cacheHospitalConfig, getCachedHospitalConfig, invalidateHospitalConfigCache } from '../utils/hospitalConfigCache.js';
 
 const Hospital = _Hospital?.default || _Hospital;
 const Department = _Department?.default || _Department;
 const router = express.Router();
+
+const HOSPITAL_CONFIG_FIELDS = [
+    'name',
+    'logoUrl',
+    'departments',
+    'themeColor',
+    'location',
+    'state',
+    'district',
+    'feedbackBgUrl',
+    'phone',
+    'adminEmail',
+    'uniqueId',
+    'isActive',
+    'qrId',
+    'tvFilters',
+    'hospitalId',
+    'createdAt',
+    'updatedAt'
+].join(' ');
 
 // @desc    Get hospital config
 router.get('/', optionalProtect, async (req, res) => {
@@ -18,33 +39,32 @@ router.get('/', optionalProtect, async (req, res) => {
         if (hospitalId && ['undefined', 'null'].includes(hospitalId.toLowerCase())) hospitalId = '';
         if (qrId && ['undefined', 'null'].includes(qrId.toLowerCase())) qrId = '';
 
-        let hospital;
+        let hospital = getCachedHospitalConfig({ hospitalId, qrId });
         if (qrId) {
-            hospital = await Hospital.findOne({ qrId });
+            if (!hospital) {
+                hospital = await Hospital.findOne({ qrId }).select(HOSPITAL_CONFIG_FIELDS).lean();
+            }
         } else if (hospitalId) {
-            if (mongoose.Types.ObjectId.isValid(hospitalId)) {
-                hospital = await Hospital.findById(hospitalId);
+            if (!hospital && mongoose.Types.ObjectId.isValid(hospitalId)) {
+                hospital = await Hospital.findById(hospitalId).select(HOSPITAL_CONFIG_FIELDS).lean();
             }
             if (!hospital) {
-                hospital = await Hospital.findOne({
-                    $or: [
-                        { uniqueId: hospitalId },
-                        { hospitalId }
-                    ]
-                });
+                hospital = await Hospital.findOne({ uniqueId: hospitalId }).select(HOSPITAL_CONFIG_FIELDS).lean();
+            }
+            if (!hospital) {
+                hospital = await Hospital.findOne({ hospitalId }).select(HOSPITAL_CONFIG_FIELDS).lean();
             }
         } else if (req.user && req.user.hospitalId) {
             const userHospitalId = String(req.user.hospitalId || '').trim();
-            if (mongoose.Types.ObjectId.isValid(userHospitalId)) {
-                hospital = await Hospital.findById(userHospitalId);
+            hospital = hospital || getCachedHospitalConfig({ hospitalId: userHospitalId });
+            if (!hospital && mongoose.Types.ObjectId.isValid(userHospitalId)) {
+                hospital = await Hospital.findById(userHospitalId).select(HOSPITAL_CONFIG_FIELDS).lean();
             }
             if (!hospital && userHospitalId) {
-                hospital = await Hospital.findOne({
-                    $or: [
-                        { uniqueId: userHospitalId },
-                        { hospitalId: userHospitalId }
-                    ]
-                });
+                hospital = await Hospital.findOne({ uniqueId: userHospitalId }).select(HOSPITAL_CONFIG_FIELDS).lean();
+            }
+            if (!hospital && userHospitalId) {
+                hospital = await Hospital.findOne({ hospitalId: userHospitalId }).select(HOSPITAL_CONFIG_FIELDS).lean();
             }
         } else {
             return res.status(400).json({ message: 'Hospital ID or QR ID required' });
@@ -55,6 +75,8 @@ router.get('/', optionalProtect, async (req, res) => {
             console.warn(`[Hospital Config] Hospital not found for qrId: ${qrId} or hospitalId: ${hospitalId || req.user?.hospitalId}`);
             return res.status(404).json({ message: 'Hospital not found. Please ensure hospital is initialized.' });
         }
+
+        hospital = cacheHospitalConfig(hospital);
 
         // If deactivated, block access. 
         // Note: We block even Super Admins from the PUBLIC feedback view if it's deactivated 
@@ -114,6 +136,8 @@ router.put('/', protect, admin, validateHospitalInput, async (req, res) => {
             if (phone !== undefined) hospital.phone = phone;
 
             const updatedHospital = await hospital.save();
+            invalidateHospitalConfigCache(updatedHospital);
+            cacheHospitalConfig(updatedHospital);
             res.json(updatedHospital);
         } else {
             res.status(404).json({ message: 'Hospital not found' });
@@ -153,6 +177,8 @@ router.put('/tv-filters', protect, admin, async (req, res) => {
             };
 
             const updatedHospital = await hospital.save();
+            invalidateHospitalConfigCache(updatedHospital);
+            cacheHospitalConfig(updatedHospital);
             res.json(updatedHospital.tvFilters);
         } else {
             res.status(404).json({ message: 'Hospital not found' });

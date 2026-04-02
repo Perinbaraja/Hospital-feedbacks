@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import API, { BASE_ASSET_URL, getAssetUrl } from '../api';
 import toast from 'react-hot-toast';
 import './AdminFeedback.css';
+import { getHospitalConfig } from '../services/hospitalConfig';
+import useIsMobile from '../hooks/useIsMobile';
+import { useAuth } from '../context/AuthContext';
 
 const StatusBadge = ({ status }) => {
     const statusClasses = {
@@ -14,8 +17,11 @@ const StatusBadge = ({ status }) => {
 };
 
 const AdminFeedback = () => {
+    const isMobile = useIsMobile(768);
+    const { user } = useAuth();
     const [searchParams] = useSearchParams();
-    const hospitalId = searchParams.get('hospitalId');
+    const queryHospitalId = searchParams.get('hospitalId');
+    const hospitalId = queryHospitalId || user?.hospitalId || user?.hospital?._id || '';
 
     const [feedbacks, setFeedbacks] = useState([]);
     const [hospital, setHospital] = useState(null);
@@ -41,15 +47,14 @@ const AdminFeedback = () => {
         try {
             const hIdParam = hospitalId ? `?hospitalId=${hospitalId}` : '';
 
-            // Fetch hospital and feedbacks separately for better error isolation
-            const hospResponse = await API.get(`/hospital${hIdParam}`).catch(err => {
+            const hospResponse = await getHospitalConfig(hospitalId ? { hospitalId } : {}).catch(err => {
                 console.warn('Hospital fetch failed:', err);
                 return null;
             });
 
             if (!isMountedRef.current) return;
             if (hospResponse) {
-                setHospital(hospResponse.data);
+                setHospital(hospResponse);
             }
 
             const fbResponse = await API.get(`/feedback${hIdParam}`);
@@ -623,9 +628,9 @@ const AdminFeedback = () => {
             {/* Internal Notes Side-Panel */}
             {selectedFeedbackForNotes && (
                 <div style={{
-                    position: 'fixed', top: 0, right: 0, width: '400px', height: '100vh',
+                    position: 'fixed', top: 0, right: 0, width: isMobile ? '100%' : '400px', height: '100vh',
                     background: 'white', boxShadow: '-10px 0 30px rgba(0,0,0,0.1)',
-                    zIndex: 1000, padding: '2rem', display: 'flex', flexDirection: 'column'
+                    zIndex: 1000, padding: isMobile ? '1rem' : '2rem', display: 'flex', flexDirection: 'column'
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', pb: '1rem' }}>
                         <h3 style={{ fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>Internal Staff Notes</h3>
