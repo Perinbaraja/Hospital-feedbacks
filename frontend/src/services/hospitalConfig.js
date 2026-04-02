@@ -100,6 +100,24 @@ export const invalidateHospitalConfigCache = (hospitalOrKey) => {
     }
 };
 
+export const clearHospitalConfigCache = () => {
+    memoryCache.clear();
+    inflightRequests.clear();
+
+    try {
+        const keysToDelete = [];
+        for (let index = 0; index < window.sessionStorage.length; index += 1) {
+            const key = window.sessionStorage.key(index);
+            if (key?.startsWith(STORAGE_PREFIX)) {
+                keysToDelete.push(key);
+            }
+        }
+        keysToDelete.forEach((key) => window.sessionStorage.removeItem(key));
+    } catch {
+        // Ignore storage cleanup issues.
+    }
+};
+
 export const getHospitalConfig = async (params = {}, options = {}) => {
     const { forceRefresh = false, ttlMs = DEFAULT_TTL_MS } = options;
     const requestKey = buildRequestKey(params);

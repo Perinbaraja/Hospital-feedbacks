@@ -149,7 +149,8 @@ const AdminSettings = () => {
     const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
     const { search } = window.location;
     const queryParams = new URLSearchParams(search);
-    const hospitalId = queryParams.get('hospitalId');
+    const queryHospitalId = queryParams.get('hospitalId');
+    const hospitalId = queryHospitalId || user?.hospitalId || user?.hospital?._id || '';
 
     const [hospital, setHospital] = useState({
         name: '',

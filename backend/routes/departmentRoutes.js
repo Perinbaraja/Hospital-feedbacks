@@ -42,6 +42,13 @@ router.get('/', async (req, res) => {
     try {
         let hId = hospitalId;
         console.log(`[DEPT-FETCH] Incoming hospitalId: ${hospitalId}`);
+        const normalizedRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
+        const isSuperAdmin = normalizedRole === 'superadmin';
+
+        if (!hId && req.user?.hospitalId && !isSuperAdmin) {
+            hId = req.user.hospitalId.toString();
+            console.log(`[DEPT-FETCH] Using authenticated user's hospitalId: ${hId}`);
+        }
 
         if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
             // It's a slug, find the ID!
@@ -63,7 +70,7 @@ router.get('/', async (req, res) => {
         const query = { hospitalId: hId };
         
         // If logged in, further restrict by hospitalId unless superadmin
-        if (req.user && req.user.role !== 'Super_Admin' && req.user.role !== 'super_admin') {
+        if (req.user && !isSuperAdmin) {
             query.hospitalId = req.user.hospitalId;
         }
 

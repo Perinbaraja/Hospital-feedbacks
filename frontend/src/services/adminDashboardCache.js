@@ -69,6 +69,24 @@ export const setCachedAdminDashboard = (data, { hospitalId, ttlMs = DASHBOARD_CA
     return data;
 };
 
+export const clearAdminDashboardCache = () => {
+    memoryCache.clear();
+    inflightRequests.clear();
+
+    try {
+        const keysToDelete = [];
+        for (let index = 0; index < window.sessionStorage.length; index += 1) {
+            const key = window.sessionStorage.key(index);
+            if (key?.startsWith(STORAGE_PREFIX)) {
+                keysToDelete.push(key);
+            }
+        }
+        keysToDelete.forEach((key) => window.sessionStorage.removeItem(key));
+    } catch {
+        // Ignore storage cleanup issues.
+    }
+};
+
 export const fetchAdminDashboard = async ({ hospitalId } = {}, { forceRefresh = false, ttlMs = DASHBOARD_CACHE_TTL_MS } = {}) => {
     const key = buildDashboardKey({ hospitalId });
 
@@ -93,4 +111,3 @@ export const fetchAdminDashboard = async ({ hospitalId } = {}, { forceRefresh = 
     inflightRequests.set(key, request);
     return request;
 };
-

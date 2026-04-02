@@ -1,5 +1,7 @@
 import { createContext, useState, useContext } from 'react';
 import API from '../api';
+import { clearHospitalConfigCache } from '../services/hospitalConfig';
+import { clearAdminDashboardCache } from '../services/adminDashboardCache';
 
 const AuthContext = createContext();
 
@@ -19,6 +21,8 @@ export const AuthProvider = ({ children }) => {
     const [loading] = useState(false);
 
     const login = async (email, password) => {
+        clearHospitalConfigCache();
+        clearAdminDashboardCache();
         const { data } = await API.post('/users/login', { email, password });
         setUser(data);
         localStorage.setItem('userInfo', JSON.stringify(data));
@@ -26,11 +30,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        clearHospitalConfigCache();
+        clearAdminDashboardCache();
         setUser(null);
         localStorage.removeItem('userInfo');
     };
 
     const updateUser = (data) => {
+        clearHospitalConfigCache();
+        clearAdminDashboardCache();
         setUser(data);
         localStorage.setItem('userInfo', JSON.stringify(data));
     };

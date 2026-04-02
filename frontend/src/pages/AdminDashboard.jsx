@@ -6,6 +6,7 @@ import { Activity, CheckCircle, Clock, TrendingUp, BarChart3, Users, LayoutDashb
 import { getHospitalConfig } from '../services/hospitalConfig';
 import { fetchAdminDashboard, getCachedAdminDashboard } from '../services/adminDashboardCache';
 import useIsMobile from '../hooks/useIsMobile';
+import { useAuth } from '../context/AuthContext';
 
 const StatCard = ({ title, value, color, icon, trend }) => {
     const Icon = icon;
@@ -31,9 +32,11 @@ const StatCard = ({ title, value, color, icon, trend }) => {
 
 const AdminDashboard = () => {
     const isMobile = useIsMobile(768);
+    const { user } = useAuth();
     const [searchParams] = useSearchParams();
     const rawHospitalId = searchParams.get('hospitalId');
-    const hospitalId = rawHospitalId && !['undefined', 'null'].includes(rawHospitalId.toLowerCase()) ? rawHospitalId.trim() : '';
+    const queryHospitalId = rawHospitalId && !['undefined', 'null'].includes(rawHospitalId.toLowerCase()) ? rawHospitalId.trim() : '';
+    const hospitalId = queryHospitalId || user?.hospitalId || user?.hospital?._id || '';
     const navigate = useNavigate();
 
     const [hospital, setHospital] = useState(null);

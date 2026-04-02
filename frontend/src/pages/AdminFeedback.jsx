@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import './AdminFeedback.css';
 import { getHospitalConfig } from '../services/hospitalConfig';
 import useIsMobile from '../hooks/useIsMobile';
+import { useAuth } from '../context/AuthContext';
 
 const StatusBadge = ({ status }) => {
     const statusClasses = {
@@ -17,8 +18,10 @@ const StatusBadge = ({ status }) => {
 
 const AdminFeedback = () => {
     const isMobile = useIsMobile(768);
+    const { user } = useAuth();
     const [searchParams] = useSearchParams();
-    const hospitalId = searchParams.get('hospitalId');
+    const queryHospitalId = searchParams.get('hospitalId');
+    const hospitalId = queryHospitalId || user?.hospitalId || user?.hospital?._id || '';
 
     const [feedbacks, setFeedbacks] = useState([]);
     const [hospital, setHospital] = useState(null);

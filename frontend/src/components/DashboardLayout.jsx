@@ -188,13 +188,15 @@ const Sidebar = ({ hospital, isCollapsed, onToggle, isMobile, isOpen, onClose })
 const DashboardLayout = ({ allowedRoles }) => {
     const { user, loading } = useAuth();
     const isMobile = useIsMobile(900);
+    const location = useLocation();
 
     const [hospital, setHospital] = useState(null);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         return localStorage.getItem('sidebar_collapsed') === 'true';
     });
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const hospitalId = new URLSearchParams(useLocation().search).get('hospitalId');
+    const queryHospitalId = new URLSearchParams(location.search).get('hospitalId');
+    const hospitalId = (queryHospitalId || user?.hospitalId || user?.hospital?._id || '').trim();
 
     const toggleSidebar = () => {
         if (isMobile) {
@@ -215,7 +217,8 @@ const DashboardLayout = ({ allowedRoles }) => {
     useEffect(() => {
         const fetchHospital = async () => {
             try {
-                const data = await getHospitalConfig(hospitalId ? { hospitalId } : {});
+                if (!hospitalId) return;
+                const data = await getHospitalConfig({ hospitalId });
                 setHospital(data);
             } catch (error) {
                 console.error('Failed to load hospital data', error);
