@@ -553,7 +553,7 @@ const AdminSettings = () => {
 
                                 <div className="form-group" style={{ marginTop: '1.5rem' }}>
                                     <label className="form-label">Brand Logo</label>
-                                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                                    <div className="responsive-upload-row">
                                         <div style={{ flex: 1 }}>
                                             <input
                                                 type="text"
@@ -564,22 +564,13 @@ const AdminSettings = () => {
                                                 style={{ marginBottom: '0.75rem' }}
                                             />
                                             <label
+                                                className="responsive-upload-card"
                                                 htmlFor="brand-logo-file"
                                                 style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    gap: '1rem',
-                                                    width: '100%',
-                                                    padding: '0.95rem 1rem',
-                                                    border: '1px dashed #cbd5e1',
-                                                    borderRadius: '1rem',
                                                     background: 'linear-gradient(135deg, #f8fafc 0%, #eefaf6 100%)',
-                                                    cursor: 'pointer',
-                                                    transition: 'var(--transitions)'
                                                 }}
                                             >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                                                <div className="responsive-upload-main">
                                                     <div style={{
                                                         width: '42px',
                                                         height: '42px',
@@ -593,23 +584,19 @@ const AdminSettings = () => {
                                                     }}>
                                                         <Upload size={18} />
                                                     </div>
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>Choose brand logo</div>
-                                                        <div style={{ color: '#64748b', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <div className="responsive-upload-copy">
+                                                        <div className="responsive-upload-title">Choose brand logo</div>
+                                                        <div className="responsive-upload-subtitle">
                                                             {logoFile ? logoFile.name : 'PNG, JPG, or SVG image'}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <span style={{
-                                                    flexShrink: 0,
-                                                    padding: '0.45rem 0.8rem',
-                                                    borderRadius: '999px',
-                                                    background: 'white',
-                                                    border: '1px solid #dbe4ee',
+                                                <span
+                                                    className="responsive-upload-chip"
+                                                    style={{
                                                     color: 'var(--primary)',
-                                                    fontWeight: 700,
-                                                    fontSize: '0.78rem'
-                                                }}>
+                                                }}
+                                                >
                                                     Browse
                                                 </span>
                                             </label>
@@ -622,7 +609,7 @@ const AdminSettings = () => {
                                             />
                                         </div>
                                         {(hospital.logoUrl || logoFile) && (
-                                            <div style={{ position: 'relative' }}>
+                                            <div className="responsive-upload-preview" style={{ position: 'relative' }}>
                                                 <div style={{
                                                     width: '100px', height: '100px',
                                                     border: '2px solid var(--border)', borderRadius: '1rem',
@@ -657,7 +644,7 @@ const AdminSettings = () => {
 
                                 <div className="form-group" style={{ marginTop: '1.5rem' }}>
                                     <label className="form-label">Feedback Form Background</label>
-                                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                                    <div className="responsive-upload-row">
                                         <div style={{ flex: 1 }}>
                                             <input
                                                 type="text"
@@ -668,22 +655,13 @@ const AdminSettings = () => {
                                                 style={{ marginBottom: '0.75rem' }}
                                             />
                                             <label
+                                                className="responsive-upload-card"
                                                 htmlFor="feedback-bg-file"
                                                 style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    gap: '1rem',
-                                                    width: '100%',
-                                                    padding: '0.95rem 1rem',
-                                                    border: '1px dashed #cbd5e1',
-                                                    borderRadius: '1rem',
                                                     background: 'linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%)',
-                                                    cursor: 'pointer',
-                                                    transition: 'var(--transitions)'
                                                 }}
                                             >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                                                <div className="responsive-upload-main">
                                                     <div style={{
                                                         width: '42px',
                                                         height: '42px',
@@ -697,23 +675,19 @@ const AdminSettings = () => {
                                                     }}>
                                                         <Upload size={18} />
                                                     </div>
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>Choose background image</div>
-                                                        <div style={{ color: '#64748b', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <div className="responsive-upload-copy">
+                                                        <div className="responsive-upload-title">Choose background image</div>
+                                                        <div className="responsive-upload-subtitle">
                                                             {bgFile ? bgFile.name : 'Upload the form background image'}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <span style={{
-                                                    flexShrink: 0,
-                                                    padding: '0.45rem 0.8rem',
-                                                    borderRadius: '999px',
-                                                    background: 'white',
-                                                    border: '1px solid #dbe4ee',
+                                                <span
+                                                    className="responsive-upload-chip"
+                                                    style={{
                                                     color: '#4f46e5',
-                                                    fontWeight: 700,
-                                                    fontSize: '0.78rem'
-                                                }}>
+                                                }}
+                                                >
                                                     Browse
                                                 </span>
                                             </label>
@@ -726,7 +700,7 @@ const AdminSettings = () => {
                                             />
                                         </div>
                                         {(hospital.feedbackBgUrl || bgFile) && (
-                                            <div style={{ position: 'relative' }}>
+                                            <div className="responsive-upload-preview" style={{ position: 'relative' }}>
                                                 <div style={{
                                                     width: '100px', height: '100px',
                                                     border: '2px solid var(--border)', borderRadius: '1rem',
@@ -816,7 +790,7 @@ const AdminSettings = () => {
                                 />
                                 <div>
                                     <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem', display: 'block' }}>Department Icon</label>
-                                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                                    <div className="responsive-upload-row">
                                         <div style={{ flex: 1 }}>
                                             <div style={{ position: 'relative' }}>
                                                 <Upload size={18} color="var(--primary)" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '12px', pointerEvents: 'none', opacity: 0.7 }} />
@@ -840,22 +814,13 @@ const AdminSettings = () => {
                                                 You can either paste an image URL or upload a file
                                             </p>
                                             <label
+                                                className="responsive-upload-card"
                                                 htmlFor="dept-icon-upload"
                                                 style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    gap: '1rem',
-                                                    width: '100%',
-                                                    padding: '0.95rem 1rem',
-                                                    border: '1px dashed #cbd5e1',
-                                                    borderRadius: '1rem',
                                                     background: 'linear-gradient(135deg, #f8fafc 0%, #eefaf6 100%)',
-                                                    cursor: 'pointer',
-                                                    transition: 'var(--transitions)'
                                                 }}
                                             >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                                                <div className="responsive-upload-main">
                                                     <div style={{
                                                         width: '42px',
                                                         height: '42px',
@@ -869,23 +834,19 @@ const AdminSettings = () => {
                                                     }}>
                                                         <Upload size={18} />
                                                     </div>
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>Choose department icon</div>
-                                                        <div style={{ color: '#64748b', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <div className="responsive-upload-copy">
+                                                        <div className="responsive-upload-title">Choose department icon</div>
+                                                        <div className="responsive-upload-subtitle">
                                                             {newDept.imageFile ? newDept.imageFile.name : 'PNG, JPG, or SVG image'}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <span style={{
-                                                    flexShrink: 0,
-                                                    padding: '0.45rem 0.8rem',
-                                                    borderRadius: '999px',
-                                                    background: 'white',
-                                                    border: '1px solid #dbe4ee',
+                                                <span
+                                                    className="responsive-upload-chip"
+                                                    style={{
                                                     color: 'var(--primary)',
-                                                    fontWeight: 700,
-                                                    fontSize: '0.78rem'
-                                                }}>
+                                                }}
+                                                >
                                                     Browse
                                                 </span>
                                             </label>
@@ -898,7 +859,7 @@ const AdminSettings = () => {
                                             />
                                         </div>
                                         {(newDept.imageFile || newDept.imageUrl) ? (
-                                            <div style={{ position: 'relative' }}>
+                                            <div className="responsive-upload-preview" style={{ position: 'relative' }}>
                                                 <div style={{
                                                     width: '100px', height: '100px',
                                                     border: '2px solid var(--border)', borderRadius: '1rem',

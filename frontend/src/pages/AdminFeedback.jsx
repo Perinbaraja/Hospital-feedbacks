@@ -197,7 +197,7 @@ const AdminFeedback = () => {
         <div>
             <div className="page-header admin-feedback-header">
                 <div className="header-top-row">
-                    <div>
+                    <div className="feedback-header-copy">
                         <h2 className="page-title text-colorful">Patient Feedback Overview</h2>
                         <p className="header-subtitle">Monitor and manage patient experiences across all departments.</p>
                     </div>
@@ -262,7 +262,7 @@ const AdminFeedback = () => {
                     </button>
 
                     <div className="results-count">
-                        <span>
+                        <span className="results-count-pill">
                             Showing <b>{paginatedFeedbacks.length}</b> of <b>{totalResults}</b> result{totalResults !== 1 ? 's' : ''}
                         </span>
                     </div>
@@ -289,6 +289,303 @@ const AdminFeedback = () => {
                         <div className="empty-state-icon">🔍</div>
                         <h3 className="empty-state-title">No results found</h3>
                         <p className="empty-state-text">Try adjusting your service category or date range filters.</p>
+                    </div>
+                ) : isMobile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                        {paginatedFeedbacks.map((fb, index) => {
+                            const cat = fb.categories?.[0] || {};
+                            const reviewType = (cat.reviewType || '').toLowerCase();
+                            const isPositive = ['positive', 'completely_satisfied', 'completely satisfied'].includes(reviewType);
+                            const isNegative = ['negative', 'needs work', 'needs_work', 'not_satisfied', 'not satisfied'].includes(reviewType);
+                            const positiveTags = [
+                                ...splitTags(cat.positive_feedback),
+                                ...splitTags(cat.positive_issues),
+                                ...(isPositive ? splitTags(cat.issue) : [])
+                            ];
+                            const negativeTags = [
+                                ...splitTags(cat.negative_feedback),
+                                ...splitTags(cat.negative_issues),
+                                ...(isNegative ? splitTags(cat.issue) : [])
+                            ];
+                            const uniquePositiveTags = [...new Set(positiveTags)];
+                            const uniqueNegativeTags = [...new Set(negativeTags)];
+
+                            return (
+                                <div
+                                    key={fb._id}
+                                    className="card"
+                                    style={{
+                                        padding: '1rem',
+                                        overflow: 'visible',
+                                        borderLeft: fb.status === 'COMPLETED'
+                                            ? '4px solid #10b981'
+                                            : fb.status === 'IN PROGRESS'
+                                                ? '4px solid #845ef7'
+                                                : '4px solid #e2e8f0'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.04em' }}>
+                                                #{(safeCurrentPage - 1) * ITEMS_PER_PAGE + index + 1} • {fb.feedbackId || 'Generating...'}
+                                            </div>
+                                            <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '0.35rem' }}>
+                                                {fb.patientName || 'Anonymous'}
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', wordBreak: 'break-word' }}>
+                                                {fb.patientEmail || 'N/A'}
+                                            </div>
+                                        </div>
+                                        <StatusBadge status={fb.status} />
+                                    </div>
+
+                                    <div style={{ display: 'grid', gap: '0.65rem', marginTop: '0.9rem' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#334155' }}>
+                                            <strong>Service:</strong> {cat.department || 'N/A'}
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#334155' }}>
+                                            <strong>Feedback:</strong>{' '}
+                                            <span style={{
+                                                fontWeight: 800,
+                                                color:
+                                                    (cat.feedback === 'completely_satisfied' || cat.rating === 'Completely Satisfied') ? '#16a34a'
+                                                        : (cat.feedback === 'partially_satisfied' || cat.rating === 'Partially Satisfied') ? '#ca8a04'
+                                                            : (cat.feedback === 'not_satisfied' || cat.rating === 'Not Satisfied') ? '#dc2626'
+                                                                : '#334155'
+                                            }}>
+                                                {(cat.feedback || cat.rating || 'N/A').toString().replaceAll('_', ' ').toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#334155' }}>
+                                            <strong>Logged:</strong> {new Date(fb.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} {new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                        {fb.comments && (
+                                            <div style={{ fontSize: '0.8rem', color: '#475569', lineHeight: 1.5 }}>
+                                                <strong style={{ color: '#334155' }}>Comments:</strong> {fb.comments}
+                                            </div>
+                                        )}
+                                        {uniquePositiveTags.length > 0 && (
+                                            <div style={{ fontSize: '0.8rem', color: '#166534', lineHeight: 1.5 }}>
+                                                <strong>Positive:</strong> {uniquePositiveTags.join(', ')}
+                                            </div>
+                                        )}
+                                        {uniqueNegativeTags.length > 0 && (
+                                            <div style={{ fontSize: '0.8rem', color: '#991b1b', lineHeight: 1.5 }}>
+                                                <strong>Negative:</strong> {uniqueNegativeTags.join(', ')}
+                                            </div>
+                                        )}
+                                        {fb.assignedTo && (
+                                            <div style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5 }}>
+                                                <strong>Assigned:</strong> {fb.assignedTo}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {cat.image ? (
+                                        <div style={{ marginTop: '0.9rem' }}>
+                                            <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#64748b', marginBottom: '0.45rem' }}>
+                                                Photo Preview
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedImage(getAssetUrl(cat.image))}
+                                                style={{
+                                                    width: '100%',
+                                                    border: '1px solid #e2e8f0',
+                                                    borderRadius: '1rem',
+                                                    background: '#f8fafc',
+                                                    padding: '0.45rem',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <img
+                                                    src={getAssetUrl(cat.image)}
+                                                    alt="Feedback attachment preview"
+                                                    style={{
+                                                        width: '100%',
+                                                        maxHeight: '180px',
+                                                        objectFit: 'cover',
+                                                        borderRadius: '0.8rem',
+                                                        display: 'block'
+                                                    }}
+                                                />
+                                            </button>
+                                        </div>
+                                    ) : null}
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.9rem', flexWrap: 'wrap' }}>
+                                        {cat.image ? (
+                                            <button
+                                                type="button"
+                                                className="btn-outline"
+                                                style={{ width: 'auto', padding: '0.45rem 0.7rem' }}
+                                                onClick={() => setSelectedImage(getAssetUrl(cat.image))}
+                                            >
+                                                Open Photo
+                                            </button>
+                                        ) : null}
+                                        <button
+                                            type="button"
+                                            className="btn-outline"
+                                            style={{ width: 'auto', padding: '0.45rem 0.7rem' }}
+                                            onClick={() => setSelectedFeedbackForNotes(prev => (prev?._id === fb._id ? null : fb))}
+                                        >
+                                            Notes: {fb.notes?.length || 0}
+                                        </button>
+                                    </div>
+
+                                    <div style={{ marginTop: '0.9rem' }}>
+                                        <div className="custom-assign-dropdown" style={{ position: 'relative' }}>
+                                            <div
+                                                className="dropdown-trigger"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const isOpening = activeFeedbackId !== fb._id;
+                                                    setActiveFeedbackId(isOpening ? fb._id : null);
+
+                                                    if (isOpening) {
+                                                        const currentCat = fb.categories?.[0] || {};
+                                                        setTempCategoryDept(currentCat.department || '');
+                                                        setTempReviewType(currentCat.reviewType || '');
+                                                        setTempStatus(fb.status);
+                                                        setTempIssue(Array.isArray(currentCat.issue) ? currentCat.issue.join(', ') : (currentCat.issue || ''));
+                                                        if (fb.assignedTo) {
+                                                            setSelectedAssignment(fb.assignedTo.split(', ').filter(n => n));
+                                                        } else {
+                                                            setSelectedAssignment([]);
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                {fb.assignedTo ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.2rem' }}>
+                                                        <span className="assigned-text">{fb.assignedTo}</span>
+                                                        <span className="edit-hint">Edit</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="assign-placeholder">
+                                                        <span>Assign</span>
+                                                        <span style={{ fontSize: '0.6rem' }}>â–¼</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {activeFeedbackId === fb._id && (
+                                                <div className="dropdown-content">
+                                                    <div className="dropdown-section-title">Assign Investigation To</div>
+                                                    <div className="dept-list">
+                                                        {hospital?.departments.map(dept => {
+                                                            const isChecked = selectedAssignment.includes(dept.name);
+                                                            const currentCat = fb.categories?.[0] || {};
+                                                            const isPatientChoice = currentCat.department === dept.name;
+
+                                                            return (
+                                                                <label key={dept.name} className={`dept-item ${isChecked ? 'selected' : ''}`}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        onChange={(e) => {
+                                                                            const checked = e.target.checked;
+                                                                            const nextAssignment = checked
+                                                                                ? [...selectedAssignment, dept.name]
+                                                                                : selectedAssignment.filter(n => n !== dept.name);
+
+                                                                            setSelectedAssignment(nextAssignment);
+
+                                                                            if (tempStatus !== 'COMPLETED') {
+                                                                                setTempStatus(nextAssignment.length > 0 ? 'IN PROGRESS' : 'Pending');
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                        <span className={`dept-item-name ${isChecked ? 'selected' : 'default'}`}>{dept.name}</span>
+                                                                        {isPatientChoice && <span className="patient-choice-tag">PATIENT CHOICE</span>}
+                                                                    </div>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    <div className="dropdown-section-title">Adjust Classification</div>
+                                                    <div className="adjust-classification">
+                                                        <div className="form-group-sm">
+                                                            <label>Department</label>
+                                                            <select
+                                                                className="form-control-sm"
+                                                                value={tempCategoryDept}
+                                                                onChange={(e) => setTempCategoryDept(e.target.value)}
+                                                            >
+                                                                {hospital?.departments.map(d => (
+                                                                    <option key={d.name} value={d.name}>{d.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div className="form-group-sm">
+                                                            <label>Feedback Type</label>
+                                                            <select
+                                                                className="form-control-sm"
+                                                                value={tempReviewType}
+                                                                onChange={(e) => setTempReviewType(e.target.value)}
+                                                            >
+                                                                <option value="Positive">POSITIVE</option>
+                                                                <option value="negative">NEGATIVE</option>
+                                                            </select>
+                                                        </div>
+                                                        <div className="form-group-sm">
+                                                            <label>Detailed Issue</label>
+                                                            <input
+                                                                type="text"
+                                                                className="form-control-sm"
+                                                                value={tempIssue}
+                                                                onChange={(e) => setTempIssue(e.target.value)}
+                                                                placeholder="e.g. Long Wait"
+                                                            />
+                                                        </div>
+                                                        <div className="form-group-sm">
+                                                            <label>Workflow Status</label>
+                                                            <select
+                                                                className="form-control-sm"
+                                                                value={tempStatus}
+                                                                onChange={(e) => setTempStatus(e.target.value)}
+                                                            >
+                                                                <option value="Pending">Pending</option>
+                                                                <option value="IN PROGRESS">In Progress</option>
+                                                                <option value="COMPLETED">Completed/Resolved</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="dropdown-footer">
+                                                        <button
+                                                            className="btn-primary update-btn"
+                                                            onClick={() => {
+                                                                handleAssign(fb._id, selectedAssignment.join(', '), {
+                                                                    department: tempCategoryDept,
+                                                                    reviewType: tempReviewType,
+                                                                    issue: tempIssue
+                                                                }, tempStatus);
+                                                                setActiveFeedbackId(null);
+                                                            }}
+                                                        >
+                                                            Update Workflow
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginTop: '0.9rem' }}>
+                                        <button
+                                            className="btn-outline"
+                                            onClick={() => handleDelete(fb._id)}
+                                            style={{ color: '#ef4444', borderColor: '#fee2e2' }}
+                                        >
+                                            Delete Feedback
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="table-container" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.3s' }}>

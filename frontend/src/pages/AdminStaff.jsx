@@ -267,6 +267,79 @@ const AdminStaff = () => {
 
                         {staffList.length === 0 ? (
                             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>No staff registered yet.</p>
+                        ) : isMobile ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', padding: '1rem' }}>
+                                {staffList.map((staff) => (
+                                    <div
+                                        key={staff._id}
+                                        style={{
+                                            border: '1px solid #eef2f7',
+                                            borderRadius: '1rem',
+                                            padding: '1rem',
+                                            background: '#fcfdfd',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.75rem'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, color: '#0f172a', wordBreak: 'break-word' }}>{staff.name}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#64748b', wordBreak: 'break-word', marginTop: '0.2rem' }}>{staff.email}</div>
+                                            </div>
+                                            <span style={{
+                                                padding: '0.28rem 0.55rem',
+                                                backgroundColor: ['Admin', 'hospital_admin'].includes(staff.role) ? '#ede9fe' : '#f1f5f9',
+                                                color: ['Admin', 'hospital_admin'].includes(staff.role) ? '#6d28d9' : '#475569',
+                                                borderRadius: '999px',
+                                                fontSize: '0.68rem',
+                                                fontWeight: 700,
+                                                whiteSpace: 'nowrap',
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                {['Admin', 'hospital_admin'].includes(staff.role) ? 'Admin' : 'Staff'}
+                                            </span>
+                                        </div>
+
+                                        {staff.role === 'Dept_Head' && (
+                                            <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                                Department: <strong style={{ color: '#334155' }}>{staff.department || 'Not assigned'}</strong>
+                                            </div>
+                                        )}
+
+                                        <div className="responsive-stack-actions" style={{ display: 'flex', gap: '0.6rem' }}>
+                                            <button
+                                                onClick={() => {
+                                                    setResetTarget({ id: staff._id, name: staff.name });
+                                                    setResetPassword('password123');
+                                                    setShowResetPassword(false);
+                                                }}
+                                                className="btn-outline"
+                                                style={{
+                                                    padding: '0.55rem 0.75rem',
+                                                    fontSize: '0.78rem',
+                                                    color: 'var(--primary)',
+                                                    borderColor: '#e2e8f0'
+                                                }}
+                                            >
+                                                Reset Password
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteStaff(staff._id)}
+                                                className="btn-outline"
+                                                style={{
+                                                    padding: '0.55rem 0.75rem',
+                                                    fontSize: '0.78rem',
+                                                    color: 'var(--danger)',
+                                                    borderColor: '#fee2e2'
+                                                }}
+                                            >
+                                                Remove Account
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : (
                             <div className="table-container" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
                                 <table className="modern-table">
