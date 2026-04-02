@@ -199,6 +199,84 @@
     }
 }
 
+.photo-preview-card {
+    margin-top: 0.9rem;
+    border: 1px solid #dbeafe;
+    border-radius: 1rem;
+    background: #f8fbff;
+    padding: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    position: relative;
+}
+
+.photo-preview-image {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 0.85rem;
+    border: 1px solid #cbd5e1;
+    background: white;
+    flex-shrink: 0;
+}
+
+.photo-preview-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.photo-preview-meta .photo-selection-status {
+    margin-top: 0;
+}
+
+.photo-remove-btn {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    background: rgba(255, 255, 255, 0.95);
+    color: #dc2626;
+    border-radius: 999px;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.photo-remove-btn:hover {
+    background: #ffe4e6;
+    border-color: #fda4af;
+}
+
+@media (max-width: 480px) {
+    .photo-preview-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .photo-preview-image {
+        width: 100%;
+        height: 180px;
+    }
+
+    .photo-remove-btn {
+        top: 0.65rem;
+        right: 0.65rem;
+    }
+}
+
 .feedback-container.branded-bg {
     position: relative;
     overflow: hidden;

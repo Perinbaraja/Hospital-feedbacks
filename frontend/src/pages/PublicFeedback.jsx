@@ -382,6 +382,13 @@ const PublicFeedback = () => {
         }
     };
 
+    const removeImageFile = (dept) => {
+        setSelectedCategories(prev => prev.map(c => {
+            if (c.department === dept) return { ...c, image: null };
+            return c;
+        }));
+    };
+
     const handleNextStep = () => {
         if (currentStep === 2 && selectedCategories.length === 0) {
             toast.error('Please select a department.');
@@ -755,7 +762,25 @@ const PublicFeedback = () => {
                                                             <input type="file" accept="image/*" onChange={(e) => updateImageFile(cat.department, e.target.files[0])} style={{ display: 'none' }} />
                                                         </label>
                                                     </div>
-                                                     {cat.image && <div className="photo-selection-status"><span>Photo Attached</span></div>}
+                                                    {cat.image && (
+                                                        <div className="photo-preview-card">
+                                                            <button
+                                                                type="button"
+                                                                className="photo-remove-btn"
+                                                                onClick={() => removeImageFile(cat.department)}
+                                                                aria-label="Remove attachment"
+                                                                title="Remove attachment"
+                                                            >
+                                                                x
+                                                            </button>
+                                                            <img src={cat.image} alt={`${cat.department} attachment preview`} className="photo-preview-image" />
+                                                            <div className="photo-preview-meta">
+                                                                <div className="photo-selection-status">
+                                                                    <span>Photo attached</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="form-group">

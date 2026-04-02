@@ -41,13 +41,11 @@ router.get('/', async (req, res) => {
     const { hospitalId } = req.query;
     try {
         let hId = hospitalId;
-        console.log(`[DEPT-FETCH] Incoming hospitalId: ${hospitalId}`);
         const normalizedRole = (req.user?.role || '').toLowerCase().replace(/[^a-z]/g, '');
         const isSuperAdmin = normalizedRole === 'superadmin';
 
         if (!hId && req.user?.hospitalId && !isSuperAdmin) {
             hId = req.user.hospitalId.toString();
-            console.log(`[DEPT-FETCH] Using authenticated user's hospitalId: ${hId}`);
         }
 
         if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
@@ -59,12 +57,7 @@ router.get('/', async (req, res) => {
         }
 
         if (!hId) {
-            // If still no hId, fallback to first hospital's ID
-            const hospital = await Hospital.findOne({});
-            hId = hospital ? hospital._id : null;
-            console.log(`[DEPT-FETCH] No ID provided. Falling back to first hospital: ${hId}`);
-        } else {
-            console.log(`[DEPT-FETCH] Final Resolved Hospital ID: ${hId}`);
+            return res.status(400).json({ message: 'Hospital ID is required' });
         }
 
         const query = { hospitalId: hId };
@@ -75,7 +68,6 @@ router.get('/', async (req, res) => {
         }
 
         const departments = await Department.find(query);
-        console.log(`[DEPT-FETCH] Found ${departments.length} departments for this hospital`);
         res.json(departments);
     } catch (error) {
         console.error('Error fetching departments:', error);
@@ -179,7 +171,6 @@ router.put('/:id', protect, admin, async (req, res) => {
     const { name, imageUrl, description } = req.body;
     try {
         const idStr = req.params.id;
-        console.log(`[DEPT-UPDATE-START] ID: ${idStr}`);
 
         if (!mongoose.Types.ObjectId.isValid(idStr)) {
             return res.status(400).json({ message: 'Invalid Department ID format' });
@@ -191,8 +182,6 @@ router.put('/:id', protect, admin, async (req, res) => {
         const recordHIdStr = (dept.hospital?._id || dept.hospital || dept.hospitalId || '').toString();
         const currentAdminHId = req.user.hospitalId?.toString();
         const oldName = dept.name;
-
-        console.log(`[DEPT-UPDATE-PERM] Dept Hosp: ${recordHIdStr}, Admin Hosp: ${currentAdminHId}`);
 
         const normalizedRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
         if (normalizedRole !== 'superadmin' && recordHIdStr !== currentAdminHId) {
@@ -240,7 +229,6 @@ router.put('/:id', protect, admin, async (req, res) => {
 
         // Sync to nested array in Hospital
         const hId = recordHIdStr;
-        console.log(`[DEPT-UPDATE-SYNC] Syncing nested hospital array for ID: ${hId}`);
         
         if (hId && mongoose.Types.ObjectId.isValid(hId)) {
             const hospital = await Hospital.findById(hId);
@@ -276,7 +264,6 @@ router.put('/:id', protect, admin, async (req, res) => {
                 await hospital.save();
                 invalidateHospitalConfigCache(hospital);
                 cacheHospitalConfig(hospital);
-                console.log(`[DEPT-UPDATE-SYNC] Nested hospital array synchronized.`);
             }
         }
 
@@ -301,8 +288,6 @@ router.delete('/:id', protect, admin, async (req, res) => {
         // Security check: Only Super Admin OR the admin of the target hospital
         const recordHId = dept.hospitalId?.toString();
         const userHId = req.user.hospitalId?.toString();
-        
-        console.log(`[DEPT-DELETE] Dept Hospital: ${recordHId}, User Hospital: ${userHId}, SuperAdmin: ${isSuperAdmin}`);
 
         if (!isSuperAdmin && recordHId !== userHId) {
             return res.status(403).json({ message: 'Not authorized to delete this department' });
@@ -310,8 +295,6 @@ router.delete('/:id', protect, admin, async (req, res) => {
 
         const hId = dept.hospital || dept.hospitalId;
         const deptName = dept.name;
-
-        console.log(`[DEPT-DELETE] Deleting: ${deptName} (${req.params.id}) for hospital: ${hId}`);
 
         // Perform deletion from collection
         const deletedDoc = await Department.findByIdAndDelete(req.params.id);
@@ -328,7 +311,6 @@ router.delete('/:id', protect, admin, async (req, res) => {
                 (d.name || '').trim().toLowerCase() !== deptName.trim().toLowerCase()
             );
             
-            console.log(`[DEPT-DELETE] Hospital Sync: Removed ${originalCount - hospital.departments.length} items from nested array`);
             await hospital.save();
             invalidateHospitalConfigCache(hospital);
             cacheHospitalConfig(hospital);

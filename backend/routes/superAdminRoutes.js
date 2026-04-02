@@ -216,7 +216,6 @@ router.get('/hospitals/:id/users', protect, superAdmin, async (req, res) => {
 // @route   DELETE /api/super-admin/hospitals/:id
 router.delete('/hospitals/:id', protect, superAdmin, async (req, res) => {
     const { id } = req.params;
-    console.log(`[DELETE] SuperAdmin ${req.user.email} is removing hospital: ${id}`);
 
     try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -233,23 +232,18 @@ router.delete('/hospitals/:id', protect, superAdmin, async (req, res) => {
 
         // 1. Delete associated Feedbacks
         const fbResult = await Feedback.deleteMany({ hospital: id });
-        console.log(`- Deleted ${fbResult.deletedCount} feedback records for ${hName}`);
 
         // 2. Delete associated Users (Admins, Dept Heads)
         const userResult = await User.deleteMany({ hospital: id, role: { $ne: 'Super_Admin' } });
-        console.log(`- Deleted ${userResult.deletedCount} staff accounts for ${hName}`);
 
         // 3. Delete associated Departments
         const deptResult = await Department.deleteMany({ hospital: id });
-        console.log(`- Deleted ${deptResult.deletedCount} departments for ${hName}`);
 
         // 4. Finally delete the Hospital itself
         await Hospital.findByIdAndDelete(id);
-        console.log(`- Successfully removed hospital: ${hName}`);
 
         res.json({ message: `${hName} and all associated data have been permanently removed.` });
     } catch (error) {
-        console.error('CRITICAL Delete error:', error);
         res.status(500).json({
             message: 'A server error occurred while trying to delete the hospital',
             error: error.message

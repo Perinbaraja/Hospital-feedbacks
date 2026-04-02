@@ -86,7 +86,6 @@ router.get('/', optionalProtect, async (req, res) => {
         const isSuperAdmin = normalizedRole === 'superadmin';
         
         if (hospital.isActive === false && !isSuperAdmin) {
-            console.log(`[Hospital Config] Access denied: ${hospital.name} is deactivated.`);
             return res.status(403).json({ 
                 message: 'This hospital\'s feedback portal is currently deactivated by the network administrator.',
                 isDeactivated: true 

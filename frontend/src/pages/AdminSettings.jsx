@@ -391,10 +391,8 @@ const AdminSettings = () => {
 
         try {
             setSaving(true);
-            console.log(`[DEPT-UI] Deleting department: ${id} (${name})`);
 
             const response = await API.delete(`/departments/${id}`);
-            console.log(`[DEPT-UI] API Result:`, response.data);
 
             setHospital(prev => ({
                 ...prev,

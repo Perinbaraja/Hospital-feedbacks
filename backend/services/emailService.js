@@ -43,11 +43,32 @@ const getFrontendLink = (path = '', req = null) => {
     return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 };
 
+const buildAttachmentFromDataUrl = (dataUrl, fallbackBaseName = 'feedback-photo') => {
+    const rawValue = String(dataUrl || '').trim();
+    const matches = rawValue.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    if (!matches) return null;
+
+    const mimeType = matches[1];
+    const base64Content = matches[2];
+    const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const safeBaseName = String(fallbackBaseName || 'feedback-photo')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'feedback-photo';
+
+    return {
+        filename: `${safeBaseName}.${extension}`,
+        content: base64Content,
+        encoding: 'base64',
+        contentType: mimeType
+    };
+};
+
 // NON-BLOCKING: Internal helper that returns a Promise so callers can safely await/catch if needed.
 const fireAndForgetEmail = (emailParams, label) => {
     return mailersend.email.send(emailParams)
         .then(response => {
-            console.log(`[Email Service] ${label} - Success:`, response.statusCode);
             return response;
         })
         .catch(error => {
@@ -118,6 +139,7 @@ export const sendFeedbackNotificationEmail = async ({
     patientName,
     patientEmail,
     comment,
+    image,
     req = null
 }) => {
     if (!toEmail) {
@@ -129,6 +151,8 @@ export const sendFeedbackNotificationEmail = async ({
     const safePatientEmail = patientEmail || 'Not provided';
     const safeComment = comment || 'No additional comment provided.';
     const safeType = feedbackType === 'positive' ? 'Positive' : 'Negative';
+    const attachment = buildAttachmentFromDataUrl(image, `${hospitalName || 'hospital'}-${departmentName || 'department'}-${feedbackLabel || 'feedback'}`);
+    const hasAttachment = Boolean(attachment);
 
     const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 680px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
@@ -143,6 +167,7 @@ export const sendFeedbackNotificationEmail = async ({
                 <p style="margin: 6px 0;"><strong>Patient Name:</strong> ${safePatientName}</p>
                 <p style="margin: 6px 0;"><strong>Patient Email:</strong> ${safePatientEmail}</p>
                 <p style="margin: 6px 0;"><strong>Comment:</strong> ${safeComment}</p>
+                <p style="margin: 6px 0;"><strong>Photo Attachment:</strong> ${hasAttachment ? 'Attached to this email' : 'Not provided'}</p>
             </div>
             <p style="color: #64748b; font-size: 0.9rem;">This message was generated automatically by the hospital feedback system.</p>
         </div>
@@ -155,7 +180,8 @@ Department: ${departmentName || 'Department'}
 Configured Label: ${feedbackLabel || 'General Feedback'}
 Patient Name: ${safePatientName}
 Patient Email: ${safePatientEmail}
-Comment: ${safeComment}`;
+Comment: ${safeComment}
+Photo Attachment: ${hasAttachment ? 'Attached to this email' : 'Not provided'}`;
 
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
@@ -170,9 +196,15 @@ Comment: ${safeComment}`;
         subject: `New ${safeType} Feedback - ${departmentName || 'Department'}`,
         html: htmlContent,
         text: textContent,
+        attachments: hasAttachment ? [attachment] : [],
     };
 
-    return sendEmailWithFallback({ emailParams, mailOptions, label: `Feedback Notification to ${toEmail}` });
+    return sendEmailWithFallback({
+        emailParams,
+        mailOptions,
+        label: `Feedback Notification to ${toEmail}`,
+        preferNodemailer: hasAttachment
+    });
 };
 
 export const sendAdminCredentialsEmail = async (toEmail, name, email, password, req = null) => {
@@ -244,7 +276,6 @@ const sendViaNodemailer = async (mailOptions, label) => {
     try {
         const transporter = createGmailTransporter();
         const info = await transporter.sendMail(mailOptions);
-        console.log(`[Email Service] ${label} - Success: ${info.messageId}`);
         return info;
     } catch (error) {
         console.error(`[Email Service] ${label} - Error:`, error.message || error);
@@ -252,8 +283,8 @@ const sendViaNodemailer = async (mailOptions, label) => {
     }
 };
 
-const sendEmailWithFallback = async ({ emailParams, mailOptions, label }) => {
-    if (isMailerSendConfigured && emailParams) {
+const sendEmailWithFallback = async ({ emailParams, mailOptions, label, preferNodemailer = false }) => {
+    if (!preferNodemailer && isMailerSendConfigured && emailParams) {
         try {
             return await fireAndForgetEmail(emailParams, label);
         } catch (mailerError) {
@@ -354,7 +385,6 @@ export const sendDepartmentAssignmentEmail = async (toEmail, inchargeName, dept)
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log(`[Gmail Service] Dept Assignment email sent to ${toEmail}: ${info.messageId}`);
         return info;
     } catch (error) {
         console.error(`[Gmail Service] Error sending to ${toEmail}:`, error.message);

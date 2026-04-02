@@ -55,9 +55,7 @@ router.get('/admin-dashboard', protect, admin, async (req, res) => {
         const normalizedAuthRole = (req.user.role || '').toLowerCase().replace(/[^a-z]/g, '');
         if (normalizedAuthRole !== 'superadmin') {
             query.hospitalId = req.user.hospitalId;
-        }
-
-        console.log(`[Dashboard Debug] User: ${req.user.email}, Role: ${normalizedAuthRole}, HospitalId: ${query.hospitalId}`);
+        };
 
         const totalEncounters = await Feedback.countDocuments(query);
         const positiveCount = await Feedback.countDocuments({ 
@@ -69,8 +67,6 @@ router.get('/admin-dashboard', protect, admin, async (req, res) => {
             "categories.reviewType": { $in: ["Negative", "negative", "needs_work", "Needs Work", "not_satisfied", "not satisfied", "Mixed"] } 
         });
         const resolvedIssues = await Feedback.countDocuments({ ...query, status: "COMPLETED" });
-
-        console.log(`[Dashboard Results] Total: ${totalEncounters}, Pos: ${positiveCount}, Neg: ${negativeCount}, Resolved: ${resolvedIssues}`);
 
         res.json({
             totalEncounters,
@@ -180,6 +176,7 @@ router.post('/', validateFeedbackInput, async (req, res) => {
                         patientName,
                         patientEmail,
                         comment: cat.note || req.body.comments || '',
+                        image: cat.image || '',
                         req
                     });
                 } catch (emailError) {
@@ -383,7 +380,6 @@ router.get('/department/:dept', protect, async (req, res) => {
 router.get('/tv/:hospitalId', async (req, res) => {
     try {
         let hId = req.params.hospitalId;
-        console.log(`[TV Dashboard] Request for hospitalId: ${hId}`);
         let hospital;
 
         if (hId && !mongoose.Types.ObjectId.isValid(hId)) {
@@ -398,11 +394,8 @@ router.get('/tv/:hospitalId', async (req, res) => {
         }
         
         if (!hospital) {
-            console.warn(`[TV Dashboard] Hospital not found for ID: ${hId}`);
             return res.status(404).json({ message: 'Hospital not found' });
         }
-
-        console.log(`[TV Dashboard] Hospital resolved: ${hospital.name} (${hId})`);
 
         const { tvFilters } = hospital;
         const { deptId } = req.query; // New optional filter
@@ -439,15 +432,12 @@ router.get('/tv/:hospitalId', async (req, res) => {
             query.status = 'IN PROGRESS';
         }
 
-        console.log(`[TV Dashboard] Query:`, JSON.stringify(query, null, 2));
         const feedbacks = await Feedback.find(query)
             .sort({ createdAt: -1 })
             .populate('hospital')
             .lean();
-        console.log(`[TV Dashboard] Found ${feedbacks.length} feedbacks`);
         res.json(feedbacks);
     } catch (error) {
-        console.error('[TV Dashboard] Filter error:', error);
         res.status(500).json({ message: 'Error fetching TV feedback' });
     }
 });
