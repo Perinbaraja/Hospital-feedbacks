@@ -105,7 +105,7 @@ const SuperAdminAddHospital = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label" style={{ fontWeight: 700 }}>District</label>
+                                <label className="form-label" style={{ fontWeight: 700 }}>City</label>
                                 <input
                                     type="text"
                                     className="form-control"

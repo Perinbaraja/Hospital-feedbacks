@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import _Feedback from '../models/Feedback.js';
 import _Hospital from '../models/Hospital.js';
 import _Department from '../models/Department.js';
-import { sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
+import { sendFeedbackNotificationEmail, sendThankYouEmail, sendResolutionEmail } from '../services/emailService.js';
 import { protect, admin } from './userRoutes.js';
 import { validateFeedbackInput } from '../middleware/validation.js';
 import { generateFeedbackId } from '../utils/idGenerator.js';
@@ -13,6 +13,38 @@ const Hospital = _Hospital?.default || _Hospital;
 const Department = _Department?.default || _Department;
 
 const router = express.Router();
+
+const normalizeIssueList = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value.split(';').map((item) => item.trim()).filter(Boolean);
+    }
+    return [];
+};
+
+const normalizeFeedbackConfigList = (dept = {}) => {
+    if (Array.isArray(dept.feedbackConfigs) && dept.feedbackConfigs.length > 0) {
+        return dept.feedbackConfigs.map((config) => ({
+            type: (config.type || '').toLowerCase(),
+            label: String(config.label || '').trim(),
+            emailEnabled: Boolean(config.emailEnabled),
+            recipientName: String(config.recipientName || '').trim(),
+            recipientEmail: String(config.recipientEmail || '').trim().toLowerCase()
+        })).filter((config) => config.label);
+    }
+
+    const positives = normalizeIssueList(dept.positiveIssues?.length ? dept.positiveIssues : dept.positive_feedback);
+    const negatives = normalizeIssueList(dept.negativeIssues?.length ? dept.negativeIssues : dept.negative_feedback);
+
+    return [
+        ...positives.map((label) => ({ type: 'positive', label, emailEnabled: false, recipientName: '', recipientEmail: '' })),
+        ...negatives.map((label) => ({ type: 'negative', label, emailEnabled: false, recipientName: '', recipientEmail: '' }))
+    ];
+};
+
+const normalizeReviewTypeValue = (value) => String(value || '').trim().toLowerCase();
 
 
 // @desc    Dashboard Metrics
@@ -70,18 +102,17 @@ router.post('/', validateFeedbackInput, async (req, res) => {
 
         for (let i = 0; i < categories.length; i++) {
             const cat = categories[i];
-            const issueList = Array.isArray(cat.issue) 
-                ? cat.issue 
-                : (typeof cat.issue === 'string' ? cat.issue.split(';').map(s => s.trim()).filter(s => s) : []);
+            const issueList = normalizeIssueList(cat.issue);
             const fId = await generateFeedbackId();
 
-            // Backend re-validation of reviewType based on issues
+            // Backend re-validation of reviewType based on configured feedback labels
             const dept = await Department.findOne({ hospital, name: cat.department });
-            const positiveIssues = dept?.positiveIssues || [];
-            const negativeIssues = dept?.negativeIssues || [];
+            const feedbackConfigList = normalizeFeedbackConfigList(dept || {});
+            const positiveIssues = feedbackConfigList.filter((config) => config.type === 'positive').map((config) => config.label);
+            const negativeIssues = feedbackConfigList.filter((config) => config.type === 'negative').map((config) => config.label);
 
-            const hasPositive = issueList.some(iss => positiveIssues.includes(iss));
-            const hasNegative = issueList.some(iss => negativeIssues.includes(iss));
+            const hasPositive = issueList.some((iss) => positiveIssues.some((label) => normalizeReviewTypeValue(label) === normalizeReviewTypeValue(iss)));
+            const hasNegative = issueList.some((iss) => negativeIssues.some((label) => normalizeReviewTypeValue(label) === normalizeReviewTypeValue(iss)));
 
             let finalReviewType = cat.reviewType;
             if (hasPositive && hasNegative) {
@@ -122,6 +153,41 @@ router.post('/', validateFeedbackInput, async (req, res) => {
                 assignedTo: cat.department
             });
             createdFeedbacks.push(feedback);
+
+            const fallbackEmail = String(targetHospital.adminEmail || process.env.STATIC_FEEDBACK_EMAIL || '').trim().toLowerCase();
+            const notificationTasks = issueList.map(async (issueLabel) => {
+                const matchedConfig = feedbackConfigList.find((config) => normalizeReviewTypeValue(config.label) === normalizeReviewTypeValue(issueLabel));
+                const recipientEmail = matchedConfig?.emailEnabled
+                    ? matchedConfig.recipientEmail
+                    : fallbackEmail;
+
+                if (!recipientEmail) {
+                    return;
+                }
+
+                const recipientName = matchedConfig?.emailEnabled
+                    ? matchedConfig.recipientName
+                    : (targetHospital.name || 'Hospital Admin');
+
+                try {
+                    await sendFeedbackNotificationEmail({
+                        toEmail: recipientEmail,
+                        recipientName,
+                        hospitalName: targetHospital.name,
+                        departmentName: cat.department,
+                        feedbackType: matchedConfig?.type || (hasPositive && !hasNegative ? 'positive' : 'negative'),
+                        feedbackLabel: issueLabel,
+                        patientName,
+                        patientEmail,
+                        comment: cat.note || req.body.comments || '',
+                        req
+                    });
+                } catch (emailError) {
+                    console.error(`[Feedback Notification] Failed for ${recipientEmail}:`, emailError.message);
+                }
+            });
+
+            await Promise.all(notificationTasks);
         }
 
         if (patientEmail) {

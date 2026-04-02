@@ -6,6 +6,87 @@ import toast from 'react-hot-toast';
 import { Eye, EyeOff, LayoutGrid, Palette, ShieldCheck, QrCode, ClipboardCopy, ExternalLink, Plus, Trash2, Edit, ImageOff, Upload } from 'lucide-react';
 import { getHospitalConfig, setHospitalConfigCache } from '../services/hospitalConfig';
 
+const createEmptyFeedbackField = (type = 'positive') => ({
+    type,
+    label: '',
+    emailEnabled: false,
+    recipientName: '',
+    recipientEmail: ''
+});
+
+const DEFAULT_DEPARTMENT_FEEDBACK_FIELDS = {
+    canteen: {
+        positive: ['Tasty Food', 'Clean Area', 'Friendly Staff'],
+        negative: ['Food Quality', 'Slow Service', 'High Price']
+    },
+    doctor: {
+        positive: ['Professional Care', 'Clear Explanation', 'Polite Behaviour'],
+        negative: ['Long Wait Time', 'Rude Behaviour', 'Lack of Information']
+    },
+    medicine: {
+        positive: ['Medicine Available', 'Quick Delivery', 'Helpful Staff'],
+        negative: ['Medicine Out of Stock', 'Long Queue', 'Wrong Medicine Given']
+    },
+    parking: {
+        positive: ['Parking Available', 'Safe Parking', 'Easy Access'],
+        negative: ['No Space Available', 'High Parking Fee', 'Poor Management']
+    }
+};
+
+const DEFAULT_DEPARTMENT_ALIASES = {
+    medicines: 'medicine',
+    doctors: 'doctor',
+    pharmacy: 'medicine'
+};
+
+const getDefaultDepartmentFeedbackConfigs = (departmentName = '') => {
+    const normalizedName = String(departmentName || '').trim().toLowerCase();
+    const resolvedName = DEFAULT_DEPARTMENT_ALIASES[normalizedName] || normalizedName;
+    const defaults = DEFAULT_DEPARTMENT_FEEDBACK_FIELDS[resolvedName];
+    if (!defaults) return [];
+
+    return [
+        ...defaults.positive.map((label) => ({ ...createEmptyFeedbackField('positive'), label })),
+        ...defaults.negative.map((label) => ({ ...createEmptyFeedbackField('negative'), label }))
+    ];
+};
+
+const normalizeFeedbackConfigsForForm = (feedbackConfigs = [], fallbackPositive = '', fallbackNegative = '', departmentName = '') => {
+    if (Array.isArray(feedbackConfigs) && feedbackConfigs.length > 0) {
+        return feedbackConfigs.map((config) => ({
+            type: config?.type === 'negative' ? 'negative' : 'positive',
+            label: config?.label || '',
+            emailEnabled: Boolean(config?.emailEnabled),
+            recipientName: config?.recipientName || '',
+            recipientEmail: config?.recipientEmail || ''
+        }));
+    }
+
+    const positives = String(fallbackPositive || '').split(';').map((item) => item.trim()).filter(Boolean);
+    const negatives = String(fallbackNegative || '').split(';').map((item) => item.trim()).filter(Boolean);
+
+    const fallbackConfigs = [
+        ...positives.map((label) => ({ ...createEmptyFeedbackField('positive'), label })),
+        ...negatives.map((label) => ({ ...createEmptyFeedbackField('negative'), label }))
+    ];
+
+    if (fallbackConfigs.length > 0) {
+        return fallbackConfigs;
+    }
+
+    return getDefaultDepartmentFeedbackConfigs(departmentName);
+};
+
+const buildFeedbackConfigPayload = (feedbackConfigs = []) => {
+    return feedbackConfigs.map((config) => ({
+        type: config.type === 'negative' ? 'negative' : 'positive',
+        label: (config.label || '').trim(),
+        emailEnabled: Boolean(config.emailEnabled),
+        recipientName: config.emailEnabled ? (config.recipientName || '').trim() : '',
+        recipientEmail: config.emailEnabled ? (config.recipientEmail || '').trim() : ''
+    })).filter((config) => config.label);
+};
+
 
 const AdminSettings = () => {
     const { user, updateUser } = useAuth();
@@ -28,15 +109,15 @@ const AdminSettings = () => {
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deptSaving, setDeptSaving] = useState(false);
+    const [deptSaveStatus, setDeptSaveStatus] = useState('');
 
     const [newDept, setNewDept] = useState({
         name: '',
         imageUrl: '',
         description: '',
         imageFile: null,
-        positive: '',
-        negative: '',
-        incharges: [{ name: '', email: '' }]
+        feedbackConfigs: [createEmptyFeedbackField('positive')]
     });
     const [logoFile, setLogoFile] = useState(null);
     const [bgFile, setBgFile] = useState(null);
@@ -45,6 +126,17 @@ const AdminSettings = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [qrModified, setQrModified] = useState(false);
     const [editingDeptId, setEditingDeptId] = useState(null);
+    const resetDeptForm = useCallback(() => ({
+        name: '',
+        imageUrl: '',
+        description: '',
+        imageFile: null,
+        feedbackConfigs: [createEmptyFeedbackField('positive')]
+    }), []);
+
+    const updateNewDept = useCallback((updater) => {
+        setNewDept((prev) => (typeof updater === 'function' ? updater(prev) : { ...prev, ...updater }));
+    }, []);
 
     const fetchConfig = useCallback(async (retryCount = 0) => {
         try {
@@ -142,30 +234,39 @@ const AdminSettings = () => {
         if (!newDept.name.trim()) return toast.error('Name is required');
         if (!newDept.imageUrl && !newDept.imageFile) return toast.error('Department Icon (URL or file) is required');
 
+        const feedbackConfigs = buildFeedbackConfigPayload(newDept.feedbackConfigs);
+        if (feedbackConfigs.length === 0) {
+            return toast.error('Add at least one feedback field');
+        }
+
+        for (const config of feedbackConfigs) {
+            if (!config.label) return toast.error('Feedback label is required');
+            if (config.emailEnabled) {
+                if (!config.recipientName) return toast.error(`Recipient name required for "${config.label}"`);
+                if (!config.recipientEmail) return toast.error(`Recipient email required for "${config.label}"`);
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.recipientEmail)) return toast.error(`Invalid email for "${config.label}"`);
+            }
+        }
+
         try {
-            setSaving(true);
+            setDeptSaving(true);
+            setDeptSaveStatus(editingDeptId ? 'Preparing update...' : 'Preparing department...');
             let finalImageUrl = newDept.imageUrl;
             if (newDept.imageFile) {
+                setDeptSaveStatus('Uploading department icon...');
                 const url = await handleImageUpload(newDept.imageFile);
                 if (url) finalImageUrl = url;
             }
-            // Validation for incharges (Optional but must be valid if entered)
-            const validIncharges = newDept.incharges.filter(inc => inc.name.trim() !== '' || inc.email.trim() !== '');
-            for (const inc of validIncharges) {
-                if (!inc.name.trim()) return toast.error('Incharge name is required if email is provided');
-                if (!inc.email.trim()) return toast.error('Email ID is required if name is provided');
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inc.email.trim())) return toast.error(`Invalid email format for ${inc.name}`);
-            }
-
+            setDeptSaveStatus(editingDeptId ? 'Saving department changes...' : 'Creating department...');
             const deptPayload = {
                 name: newDept.name,
                 imageUrl: finalImageUrl,
                 description: newDept.description,
-                positive_feedback: (newDept.positive || '').trim(),
-                negative_feedback: (newDept.negative || '').trim(),
-                positiveIssues: (newDept.positive || '').split(';').map(s => s.trim()).filter(Boolean),
-                negativeIssues: (newDept.negative || '').split(';').map(s => s.trim()).filter(Boolean),
-                incharges: validIncharges.map(inc => ({ name: inc.name.trim(), email: inc.email.trim() }))
+                feedbackConfigs,
+                positive_feedback: feedbackConfigs.filter((config) => config.type === 'positive').map((config) => config.label).join('; '),
+                negative_feedback: feedbackConfigs.filter((config) => config.type === 'negative').map((config) => config.label).join('; '),
+                positiveIssues: feedbackConfigs.filter((config) => config.type === 'positive').map((config) => config.label),
+                negativeIssues: feedbackConfigs.filter((config) => config.type === 'negative').map((config) => config.label)
             };
 
             if (editingDeptId) {
@@ -197,7 +298,7 @@ const AdminSettings = () => {
                 toast.success('Department added successfully.');
             }
 
-            setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positive: '', negative: '', incharges: [{ name: '', email: '' }] });
+            setNewDept(resetDeptForm());
             setEditingDeptId(null);
         } catch (error) {
             console.error('[DEPT-SAVE-ERROR]', error);
@@ -205,7 +306,8 @@ const AdminSettings = () => {
             const msg = error.response?.data?.message || error.message || `Failed to ${operation} department`;
             toast.error(msg);
         } finally {
-            setSaving(false);
+            setDeptSaving(false);
+            setDeptSaveStatus('');
         }
     };
 
@@ -226,7 +328,7 @@ const AdminSettings = () => {
             }));
             if (editingDeptId === id) {
                 setEditingDeptId(null);
-                setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positiveIssues: '', negativeIssues: '', incharges: [{ name: '', email: '' }] });
+                setNewDept(resetDeptForm());
             }
             toast.success(`Department "${name}" removed successfully.`);
         } catch (error) {
@@ -246,9 +348,12 @@ const AdminSettings = () => {
             imageUrl: dept.imageUrl || '',
             description: dept.description || '',
             imageFile: null,
-            positive: dept.positive_feedback || (dept.positiveIssues || []).join('; '),
-            negative: dept.negative_feedback || (dept.negativeIssues || []).join('; '),
-            incharges: dept.incharges && dept.incharges.length > 0 ? dept.incharges.map(inc => ({ name: inc.name, email: inc.email })) : [{ name: '', email: '' }]
+            feedbackConfigs: normalizeFeedbackConfigsForForm(
+                dept.feedbackConfigs,
+                dept.positive_feedback || (dept.positiveIssues || []).join('; '),
+                dept.negative_feedback || (dept.negativeIssues || []).join('; '),
+                dept.name
+            )
         });
         // Scroll to add/edit section
         const section = document.getElementById('dept-form-section');
@@ -355,7 +460,7 @@ const AdminSettings = () => {
 
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
                                             <div className="form-group">
-                                                <label className="form-label">District</label>
+                                                <label className="form-label">City</label>
                                                 <input
                                                     type="text"
                                                     className="form-control"
@@ -539,7 +644,7 @@ const AdminSettings = () => {
                                     className="form-control"
                                     placeholder="Department Name"
                                     value={newDept.name}
-                                    onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
+                                    onChange={(e) => updateNewDept({ name: e.target.value })}
                                 />
                                 <div>
                                     <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem', display: 'block' }}>Department Icon</label>
@@ -554,9 +659,9 @@ const AdminSettings = () => {
                                                     value={newDept.imageFile ? newDept.imageFile.name : newDept.imageUrl}
                                                     onChange={(e) => {
                                                         if (newDept.imageFile) {
-                                                            setNewDept({ ...newDept, imageUrl: e.target.value, imageFile: null });
+                                                            updateNewDept({ imageUrl: e.target.value, imageFile: null });
                                                         } else {
-                                                            setNewDept({ ...newDept, imageUrl: e.target.value });
+                                                            updateNewDept({ imageUrl: e.target.value });
                                                         }
                                                     }}
                                                     onClick={() => document.getElementById('dept-icon-upload')?.click()}
@@ -571,7 +676,7 @@ const AdminSettings = () => {
                                                 type="file"
                                                 className="form-control"
                                                 accept="image/*"
-                                                onChange={(e) => setNewDept({ ...newDept, imageFile: e.target.files[0] })}
+                                                onChange={(e) => updateNewDept({ imageFile: e.target.files[0] })}
                                             />
                                         </div>
                                         {(newDept.imageFile || newDept.imageUrl) ? (
@@ -590,7 +695,7 @@ const AdminSettings = () => {
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    onClick={() => setNewDept({ ...newDept, imageUrl: '', imageFile: null })}
+                                                    onClick={() => updateNewDept({ imageUrl: '', imageFile: null })}
                                                     style={{
                                                         position: 'absolute', top: '-10px', right: '-10px',
                                                         background: '#ef4444', color: 'white',
@@ -615,90 +720,164 @@ const AdminSettings = () => {
                                     className="form-control"
                                     placeholder="Short summary of services"
                                     value={newDept.description}
-                                    onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
-                                />
-                                <textarea
-                                    className="form-control"
-                                    placeholder="What went well? (Positive Feedback)"
-                                    value={newDept.positive}
-                                    style={{ height: '80px' }}
-                                    onChange={(e) => setNewDept({ ...newDept, positive: e.target.value })}
-                                />
-                                <textarea
-                                    className="form-control"
-                                    placeholder="Negative Feedback / Improvements"
-                                    value={newDept.negative}
-                                    style={{ height: '80px' }}
-                                    onChange={(e) => setNewDept({ ...newDept, negative: e.target.value })}
+                                    onChange={(e) => updateNewDept({ description: e.target.value })}
                                 />
                                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '1rem', padding: '1.25rem', background: '#f8fafc' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Department Incharge Details (Optional)</h4>
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewDept({ ...newDept, incharges: [...newDept.incharges, { name: '', email: '' }] })}
-                                            className="btn-outline"
-                                            style={{ padding: '4px 12px', fontSize: '0.75rem', borderRadius: '2rem' }}
-                                        >
-                                            + Add Person
-                                        </button>
+                                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Feedback Fields</h4>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateNewDept((prev) => ({ ...prev, feedbackConfigs: [...prev.feedbackConfigs, createEmptyFeedbackField('positive')] }))}
+                                                className="btn-outline"
+                                                style={{ padding: '4px 12px', fontSize: '0.75rem', borderRadius: '2rem' }}
+                                            >
+                                                + Positive
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateNewDept((prev) => ({ ...prev, feedbackConfigs: [...prev.feedbackConfigs, createEmptyFeedbackField('negative')] }))}
+                                                className="btn-outline"
+                                                style={{ padding: '4px 12px', fontSize: '0.75rem', borderRadius: '2rem' }}
+                                            >
+                                                + Negative
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                        {newDept.incharges.map((inc, index) => (
-                                            <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: '0.75rem', alignItems: 'center' }}>
-                                                <input
-                                                    type="text"
-                                                    className="form-control"
-                                                    style={{ fontSize: '0.85rem', padding: '8px 12px' }}
-                                                    placeholder="Incharge Name"
-                                                    value={inc.name}
-                                                    onChange={(e) => {
-                                                        const updated = [...newDept.incharges];
-                                                        updated[index].name = e.target.value;
-                                                        setNewDept({ ...newDept, incharges: updated });
-                                                    }}
-                                                />
-                                                <input
-                                                    type="email"
-                                                    className="form-control"
-                                                    style={{ fontSize: '0.85rem', padding: '8px 12px' }}
-                                                    placeholder="Email ID"
-                                                    value={inc.email}
-                                                    onChange={(e) => {
-                                                        const updated = [...newDept.incharges];
-                                                        updated[index].email = e.target.value;
-                                                        setNewDept({ ...newDept, incharges: updated });
-                                                    }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const updated = newDept.incharges.filter((_, i) => i !== index);
-                                                        setNewDept({ ...newDept, incharges: updated.length > 0 ? updated : [{ name: '', email: '' }] });
-                                                    }}
-                                                    style={{
-                                                        background: 'none', border: 'none', color: '#ef4444',
-                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                    <div style={{ display: 'grid', gap: '1rem' }}>
+                                        {newDept.feedbackConfigs.map((config, index) => (
+                                            <div key={`${config.type}-${index}`} style={{ border: '1px solid #dbe4f0', borderRadius: '0.9rem', background: 'white', padding: '1rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                    <span style={{
+                                                        padding: '0.3rem 0.75rem',
+                                                        borderRadius: '999px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 700,
+                                                        textTransform: 'uppercase',
+                                                        color: config.type === 'negative' ? '#b91c1c' : '#047857',
+                                                        background: config.type === 'negative' ? '#fee2e2' : '#d1fae5'
+                                                    }}>
+                                                        {config.type}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            updateNewDept((prev) => {
+                                                                const updated = prev.feedbackConfigs.filter((_, configIndex) => configIndex !== index);
+                                                                return {
+                                                                    ...prev,
+                                                                    feedbackConfigs: updated.length > 0 ? updated : [createEmptyFeedbackField('positive')]
+                                                                };
+                                                            });
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                        title="Delete feedback field"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                                <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                                    <select
+                                                        className="form-control"
+                                                        value={config.type}
+                                                        onChange={(e) => {
+                                                            const updated = [...newDept.feedbackConfigs];
+                                                            updated[index] = { ...updated[index], type: e.target.value };
+                                                            updateNewDept({ feedbackConfigs: updated });
+                                                        }}
+                                                    >
+                                                        <option value="positive">Positive</option>
+                                                        <option value="negative">Negative</option>
+                                                    </select>
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        placeholder="Feedback label"
+                                                        value={config.label}
+                                                        onChange={(e) => {
+                                                            const updated = [...newDept.feedbackConfigs];
+                                                            updated[index] = { ...updated[index], label: e.target.value };
+                                                            updateNewDept({ feedbackConfigs: updated });
+                                                        }}
+                                                    />
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={config.emailEnabled}
+                                                            onChange={(e) => {
+                                                                const updated = [...newDept.feedbackConfigs];
+                                                                updated[index] = {
+                                                                    ...updated[index],
+                                                                    emailEnabled: e.target.checked,
+                                                                    recipientName: e.target.checked ? updated[index].recipientName : '',
+                                                                    recipientEmail: e.target.checked ? updated[index].recipientEmail : ''
+                                                                };
+                                                                updateNewDept({ feedbackConfigs: updated });
+                                                            }}
+                                                        />
+                                                        Send Email
+                                                    </label>
+                                                    {config.emailEnabled && (
+                                                        <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                                            <input
+                                                                type="text"
+                                                                className="form-control"
+                                                                placeholder="Recipient Name"
+                                                                value={config.recipientName}
+                                                                onChange={(e) => {
+                                                                    const updated = [...newDept.feedbackConfigs];
+                                                                    updated[index] = { ...updated[index], recipientName: e.target.value };
+                                                                    updateNewDept({ feedbackConfigs: updated });
+                                                                }}
+                                                            />
+                                                            <input
+                                                                type="email"
+                                                                className="form-control"
+                                                                placeholder="Recipient Email"
+                                                                value={config.recipientEmail}
+                                                                onChange={(e) => {
+                                                                    const updated = [...newDept.feedbackConfigs];
+                                                                    updated[index] = { ...updated[index], recipientEmail: e.target.value };
+                                                                    updateNewDept({ feedbackConfigs: updated });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                <button type="button" onClick={handleAddDept} className="btn-primary" style={{ background: editingDeptId ? 'var(--primary)' : '#1e293b' }} disabled={saving}>
-                                    {editingDeptId ? 'Save Department Changes' : '+ Add Department to Workflow'}
+                                <button
+                                    type="button"
+                                    onClick={handleAddDept}
+                                    className="btn-primary"
+                                    style={{
+                                        background: editingDeptId ? 'var(--primary)' : '#1e293b',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '10px'
+                                    }}
+                                    disabled={deptSaving || saving}
+                                >
+                                    {deptSaving && <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>}
+                                    <span>
+                                        {deptSaving
+                                            ? (deptSaveStatus || 'Processing...')
+                                            : (editingDeptId ? 'Save Department Changes' : '+ Add Department to Workflow')}
+                                    </span>
                                 </button>
                                 {editingDeptId && (
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setEditingDeptId(null);
-                                            setNewDept({ name: '', imageUrl: '', description: '', imageFile: null, positive: '', negative: '', incharges: [{ name: '', email: '' }] });
+                                            setNewDept(resetDeptForm());
                                         }}
                                         className="btn-outline"
                                         style={{ marginTop: '-0.5rem', width: '100%', borderColor: '#64748b', color: '#64748b' }}
+                                        disabled={deptSaving}
                                     >Cancel & Reset Form</button>
                                 )}
                             </div>
@@ -736,6 +915,9 @@ const AdminSettings = () => {
                                     <div style={{ padding: '1rem', border: editingDeptId === dept._id ? '2px solid var(--primary)' : 'none', borderTop: 'none', borderRadius: '0 0 1rem 1rem' }}>
                                         <div style={{ fontWeight: 700, fontSize: '0.9rem', color: editingDeptId === dept._id ? 'var(--primary)' : 'inherit' }}>{dept.name}</div>
                                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', height: '2.5rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{dept.description}</p>
+                                        <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '6px' }}>
+                                            {(dept.feedbackConfigs || []).length > 0 ? `${dept.feedbackConfigs.length} feedback fields configured` : 'No feedback fields configured'}
+                                        </p>
                                     </div>
 
                                     <div style={{

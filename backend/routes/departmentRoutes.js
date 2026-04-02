@@ -5,10 +5,35 @@ import _Hospital from '../models/Hospital.js';
 import { protect, admin } from './userRoutes.js';
 import { sendDepartmentAssignmentEmail } from '../services/emailService.js';
 import { cacheHospitalConfig, invalidateHospitalConfigCache } from '../utils/hospitalConfigCache.js';
+import { validateFeedbackConfigs } from '../middleware/validation.js';
 
 const Department = _Department?.default || _Department;
 const Hospital = _Hospital?.default || _Hospital;
 const router = express.Router();
+
+const normalizeFeedbackConfigs = (feedbackConfigs = []) => {
+    if (!Array.isArray(feedbackConfigs)) return [];
+
+    return feedbackConfigs.map((config) => ({
+        type: (config?.type || '').toLowerCase() === 'negative' ? 'negative' : 'positive',
+        label: config?.label?.trim?.() || '',
+        emailEnabled: Boolean(config?.emailEnabled),
+        recipientName: config?.emailEnabled ? (config?.recipientName?.trim?.() || '') : '',
+        recipientEmail: config?.emailEnabled ? (config?.recipientEmail?.trim?.().toLowerCase?.() || '') : ''
+    })).filter((config) => config.label);
+};
+
+const syncDepartmentFields = (dept) => {
+    const feedbackConfigs = Array.isArray(dept.feedbackConfigs) ? dept.feedbackConfigs : [];
+    const positiveLabels = feedbackConfigs.filter((config) => config.type === 'positive').map((config) => config.label);
+    const negativeLabels = feedbackConfigs.filter((config) => config.type === 'negative').map((config) => config.label);
+
+    dept.feedbackConfigs = feedbackConfigs;
+    dept.positiveIssues = positiveLabels;
+    dept.negativeIssues = negativeLabels;
+    dept.positive_feedback = positiveLabels.join('; ');
+    dept.negative_feedback = negativeLabels.join('; ');
+};
 
 // @desc    Get all departments for a hospital
 // @route   GET /api/departments
@@ -51,15 +76,41 @@ router.get('/', async (req, res) => {
     }
 });
 
+// @desc    Get single department by id
+// @route   GET /api/departments/:id
+router.get('/:id', async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid Department ID format' });
+        }
+
+        const dept = await Department.findById(req.params.id).lean();
+        if (!dept) {
+            return res.status(404).json({ message: 'Department not found' });
+        }
+
+        res.json(dept);
+    } catch (error) {
+        console.error('Error fetching department:', error);
+        res.status(500).json({ message: 'Error fetching department' });
+    }
+});
+
 // @desc    Add a department
 // @route   POST /api/departments
 router.post('/', protect, admin, async (req, res) => {
-    const { name, imageUrl, description, positiveIssues, negativeIssues, positive_feedback, negative_feedback, incharges } = req.body;
+    const { name, imageUrl, description, incharges } = req.body;
     const { hospitalId } = req.query;
 
     try {
         const hId = (hospitalId && (req.user.role === 'Super_Admin' || req.user.role === 'super_admin')) ? hospitalId : req.user.hospitalId;
         if (!hId) return res.status(400).json({ message: 'Hospital ID not authorized or missing' });
+
+        const feedbackConfigs = normalizeFeedbackConfigs(req.body.feedbackConfigs);
+        const feedbackConfigError = validateFeedbackConfigs(feedbackConfigs);
+        if (feedbackConfigError) {
+            return res.status(400).json({ message: feedbackConfigError });
+        }
 
         // Case-insensitive duplicate check
         const exists = await Department.findOne({ 
@@ -68,18 +119,17 @@ router.post('/', protect, admin, async (req, res) => {
         });
         if (exists) return res.status(400).json({ message: 'Department already exists' });
 
-        const dept = await Department.create({
+        const dept = new Department({
             name,
             hospital: hId,
             hospitalId: hId,
             imageUrl,
             description,
-            positive_feedback: req.body.positive_feedback || '',
-            negative_feedback: req.body.negative_feedback || '',
-            positiveIssues,
-            negativeIssues,
-            incharges: incharges || []
+            incharges: incharges || [],
+            feedbackConfigs
         });
+        syncDepartmentFields(dept);
+        await dept.save();
 
         // Fire and forget emails to incharges
         if (incharges && incharges.length > 0) {
@@ -97,11 +147,12 @@ router.post('/', protect, admin, async (req, res) => {
                 name,
                 imageUrl,
                 description,
-                positive_feedback: req.body.positive_feedback || '',
-                negative_feedback: req.body.negative_feedback || '',
-                positiveIssues,
-                negativeIssues,
-                incharges: incharges || []
+                positive_feedback: dept.positive_feedback,
+                negative_feedback: dept.negative_feedback,
+                positiveIssues: dept.positiveIssues,
+                negativeIssues: dept.negativeIssues,
+                incharges: incharges || [],
+                feedbackConfigs: dept.feedbackConfigs
             });
             await hospital.save();
             invalidateHospitalConfigCache(hospital);
@@ -118,7 +169,7 @@ router.post('/', protect, admin, async (req, res) => {
 // @desc    Update a department
 // @route   PUT /api/departments/:id
 router.put('/:id', protect, admin, async (req, res) => {
-    const { name, imageUrl, description, positiveIssues, negativeIssues, positive_feedback, negative_feedback } = req.body;
+    const { name, imageUrl, description } = req.body;
     try {
         const idStr = req.params.id;
         console.log(`[DEPT-UPDATE-START] ID: ${idStr}`);
@@ -153,13 +204,19 @@ router.put('/:id', protect, admin, async (req, res) => {
             }
         }
 
+        const feedbackConfigs = normalizeFeedbackConfigs(req.body.feedbackConfigs);
+        const feedbackConfigError = validateFeedbackConfigs(feedbackConfigs);
+        if (feedbackConfigError) {
+            return res.status(400).json({ message: feedbackConfigError });
+        }
+
         dept.name = name || dept.name;
         dept.imageUrl = imageUrl !== undefined ? imageUrl : dept.imageUrl;
         dept.description = description !== undefined ? description : dept.description;
-        if (positiveIssues !== undefined) dept.positiveIssues = positiveIssues;
-        if (negativeIssues !== undefined) dept.negativeIssues = negativeIssues;
-        dept.positive_feedback = req.body.positive_feedback !== undefined ? req.body.positive_feedback : dept.positive_feedback;
-        dept.negative_feedback = req.body.negative_feedback !== undefined ? req.body.negative_feedback : dept.negative_feedback;
+        if (req.body.feedbackConfigs !== undefined) {
+            dept.feedbackConfigs = feedbackConfigs;
+            syncDepartmentFields(dept);
+        }
 
         const oldIncharges = (dept.incharges || []).map(i => i.email);
         const newIncharges = req.body.incharges || [];
@@ -193,7 +250,8 @@ router.put('/:id', protect, admin, async (req, res) => {
                         negative_feedback: dept.negative_feedback,
                         positiveIssues: dept.positiveIssues,
                         negativeIssues: dept.negativeIssues,
-                        incharges: dept.incharges || []
+                        incharges: dept.incharges || [],
+                        feedbackConfigs: dept.feedbackConfigs || []
                     });
                 } else {
                     hospital.departments.push({
@@ -204,7 +262,8 @@ router.put('/:id', protect, admin, async (req, res) => {
                         negative_feedback: dept.negative_feedback,
                         positiveIssues: dept.positiveIssues,
                         negativeIssues: dept.negativeIssues,
-                        incharges: dept.incharges || []
+                        incharges: dept.incharges || [],
+                        feedbackConfigs: dept.feedbackConfigs || []
                     });
                 }
                 await hospital.save();

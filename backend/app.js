@@ -66,6 +66,7 @@ app.use('/hospital', hospitalRoutes);
 app.use('/feedback', feedbackRoutes);
 app.use('/super-admin', superAdminRoutes);
 app.use('/departments', departmentRoutes);
+app.use('/department', departmentRoutes);
 
 // @desc    Dashboard Metrics (Central Route for frontend binding)
 // @route   GET /api/admin/dashboard
