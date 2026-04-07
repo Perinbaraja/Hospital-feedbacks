@@ -1,7 +1,12 @@
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
+const MotionDiv = Motion.div;
 import {
   ResponsiveContainer,
-  ComposedChart,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
   LineChart,
   Line,
   CartesianGrid,
@@ -37,7 +42,7 @@ const insightToneStyles = {
 
 function SmartInsight({ insight, index, motionVariants }) {
   return (
-    <motion.div
+    <MotionDiv
       custom={index}
       initial="hidden"
       animate="visible"
@@ -50,12 +55,13 @@ function SmartInsight({ insight, index, motionVariants }) {
     >
       <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>{insight.title}</div>
       <div style={{ marginTop: 8, lineHeight: 1.6, fontSize: "0.85rem" }}>{insight.body}</div>
-    </motion.div>
+    </MotionDiv>
   );
 }
 
 export default function ChartsSection({
   trendData,
+  radarData,
   sentimentSummary,
   departmentMetrics,
   worstDepartment,
@@ -67,12 +73,7 @@ export default function ChartsSection({
   return (
     <>
       <section className="dashboard-pro-grid">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={motionVariants}
-          className="dashboard-pro-card dashboard-pro-section"
-        >
+        <div className="dashboard-pro-card dashboard-pro-section">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
             <div>
               <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Daily Sentiment Trend</div>
@@ -86,21 +87,20 @@ export default function ChartsSection({
 
           <div style={{ width: "100%", height: 320 }}>
             <ResponsiveContainer>
-              <LineChart data={trendData}>
+              <LineChart data={trendData} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e8eef6" />
                 <XAxis dataKey="label" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" allowDecimals={false} />
                 <Tooltip />
-                <Legend verticalAlign="top" height={36} />
                 <Line type="monotone" dataKey="positive" name="Positive" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                 <Line type="monotone" dataKey="mixed" name="Mixed" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                 <Line type="monotone" dataKey="negative" name="Negative" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <MotionDiv
           initial="hidden"
           animate="visible"
           variants={motionVariants}
@@ -142,14 +142,14 @@ export default function ChartsSection({
               </div>
             ))}
           </div>
-        </motion.div>
+        </MotionDiv>
       </section>
 
       <section className="dashboard-pro-card dashboard-pro-section">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
           <div>
             <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Daily Sentiment Composition</div>
-            <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>Daily sentiment volume with overall feedback trend</div>
+            <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>Radar view of daily sentiment distribution across the current period</div>
           </div>
           <span className="dashboard-pro-badge" style={{ background: "#eff6ff", color: "#2563eb" }}>
             {rangeLabel}
@@ -158,28 +158,21 @@ export default function ChartsSection({
 
         <div style={{ width: "100%", height: 360 }}>
           <ResponsiveContainer>
-            <ComposedChart data={trendData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
-              <XAxis dataKey="label" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" allowDecimals={false} />
+            <RadarChart data={radarData} outerRadius="85%" margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+              <PolarGrid stroke="#e8eef6" />
+              <PolarAngleAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 12 }} />
+              <PolarRadiusAxis angle={30} domain={[0, "dataMax"]} tick={{ fill: "#94a3b8", fontSize: 11 }} />
               <Tooltip />
-              <Legend verticalAlign="top" height={36} />
-              <Bar dataKey="positive" name="Positive" stackId="sentiment" fill="#10b981" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="mixed" name="Mixed" stackId="sentiment" fill="#f59e0b" />
-              <Bar dataKey="negative" name="Negative" stackId="sentiment" fill="#ef4444" radius={[0, 0, 6, 6]} />
-              <Line type="monotone" dataKey="total" name="Total volume" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
-            </ComposedChart>
+              <Radar name="Positive" dataKey="positive" stroke="#10b981" fill="#10b981" fillOpacity={0.25} />
+              <Radar name="Mixed" dataKey="mixed" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.25} />
+              <Radar name="Negative" dataKey="negative" stroke="#ef4444" fill="#ef4444" fillOpacity={0.25} />
+            </RadarChart>
           </ResponsiveContainer>
         </div>
       </section>
 
       <section className="dashboard-pro-subgrid">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={motionVariants}
-          className="dashboard-pro-card dashboard-pro-section"
-        >
+        <div className="dashboard-pro-card dashboard-pro-section">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
             <div>
               <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Department Insights</div>
@@ -192,7 +185,7 @@ export default function ChartsSection({
 
           <div style={{ width: "100%", height: 360 }}>
             <ResponsiveContainer>
-              <BarChart data={departmentMetrics} barCategoryGap={22}>
+              <BarChart data={departmentMetrics} barCategoryGap={22} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
                 <XAxis dataKey="name" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" allowDecimals={false} />
@@ -203,16 +196,16 @@ export default function ChartsSection({
                     return `${label}: ${item.feedbackCount} total, ${item.positiveCount} positive, ${item.mixedCount} mixed, ${item.negativeCount} negative`;
                   }}
                 />
-                <Legend />
-                <Bar dataKey="positiveVisual" name="Positive share" stackId="sentiment" fill="#10b981" radius={[0, 0, 12, 12]} />
-                <Bar dataKey="mixedVisual" name="Mixed share" stackId="sentiment" fill="#f59e0b" />
-                <Bar dataKey="negativeVisual" name="Negative share" stackId="sentiment" fill="#ef4444" radius={[12, 12, 0, 0]} />
+                <Bar dataKey="positiveVisual" name="Positive" stackId="sentiment" fill="#10b981" radius={[0, 0, 12, 12]} />
+                <Bar dataKey="mixedVisual" name="Mixed" stackId="sentiment" fill="#f59e0b" />
+                <Bar dataKey="negativeVisual" name="Negative" stackId="sentiment" fill="#ef4444" radius={[12, 12, 0, 0]} />
+                <Line type="monotone" dataKey="feedbackCount" name="Feedback volume" stroke="#0f172a" strokeWidth={3} dot={{ r: 3 }} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <MotionDiv
           initial="hidden"
           animate="visible"
           variants={motionVariants}
@@ -228,7 +221,7 @@ export default function ChartsSection({
               <SmartInsight key={item.id} insight={item} index={index} motionVariants={motionVariants} />
             ))}
           </div>
-        </motion.div>
+        </MotionDiv>
       </section>
     </>
   );

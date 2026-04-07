@@ -234,6 +234,28 @@ const buildDepartmentComparison = (currentRecords, previousRecords) => {
   });
 };
 
+const buildRadarData = (trendData) => {
+  if (!Array.isArray(trendData) || trendData.length === 0) return trendData;
+  const maxAxes = 7;
+  if (trendData.length <= maxAxes) return trendData;
+
+  const bucketSize = Math.ceil(trendData.length / maxAxes);
+  const radarBuckets = [];
+
+  for (let index = 0; index < trendData.length; index += bucketSize) {
+    const slice = trendData.slice(index, index + bucketSize);
+    const label = `Period ${Math.floor(index / bucketSize) + 1}`;
+    radarBuckets.push({
+      label,
+      positive: slice.reduce((sum, item) => sum + (item.positive || 0), 0),
+      mixed: slice.reduce((sum, item) => sum + (item.mixed || 0), 0),
+      negative: slice.reduce((sum, item) => sum + (item.negative || 0), 0),
+    });
+  }
+
+  return radarBuckets;
+};
+
 export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRange }) => {
   const totalEncounters = currentRecords.length;
   const positiveCount = currentRecords.filter((record) => record.sentimentLabel === "Positive").length;
@@ -256,6 +278,7 @@ export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRa
     : Math.round(((totalEncounters - comparisonRecords.length) / comparisonRecords.length) * 100);
 
   const trendData = groupByDaySentiment(currentRecords, dateRange.currentStart, dateRange.daysInRange);
+  const radarData = buildRadarData(trendData);
 
   const sentimentSummary = [
     { name: "Positive", count: positiveCount, value: totalEncounters ? Math.round((positiveCount / totalEncounters) * 100) : 0, fill: SENTIMENT_COLORS.Positive },
@@ -348,5 +371,6 @@ export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRa
     inProgressCount,
     overduePendingCount,
     totalEncounters,
+    radarData,
   };
 };

@@ -644,7 +644,7 @@ const PublicFeedback = () => {
                                     const deptData = getDepartmentFeedbackOptions(dbDept || { name: cat.department });
 
                                     return (
-                                        <div key={cat.department} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E5E7EB', borderRadius: '1.25rem' }}>
+                                        <div key={cat.department} className="card feedback-section-card" style={{ padding: '0', overflow: 'hidden' }}>
                                             {/* Enhanced Header with properly resized image */}
                                             <div style={{ position: 'relative', width: '100%', height: '200px', background: '#f8fafc', overflow: 'hidden' }}>
                                                 {cat.imageUrl ? (
@@ -784,8 +784,14 @@ const PublicFeedback = () => {
                                                 </div>
 
                                                 <div className="form-group">
-                                                    <label className="form-label">Comments:</label>
-                                                    <textarea className="form-control" rows="3" value={cat.customText} onChange={(e) => updateCustomText(cat.department, e.target.value)} />
+                                                    <label className="form-label">Comments & suggestions:</label>
+                                                    <textarea
+                                                        className="form-control comment-textarea"
+                                                        rows="5"
+                                                        placeholder="Share any details, praise, or improvement ideas in a few sentences."
+                                                        value={cat.customText}
+                                                        onChange={(e) => updateCustomText(cat.department, e.target.value)}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>

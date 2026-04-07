@@ -276,6 +276,7 @@ export default function HospitalAdminDashboard() {
 
         <ChartsSection
           trendData={dashboardState.trendData}
+          radarData={dashboardState.radarData}
           sentimentSummary={dashboardState.sentimentSummary}
           departmentMetrics={dashboardState.departmentMetrics}
           worstDepartment={dashboardState.worstDepartment}

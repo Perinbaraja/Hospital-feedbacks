@@ -37,6 +37,7 @@ const AdminFeedback = () => {
     const [newNote, setNewNote] = useState('');
     const [postingNote, setPostingNote] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedComment, setSelectedComment] = useState(null);
     const isMountedRef = useRef(true);
 
     const [filterDept, setFilterDept] = useState('');
@@ -704,9 +705,46 @@ const AdminFeedback = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                                <div style={{ fontSize: '0.75rem', color: '#475569', maxWidth: '250px', whiteSpace: 'normal', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {fb.comments || "-"}
-                                                </div>
+                                                {(() => {
+                                                    const commentText = fb.comments?.trim() || '-';
+                                                    const isLongComment = fb.comments?.trim().length > 120;
+
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => isLongComment && setSelectedComment({ text: commentText })}
+                                                            title={isLongComment ? 'Click to view full comment' : commentText}
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: 0,
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                textAlign: 'left',
+                                                                cursor: isLongComment ? 'pointer' : 'default'
+                                                            }}
+                                                        >
+                                                            <div style={{
+                                                                fontSize: '0.75rem',
+                                                                color: '#475569',
+                                                                maxWidth: '250px',
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 3,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'normal',
+                                                                lineHeight: 1.4
+                                                            }}>
+                                                                {commentText}
+                                                            </div>
+                                                            {isLongComment && (
+                                                                <div style={{ marginTop: '0.3rem', fontSize: '0.72rem', fontWeight: 700, color: '#2563eb' }}>
+                                                                    View more
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })()}
                                             </td>
                                             <td>
                                                 {cat.image ? (
@@ -1053,6 +1091,43 @@ const AdminFeedback = () => {
                         />
                     </div>
                 </div>
+            )}
+
+            {/* Full Comment Modal */}
+            {selectedComment && (
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(15, 23, 42, 0.65)', zIndex: 2100,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                    }}
+                    onClick={() => setSelectedComment(null)}
+                >
+                    <div
+                        style={{
+                            width: 'min(680px, 100%)', maxHeight: '90vh', background: 'white', borderRadius: '1rem', padding: '1.5rem',
+                            overflowY: 'auto', position: 'relative', boxShadow: '0 30px 70px rgba(15, 23, 42, 0.2)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setSelectedComment(null)}
+                            style={{
+                                position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'transparent',
+                                color: '#475569', fontSize: '1.4rem', cursor: 'pointer'
+                            }}
+                            aria-label="Close comment preview"
+                        >
+                            ✕
+                        </button>
+                        <h3 style={{ marginBottom: '1rem', color: '#1e293b' }}>Full Comment</h3>
+                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: '#334155', fontSize: '0.95rem', margin: 0 }}>
+                            {selectedComment.text}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             )}
         </div>
     );
