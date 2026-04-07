@@ -87,7 +87,7 @@ export default function ChartsSection({
 
           <div style={{ width: "100%", height: 320 }}>
             <ResponsiveContainer>
-              <LineChart data={trendData} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
+              <LineChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e8eef6" />
                 <XAxis dataKey="label" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" allowDecimals={false} />
@@ -158,7 +158,7 @@ export default function ChartsSection({
 
         <div style={{ width: "100%", height: 360 }}>
           <ResponsiveContainer>
-            <RadarChart data={radarData} outerRadius="85%" margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+            <RadarChart data={radarData} outerRadius="85%" margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <PolarGrid stroke="#e8eef6" />
               <PolarAngleAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 12 }} />
               <PolarRadiusAxis angle={30} domain={[0, "dataMax"]} tick={{ fill: "#94a3b8", fontSize: 11 }} />
@@ -185,7 +185,7 @@ export default function ChartsSection({
 
           <div style={{ width: "100%", height: 360 }}>
             <ResponsiveContainer>
-              <BarChart data={departmentMetrics} barCategoryGap={22} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
+              <BarChart data={departmentMetrics} barCategoryGap={22} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
                 <XAxis dataKey="name" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" allowDecimals={false} />

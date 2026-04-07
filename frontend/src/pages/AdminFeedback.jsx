@@ -1127,8 +1127,6 @@ const AdminFeedback = () => {
                     </div>
                 </div>
             )}
-
-            )}
         </div>
     );
 };
