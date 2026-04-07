@@ -239,6 +239,7 @@ const normalizeDashboardRecord = (feedback = {}) => {
     comment,
     createdAt: createdAt.toISOString(),
     status: feedback.status || 'Pending',
+    image: feedback.image || primaryCategory.image || '',
   };
 };
 

@@ -1,13 +1,18 @@
 import { motion } from "framer-motion";
 import { Activity } from "lucide-react";
 import { formatRelativeTime, STATUS_COLORS } from "./dashboardUtils";
+import { getAssetUrl } from "../../api";
 
 function FeedbackCard({ item, index, motionVariants }) {
-  const sentimentKey = item.sentiment === "mixed" ? "mixed" : item.sentiment === "negative" ? "negative" : "positive";
+  const sentimentValue = String(item.sentiment || "").trim().toLowerCase();
+  const sentimentKey = sentimentValue === "mixed" ? "mixed" : sentimentValue === "negative" ? "negative" : "positive";
   const statusTone = STATUS_COLORS[sentimentKey];
+  const imageUrl = getAssetUrl(item.image || item.feedbackImage || item.imageUrl || "");
+  const showInProgressBadge = item.status === "IN PROGRESS" && sentimentKey !== "positive";
+  const MotionArticle = motion.article;
 
   return (
-    <motion.article
+    <MotionArticle
       custom={index}
       initial="hidden"
       animate="visible"
@@ -20,9 +25,16 @@ function FeedbackCard({ item, index, motionVariants }) {
           <div className="dashboard-pro-feedback-name">{item.patientName}</div>
           <div className="dashboard-pro-feedback-meta">{item.service} | {item.patientEmail}</div>
         </div>
-        <span className="dashboard-pro-badge" style={{ background: statusTone.background, color: statusTone.color }}>
-          {statusTone.label}
-        </span>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="dashboard-pro-badge" style={{ background: statusTone.background, color: statusTone.color }}>
+            {statusTone.label}
+          </span>
+          {showInProgressBadge && (
+            <span className="dashboard-pro-badge" style={{ background: '#eff6ff', color: '#2563eb' }}>
+              In Progress
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="dashboard-pro-feedback-chip-row">
@@ -38,15 +50,27 @@ function FeedbackCard({ item, index, motionVariants }) {
         ))}
       </div>
 
+      {imageUrl && (
+        <div style={{ margin: '14px auto 0', borderRadius: 16, overflow: 'hidden', maxWidth: 320, width: '100%', height: 140 }}>
+          <img
+            src={imageUrl}
+            alt="Feedback attachment"
+            style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
+          />
+        </div>
+      )}
+
       <p className="dashboard-pro-feedback-comment">{item.comment}</p>
 
       <div className="dashboard-pro-feedback-footer">
         <span className="dashboard-pro-feedback-time">{formatRelativeTime(item.createdAt)}</span>
-        <span className="dashboard-pro-badge" style={{ background: "#eef6ff", color: "#2563eb" }}>
-          {item.status}
-        </span>
+        {item.status !== "IN PROGRESS" && (
+          <span className="dashboard-pro-badge" style={{ background: "#eef6ff", color: "#2563eb" }}>
+            {item.status}
+          </span>
+        )}
       </div>
-    </motion.article>
+    </MotionArticle>
   );
 }
 
@@ -63,27 +87,28 @@ function FeedbackSkeleton() {
 
 export default function FeedbackCardList({ records, loading, motionVariants }) {
   const sortedRecords = [...records].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const displayedRecords = sortedRecords.slice(0, 5);
 
   return (
     <section className="dashboard-pro-card dashboard-pro-section">
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Recent Feedback Activity</div>
-          <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>
+          {/* <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>
             Modern card view powered by the same filtered dataset as the charts and KPIs
-          </div>
+          </div> */}
         </div>
         <span className="dashboard-pro-badge" style={{ background: "#f1f5f9", color: "#475569" }}>
           <Activity size={14} />
-          {sortedRecords.length} visible items
+          {displayedRecords.length} visible items
         </span>
       </div>
 
       <div className="dashboard-pro-activity-list">
         {loading
-          ? Array.from({ length: 4 }).map((_, index) => <FeedbackSkeleton key={index} />)
-          : sortedRecords.length > 0
-            ? sortedRecords.map((item, index) => (
+          ? Array.from({ length: 5 }).map((_, index) => <FeedbackSkeleton key={index} />)
+          : displayedRecords.length > 0
+            ? displayedRecords.map((item, index) => (
                 <FeedbackCard key={item.id} item={item} index={index} motionVariants={motionVariants} />
               ))
             : (

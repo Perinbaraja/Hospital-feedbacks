@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import {
   ResponsiveContainer,
+  ComposedChart,
   LineChart,
   Line,
   CartesianGrid,
@@ -74,8 +75,8 @@ export default function ChartsSection({
         >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
             <div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Daily Feedback Trend</div>
-              <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>Live submissions compared to the filtered period average</div>
+              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Daily Sentiment Trend</div>
+              <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>Daily counts for positive, mixed, and negative feedback</div>
             </div>
             <span className="dashboard-pro-badge" style={{ background: "#eef6ff", color: "#2563eb" }}>
               <TrendingUp size={14} />
@@ -90,8 +91,10 @@ export default function ChartsSection({
                 <XAxis dataKey="label" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" allowDecimals={false} />
                 <Tooltip />
-                <Line type="monotone" dataKey="daily" stroke="#10b981" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                <Line type="monotone" dataKey="weekly" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="7 5" dot={false} />
+                <Legend verticalAlign="top" height={36} />
+                <Line type="monotone" dataKey="positive" name="Positive" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="mixed" name="Mixed" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="negative" name="Negative" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -140,6 +143,34 @@ export default function ChartsSection({
             ))}
           </div>
         </motion.div>
+      </section>
+
+      <section className="dashboard-pro-card dashboard-pro-section">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Daily Sentiment Composition</div>
+            <div style={{ marginTop: 6, color: "#64748b", fontSize: "0.88rem" }}>Daily sentiment volume with overall feedback trend</div>
+          </div>
+          <span className="dashboard-pro-badge" style={{ background: "#eff6ff", color: "#2563eb" }}>
+            {rangeLabel}
+          </span>
+        </div>
+
+        <div style={{ width: "100%", height: 360 }}>
+          <ResponsiveContainer>
+            <ComposedChart data={trendData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
+              <XAxis dataKey="label" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" allowDecimals={false} />
+              <Tooltip />
+              <Legend verticalAlign="top" height={36} />
+              <Bar dataKey="positive" name="Positive" stackId="sentiment" fill="#10b981" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="mixed" name="Mixed" stackId="sentiment" fill="#f59e0b" />
+              <Bar dataKey="negative" name="Negative" stackId="sentiment" fill="#ef4444" radius={[0, 0, 6, 6]} />
+              <Line type="monotone" dataKey="total" name="Total volume" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
       </section>
 
       <section className="dashboard-pro-subgrid">

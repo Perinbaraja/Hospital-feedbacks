@@ -144,20 +144,34 @@ export const formatRelativeTime = (value) => {
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-const groupByDay = (records, currentStart, daysInRange) => {
+const groupByDaySentiment = (records, currentStart, daysInRange) => {
   const countByDay = new Map();
+
   records.forEach((record) => {
     const key = formatDateInput(record.createdAt);
-    countByDay.set(key, (countByDay.get(key) || 0) + 1);
+    const bucket = countByDay.get(key) || { positive: 0, mixed: 0, negative: 0 };
+    if (record.sentimentLabel === "Positive") {
+      bucket.positive += 1;
+    } else if (record.sentimentLabel === "Mixed") {
+      bucket.mixed += 1;
+    } else {
+      bucket.negative += 1;
+    }
+    countByDay.set(key, bucket);
   });
 
   return Array.from({ length: daysInRange }).map((_, index) => {
     const date = addDays(currentStart, index);
     const key = formatDateInput(date);
+    const bucket = countByDay.get(key) || { positive: 0, mixed: 0, negative: 0 };
+    const total = bucket.positive + bucket.mixed + bucket.negative;
+
     return {
-      day: key,
       label: date.toLocaleDateString([], { weekday: "short" }),
-      count: countByDay.get(key) || 0,
+      positive: bucket.positive,
+      mixed: bucket.mixed,
+      negative: bucket.negative,
+      total,
     };
   });
 };
@@ -241,11 +255,7 @@ export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRa
     ? (totalEncounters > 0 ? 100 : 0)
     : Math.round(((totalEncounters - comparisonRecords.length) / comparisonRecords.length) * 100);
 
-  const trendData = groupByDay(currentRecords, dateRange.currentStart, dateRange.daysInRange).map((item) => ({
-    label: item.label,
-    daily: item.count,
-    weekly: avgDailyFeedback,
-  }));
+  const trendData = groupByDaySentiment(currentRecords, dateRange.currentStart, dateRange.daysInRange);
 
   const sentimentSummary = [
     { name: "Positive", count: positiveCount, value: totalEncounters ? Math.round((positiveCount / totalEncounters) * 100) : 0, fill: SENTIMENT_COLORS.Positive },
