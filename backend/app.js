@@ -182,6 +182,18 @@ const buildDashboardCurrentRange = ({ queryDate, queryRange, fromDate, toDate })
   }
 
   const normalizedRange = String(queryRange || '').trim().toLowerCase() || '7d';
+  if (normalizedRange === 'alltime') {
+    const daysInRange = 30;
+    const currentEnd = endOfDay();
+    const currentStart = startOfDay();
+    currentStart.setDate(currentStart.getDate() - (daysInRange - 1));
+    return {
+      currentStart,
+      currentEnd,
+      rangeDays: daysInRange,
+      isAllTime: true,
+    };
+  }
   if (normalizedRange === 'today') {
     return {
       currentStart: startOfDay(),
@@ -287,7 +299,7 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
         // If super admin and no hospitalId, query remains empty (total aggregate for super admin overview)
 
         const selectedDepartment = String(queryDepartment || '').trim();
-        const { currentStart, currentEnd, rangeDays } = buildDashboardCurrentRange({
+        const { currentStart, currentEnd, rangeDays, isAllTime } = buildDashboardCurrentRange({
           queryDate,
           queryRange,
           fromDate: queryFromDate,
@@ -300,18 +312,24 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
         const tomorrowStart = new Date(todayStart);
         tomorrowStart.setDate(tomorrowStart.getDate() + 1);
         const pendingThreshold = new Date(Date.now() - 48 * 60 * 60 * 1000);
-        query.createdAt = {
-          $gte: trendPreviousStart,
-          $lte: currentEnd,
-        };
+        query.createdAt = isAllTime
+          ? { $lte: currentEnd }
+          : {
+              $gte: trendPreviousStart,
+              $lte: currentEnd,
+            };
 
         const feedbackDocs = await Feedback.find(query).sort({ createdAt: -1 }).lean();
         const normalizedRecords = feedbackDocs.map((item) => normalizeDashboardRecord(item));
         const departmentFilteredRecords = selectedDepartment
           ? normalizedRecords.filter((record) => record.services.includes(selectedDepartment) || record.service === selectedDepartment)
           : normalizedRecords;
-        const currentRecords = departmentFilteredRecords.filter((record) => isWithinRange(record.createdAt, currentStart, currentEnd));
-        const previousRecords = departmentFilteredRecords.filter((record) => isWithinRange(record.createdAt, trendPreviousStart, trendPreviousEnd));
+        const currentRecords = isAllTime
+          ? departmentFilteredRecords
+          : departmentFilteredRecords.filter((record) => isWithinRange(record.createdAt, currentStart, currentEnd));
+        const previousRecords = isAllTime
+          ? []
+          : departmentFilteredRecords.filter((record) => isWithinRange(record.createdAt, trendPreviousStart, trendPreviousEnd));
         const dailyFeedbackMap = new Map();
         const dailyFeedback = [];
         currentRecords.forEach((record) => {
@@ -344,7 +362,7 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
         const completionRate = totalEncounters > 0 ? Math.round((resolvedIssues / totalEncounters) * 100) : 0;
         const positiveRate = totalEncounters > 0 ? Math.round((positiveCount / totalEncounters) * 100) : 0;
         const avgDailyFeedback = Math.round((currentPeriodTotal / Math.max(rangeDays, 1)) * 10) / 10;
-        const weeklyTrendPercent = percentageChange(currentPeriodTotal, previousPeriodTotal);
+        const weeklyTrendPercent = isAllTime ? 0 : percentageChange(currentPeriodTotal, previousPeriodTotal);
         const departmentMap = new Map();
         currentRecords.forEach((record) => {
           const currentValue = departmentMap.get(record.service) || {

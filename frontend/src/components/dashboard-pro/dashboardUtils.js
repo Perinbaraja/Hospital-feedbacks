@@ -1,4 +1,5 @@
 export const DATE_PRESET_OPTIONS = [
+  { value: "alltime", label: "All Time" },
   { value: "today", label: "Today" },
   { value: "yesterday", label: "Yesterday" },
   { value: "last7Days", label: "Last 7 Days" },
@@ -50,7 +51,7 @@ export const formatDateInput = (value) => {
 
 export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
   const today = new Date();
-  const normalizedPreset = preset || "last7Days";
+  const normalizedPreset = String(preset || "last7Days").trim().toLowerCase();
 
   if (normalizedPreset === "today") {
     const currentStart = startOfDay(today);
@@ -95,6 +96,22 @@ export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
       previousStart: new Date(currentStart.getTime() - daysInRange * DAY_MS),
       previousEnd: new Date(currentStart.getTime() - 1),
       daysInRange,
+    };
+  }
+
+  if (normalizedPreset === "alltime") {
+    const daysInRange = 30;
+    const currentEnd = endOfDay(today);
+    const currentStart = startOfDay(addDays(today, -(daysInRange - 1)));
+    return {
+      preset: normalizedPreset,
+      label: "All Time",
+      currentStart,
+      currentEnd,
+      previousStart: addDays(currentStart, -daysInRange),
+      previousEnd: new Date(currentStart.getTime() - 1),
+      daysInRange,
+      isAllTime: true,
     };
   }
 
