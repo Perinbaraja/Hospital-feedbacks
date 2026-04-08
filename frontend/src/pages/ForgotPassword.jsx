@@ -13,12 +13,24 @@ const ForgotPassword = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendDisabled, setResendDisabled] = useState(false);
+    const [countdown, setCountdown] = useState(0);
 
     useEffect(() => {
         if (location.state?.email) {
             setEmail(location.state.email);
         }
     }, [location.state]);
+
+    useEffect(() => {
+        if (countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+            return () => clearTimeout(timer);
+        } else {
+            setResendDisabled(false);
+        }
+    }, [countdown]);
 
     const handleRequestOtp = async (e) => {
         e.preventDefault();
@@ -65,6 +77,21 @@ const ForgotPassword = () => {
         }
     };
 
+    const handleResendOtp = async () => {
+        setResendLoading(true);
+        try {
+            await API.post('/users/forgot-password', { email: email.trim().toLowerCase() });
+            toast.success('New OTP sent to your email');
+            setResendDisabled(true);
+            setCountdown(30); // 30 second cooldown
+        } catch (error) {
+            console.error('[RESEND OTP] Error:', error);
+            toast.error(error.response?.data?.message || 'Unable to resend OTP');
+        } finally {
+            setResendLoading(false);
+        }
+    };
+
     const handleResetPassword = async (e) => {
         e.preventDefault();
         if (!newPassword || !confirmPassword) {
@@ -107,6 +134,9 @@ const ForgotPassword = () => {
         setNewPassword('');
         setConfirmPassword('');
         setInfoMessage('');
+        setResendLoading(false);
+        setResendDisabled(false);
+        setCountdown(0);
     };
 
     return (
@@ -163,6 +193,17 @@ const ForgotPassword = () => {
                                 onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                                 placeholder="123456"
                             />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <button
+                                type="button"
+                                className="btn-link"
+                                onClick={handleResendOtp}
+                                disabled={resendLoading || resendDisabled}
+                                style={{ fontSize: '0.875rem', padding: 0, background: 'none', border: 'none', color: '#3B82F6', cursor: resendDisabled ? 'not-allowed' : 'pointer' }}
+                            >
+                                {resendLoading ? 'Sending...' : resendDisabled ? `Resend in ${countdown}s` : 'Resend OTP'}
+                            </button>
                         </div>
                         <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', padding: '0.85rem' }}>
                             {loading ? 'Verifying...' : 'Verify Code'}

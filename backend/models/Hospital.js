@@ -134,7 +134,6 @@ hospitalSchema.pre('save', async function() {
     }
 });
 
-hospitalSchema.index({ uniqueId: 1 });
 hospitalSchema.index({ hospitalId: 1 });
 
 // Add a default set if none provided (can be changed via seed or admin)
