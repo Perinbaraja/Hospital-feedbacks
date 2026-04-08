@@ -74,6 +74,10 @@ const DASHBOARD_RANGE_TO_DAYS = {
   '24h': 1,
   '7d': 7,
   '30d': 30,
+  last7days: 7,
+  last30days: 30,
+  last7Days: 7,
+  last30Days: 30,
   custom: 7,
 };
 
@@ -182,7 +186,7 @@ const buildDashboardCurrentRange = ({ queryDate, queryRange, fromDate, toDate })
   }
 
   const normalizedRange = String(queryRange || '').trim().toLowerCase() || '7d';
-  if (normalizedRange === 'alltime') {
+  if (normalizedRange === 'alltime' || String(queryRange || '').trim().toLowerCase() === 'alltime') {
     const daysInRange = 30;
     const currentEnd = endOfDay();
     const currentStart = startOfDay();

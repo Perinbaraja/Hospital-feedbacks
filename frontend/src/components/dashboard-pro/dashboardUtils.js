@@ -51,13 +51,27 @@ export const formatDateInput = (value) => {
 
 export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
   const today = new Date();
-  const normalizedPreset = String(preset || "last7Days").trim().toLowerCase();
+  const rawPreset = String(preset || "last7Days").trim();
+  const normalizedPreset = rawPreset.toLowerCase();
+  const presetKey = ["last7days", "7d"].includes(normalizedPreset)
+    ? "last7Days"
+    : ["last30days", "30d"].includes(normalizedPreset)
+    ? "last30Days"
+    : normalizedPreset === "alltime"
+    ? "alltime"
+    : normalizedPreset === "today"
+    ? "today"
+    : normalizedPreset === "yesterday"
+    ? "yesterday"
+    : normalizedPreset === "custom"
+    ? "custom"
+    : "last7Days";
 
-  if (normalizedPreset === "today") {
+  if (presetKey === "today") {
     const currentStart = startOfDay(today);
     const currentEnd = endOfDay(today);
     return {
-      preset: normalizedPreset,
+      preset: presetKey,
       label: "Today",
       currentStart,
       currentEnd,
@@ -67,12 +81,12 @@ export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
     };
   }
 
-  if (normalizedPreset === "yesterday") {
+  if (presetKey === "yesterday") {
     const yesterday = addDays(today, -1);
     const currentStart = startOfDay(yesterday);
     const currentEnd = endOfDay(yesterday);
     return {
-      preset: normalizedPreset,
+      preset: presetKey,
       label: "Yesterday",
       currentStart,
       currentEnd,
@@ -82,14 +96,14 @@ export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
     };
   }
 
-  if (normalizedPreset === "custom" && fromDate && toDate) {
+  if (presetKey === "custom" && fromDate && toDate) {
     const orderedFrom = new Date(Math.min(fromDate.getTime(), toDate.getTime()));
     const orderedTo = new Date(Math.max(fromDate.getTime(), toDate.getTime()));
     const currentStart = startOfDay(orderedFrom);
     const currentEnd = endOfDay(orderedTo);
     const daysInRange = Math.max(1, Math.ceil((currentEnd.getTime() - currentStart.getTime() + 1) / DAY_MS));
     return {
-      preset: normalizedPreset,
+      preset: presetKey,
       label: "Custom Range",
       currentStart,
       currentEnd,
@@ -99,12 +113,12 @@ export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
     };
   }
 
-  if (normalizedPreset === "alltime") {
+  if (presetKey === "alltime") {
     const daysInRange = 30;
     const currentEnd = endOfDay(today);
     const currentStart = startOfDay(addDays(today, -(daysInRange - 1)));
     return {
-      preset: normalizedPreset,
+      preset: presetKey,
       label: "All Time",
       currentStart,
       currentEnd,
@@ -115,11 +129,11 @@ export const getDateRangeFromPreset = (preset, fromDate, toDate) => {
     };
   }
 
-  const daysInRange = normalizedPreset === "last30Days" ? 30 : 7;
+  const daysInRange = presetKey === "last30Days" ? 30 : 7;
   const currentEnd = endOfDay(today);
   const currentStart = startOfDay(addDays(today, -(daysInRange - 1)));
   return {
-    preset: normalizedPreset,
+    preset: presetKey,
     label: daysInRange === 30 ? "Last 30 Days" : "Last 7 Days",
     currentStart,
     currentEnd,
@@ -161,6 +175,14 @@ export const formatRelativeTime = (value) => {
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
+export const formatChartDateLabel = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = date.getDate();
+  const month = date.toLocaleDateString("en-US", { month: "short" });
+  return `${month} ${day}`;
+};
+
 const groupByDaySentiment = (records, currentStart, daysInRange) => {
   const countByDay = new Map();
 
@@ -184,7 +206,7 @@ const groupByDaySentiment = (records, currentStart, daysInRange) => {
     const total = bucket.positive + bucket.mixed + bucket.negative;
 
     return {
-      label: date.toLocaleDateString([], { weekday: "short" }),
+      label: formatChartDateLabel(date),
       positive: bucket.positive,
       mixed: bucket.mixed,
       negative: bucket.negative,
@@ -289,12 +311,22 @@ export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRa
   const todayCount = currentRecords.filter((record) => isWithinRange(record.createdAt, todayStart, todayEnd)).length;
   const positiveRate = totalEncounters ? Math.round((positiveCount / totalEncounters) * 100) : 0;
   const completionRate = totalEncounters ? Math.round((resolvedIssues / totalEncounters) * 100) : 0;
+
+  const recordDates = totalEncounters
+    ? currentRecords.map((record) => startOfDay(new Date(record.createdAt)))
+    : [];
+  const firstRecordDate = recordDates.length ? new Date(Math.min(...recordDates.map((date) => date.getTime()))) : null;
+  const chartStart = firstRecordDate && firstRecordDate > dateRange.currentStart
+    ? firstRecordDate
+    : dateRange.currentStart;
+  const chartDays = Math.max(1, Math.ceil((dateRange.currentEnd.getTime() - chartStart.getTime() + 1) / DAY_MS));
+
   const avgDailyFeedback = Math.round((totalEncounters / Math.max(dateRange.daysInRange, 1)) * 10) / 10;
   const weeklyTrendPercent = comparisonRecords.length === 0
     ? (totalEncounters > 0 ? 100 : 0)
     : Math.round(((totalEncounters - comparisonRecords.length) / comparisonRecords.length) * 100);
 
-  const trendData = groupByDaySentiment(currentRecords, dateRange.currentStart, dateRange.daysInRange);
+  const trendData = groupByDaySentiment(currentRecords, chartStart, chartDays);
   const radarData = buildRadarData(trendData);
 
   const sentimentSummary = [
