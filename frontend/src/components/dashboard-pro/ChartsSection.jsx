@@ -87,9 +87,20 @@ export default function ChartsSection({
 
           <div style={{ width: "100%", height: 320 }}>
             <ResponsiveContainer>
-              <LineChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <LineChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e8eef6" />
-                <XAxis dataKey="label" stroke="#94a3b8" />
+                <XAxis
+                  dataKey="label"
+                  stroke="#94a3b8"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#64748b", fontSize: 12, angle: -45, textAnchor: "end", dy: 15 }}
+                  tickMargin={10}
+                  minTickGap={25}
+                  height={60}
+                  padding={{ left: 12, right: 12 }}
+                  interval="preserveStartEnd"
+                />
                 <YAxis stroke="#94a3b8" allowDecimals={false} />
                 <Tooltip />
                 <Line type="monotone" dataKey="positive" name="Positive" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />

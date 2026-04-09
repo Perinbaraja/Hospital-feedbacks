@@ -26,7 +26,7 @@ const emptyDashboard = {
 const defaultFilters = {
   searchTerm: "",
   department: "All",
-  datePreset: "last7Days",
+  datePreset: "alltime",
   fromDate: "",
   toDate: "",
 };
@@ -81,13 +81,17 @@ export default function HospitalAdminDashboard() {
         setRefreshing(true);
       }
 
+      const requestParams = {
+        ...(hospitalId ? { hospitalId } : {}),
+        range: dateRange.preset,
+      };
+      if (dateRange.preset !== "alltime") {
+        requestParams.fromDate = dateRange.currentStart.toISOString();
+        requestParams.toDate = dateRange.currentEnd.toISOString();
+      }
+
       const data = await fetchAdminDashboard(
-        {
-          ...(hospitalId ? { hospitalId } : {}),
-          fromDate: dateRange.currentStart.toISOString(),
-          toDate: dateRange.currentEnd.toISOString(),
-          range: dateRange.preset,
-        },
+        requestParams,
         {
           forceRefresh,
           ttlMs: forceRefresh ? 3000 : 15000,
