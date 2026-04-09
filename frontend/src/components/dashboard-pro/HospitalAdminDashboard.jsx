@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchAdminDashboard } from "../../services/adminDashboardCache";
+import { getHospitalConfig } from "../../services/hospitalConfig";
 import FilterBar from "./FilterBar";
 import KPISection from "./KPISection";
 import ChartsSection from "./ChartsSection";
@@ -54,6 +55,7 @@ export default function HospitalAdminDashboard() {
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [filters, setFilters] = useState(defaultFilters);
   const [debouncedFilters, setDebouncedFilters] = useState(defaultFilters);
+  const [hospitalDepartments, setHospitalDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -65,6 +67,41 @@ export default function HospitalAdminDashboard() {
 
     return () => window.clearTimeout(timeoutId);
   }, [filters]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!hospitalId) {
+      setHospitalDepartments([]);
+      return undefined;
+    }
+
+    getHospitalConfig({ hospitalId })
+      .then((hospital) => {
+        if (cancelled || !hospital?.departments) return;
+        const activeNames = hospital.departments
+          .map((dept) => String(dept?.name || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+        setHospitalDepartments(activeNames);
+      })
+      .catch(() => {
+        if (!cancelled) setHospitalDepartments([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hospitalId]);
+
+  useEffect(() => {
+    if (filters.department && filters.department !== "All" && hospitalDepartments.length > 0) {
+      const normalizedSelected = String(filters.department).trim().toLowerCase();
+      const foundActive = hospitalDepartments.some((name) => String(name).trim().toLowerCase() === normalizedSelected);
+      if (!foundActive) {
+        setFilters((current) => ({ ...current, department: "All" }));
+      }
+    }
+  }, [filters.department, hospitalDepartments]);
 
   const dateRange = useMemo(() => {
     const fromDate = debouncedFilters.fromDate ? new Date(`${debouncedFilters.fromDate}T00:00:00`) : null;
@@ -128,8 +165,15 @@ export default function HospitalAdminDashboard() {
   }, [loadDashboard]);
 
   const departmentOptions = useMemo(() => {
-    return [...new Set([...dashboard.feedbackRecords, ...dashboard.comparisonRecords].map((item) => item.service).filter(Boolean))].sort();
-  }, [dashboard.comparisonRecords, dashboard.feedbackRecords]);
+    if (hospitalDepartments.length > 0) {
+      return [...new Set(hospitalDepartments)];
+    }
+
+    return [...new Set([
+      ...dashboard.feedbackRecords,
+      ...dashboard.comparisonRecords,
+    ].map((item) => String(item.service || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [dashboard.comparisonRecords, dashboard.feedbackRecords, hospitalDepartments]);
 
   const filteredCurrentRecords = useMemo(() => {
     return dashboard.feedbackRecords.filter((record) =>
