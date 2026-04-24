@@ -273,6 +273,178 @@ const buildDepartmentComparison = (currentRecords, previousRecords) => {
   });
 };
 
+const TEXT_THEME_RULES = [
+  {
+    id: "delay",
+    label: "Waiting time and delays",
+    keywords: ["wait", "waiting", "delay", "late", "slow", "queue", "line", "time", "overdue", "pending"],
+    action: "Create hourly queue checks, publish expected wait times, and trigger supervisor review when delays cross the target.",
+  },
+  {
+    id: "staff",
+    label: "Staff behavior and communication",
+    keywords: ["staff", "nurse", "doctor", "rude", "behavior", "communication", "explain", "response", "attitude", "careless"],
+    action: "Coach the team on greeting, explanation, and closing-loop scripts; review low-scoring interactions in the daily huddle.",
+  },
+  {
+    id: "cleanliness",
+    label: "Cleanliness and maintenance",
+    keywords: ["clean", "dirty", "hygiene", "smell", "washroom", "toilet", "floor", "maintenance", "repair", "broken"],
+    action: "Add a visible cleaning checklist, schedule spot audits, and escalate repeated repair items before the next shift starts.",
+  },
+  {
+    id: "billing",
+    label: "Billing and process clarity",
+    keywords: ["bill", "billing", "charge", "payment", "cash", "insurance", "refund", "price", "cost", "receipt"],
+    action: "Give patients a short cost explanation before payment and route disputed bills to a same-day review owner.",
+  },
+  {
+    id: "medicine",
+    label: "Medicine and availability",
+    keywords: ["medicine", "pharmacy", "drug", "tablet", "stock", "available", "availability", "prescription"],
+    action: "Check high-demand medicine stock twice daily and notify departments early when alternatives are needed.",
+  },
+  {
+    id: "food",
+    label: "Food and canteen quality",
+    keywords: ["food", "canteen", "meal", "taste", "cold", "tea", "water", "cafeteria"],
+    action: "Track food temperature, taste, and service timing by meal period; fix repeated supplier or preparation gaps quickly.",
+  },
+  {
+    id: "parking",
+    label: "Parking and access",
+    keywords: ["parking", "vehicle", "car", "bike", "gate", "security", "entry", "access"],
+    action: "Use peak-hour parking guidance and assign one staff member to reduce entry confusion during rush periods.",
+  },
+];
+
+const STOP_WORDS = new Set([
+  "about", "after", "again", "also", "because", "been", "being", "could", "department", "feedback", "from", "have", "hospital",
+  "into", "more", "need", "needs", "only", "patient", "please", "service", "should", "that", "their", "there", "they", "this",
+  "very", "were", "with", "work", "your",
+]);
+
+const normalizeInsightText = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ");
+
+const tokenizeInsightText = (value) => normalizeInsightText(value)
+  .split(/\s+/)
+  .map((word) => word.trim())
+  .filter((word) => word.length >= 4 && !STOP_WORDS.has(word));
+
+const getRecordText = (record = {}) => [
+  record.comment,
+  ...(record.positiveTags || []),
+  ...(record.negativeTags || []),
+].join(" ");
+
+const countThemes = (records) => {
+  const themeMap = new Map(TEXT_THEME_RULES.map((rule) => [rule.id, { ...rule, count: 0, departments: new Map() }]));
+
+  records.forEach((record) => {
+    const haystack = normalizeInsightText(getRecordText(record));
+    TEXT_THEME_RULES.forEach((rule) => {
+      const matched = rule.keywords.some((keyword) => haystack.includes(keyword));
+      if (!matched) return;
+
+      const theme = themeMap.get(rule.id);
+      theme.count += 1;
+      theme.departments.set(record.service, (theme.departments.get(record.service) || 0) + 1);
+    });
+  });
+
+  return [...themeMap.values()]
+    .filter((theme) => theme.count > 0)
+    .map((theme) => {
+      const topDepartment = [...theme.departments.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "All departments";
+      return { ...theme, topDepartment };
+    })
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+};
+
+const getTopKeywords = (records, limit = 5) => {
+  const counts = new Map();
+  records.forEach((record) => {
+    tokenizeInsightText(getRecordText(record)).forEach((word) => {
+      counts.set(word, (counts.get(word) || 0) + 1);
+    });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([word]) => word);
+};
+
+const buildAiAgentInsights = ({
+  currentRecords,
+  comparisonRecords,
+  departmentMetrics,
+  worstDepartment,
+  risingComplaintDepartment,
+  overduePendingCount,
+  completionRate,
+  dateRange,
+}) => {
+  const negativeOrMixedRecords = currentRecords.filter((record) => ["Negative", "Mixed"].includes(record.sentimentLabel));
+  const negativeCount = currentRecords.filter((record) => record.sentimentLabel === "Negative").length;
+  const negativeRate = currentRecords.length ? Math.round((negativeCount / currentRecords.length) * 100) : 0;
+  const previousNegativeCount = comparisonRecords.filter((record) => record.sentimentLabel === "Negative").length;
+  const negativeTrend = previousNegativeCount === 0 ? (negativeCount > 0 ? 100 : 0) : Math.round(((negativeCount - previousNegativeCount) / previousNegativeCount) * 100);
+  const themes = countThemes(negativeOrMixedRecords);
+  const topTheme = themes[0] || null;
+  const topKeywords = getTopKeywords(negativeOrMixedRecords);
+  const riskScore = Math.min(100, Math.round((negativeRate * 0.55) + (Math.max(0, negativeTrend) * 0.25) + (overduePendingCount * 8) + Math.max(0, 75 - completionRate) * 0.2));
+  const riskTone = riskScore >= 60 ? "danger" : riskScore >= 35 ? "warning" : "success";
+  const riskLabel = riskScore >= 60 ? "High" : riskScore >= 35 ? "Moderate" : "Low";
+
+  if (currentRecords.length === 0) {
+    return [
+      {
+        id: "agent-waiting",
+        tone: "warning",
+        title: "AI agent is waiting for feedback",
+        body: "No records match the current filters. Select a broader date range or department to generate prevention insights.",
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "agent-risk",
+      tone: riskTone,
+      title: `AI risk forecast: ${riskLabel}`,
+      body: `${negativeRate}% of feedback is negative in ${dateRange.label}. Negative volume is ${Math.abs(negativeTrend)}% ${negativeTrend >= 0 ? "higher" : "lower"} than the previous window, so prevention focus should start with ${worstDepartment?.name || "the highest-volume department"}.`,
+    },
+    topTheme
+      ? {
+          id: "agent-theme",
+          tone: topTheme.count >= 3 ? "danger" : "warning",
+          title: `Root cause theme: ${topTheme.label}`,
+          body: `${topTheme.count} negative or mixed item${topTheme.count === 1 ? "" : "s"} point to this theme, mainly in ${topTheme.topDepartment}. ${topTheme.action}`,
+        }
+      : {
+          id: "agent-theme",
+          tone: "success",
+          title: "No repeated complaint theme detected",
+          body: "Negative feedback is not clustering around one clear topic yet. Continue reviewing comments daily to catch early patterns.",
+        },
+    {
+      id: "agent-department-action",
+      tone: risingComplaintDepartment?.negativeTrend > 0 ? "danger" : "warning",
+      title: `${risingComplaintDepartment?.name || worstDepartment?.name || "Department"} prevention plan`,
+      body: `Run a 15-minute department huddle, review the latest negative cases, assign one owner per issue, and close the loop with patients before similar complaints repeat.`,
+    },
+    {
+      id: "agent-keywords",
+      tone: topKeywords.length ? "warning" : "success",
+      title: topKeywords.length ? `Watch words: ${topKeywords.join(", ")}` : "Comments are not showing repeated warning words",
+      body: topKeywords.length
+        ? "These repeated words are the AI agent's early warning signal for what patients are noticing most."
+        : "Keep collecting written comments so the AI agent can detect sharper warning signals.",
+    },
+  ];
+};
+
 const buildRadarData = (trendData) => {
   if (!Array.isArray(trendData) || trendData.length === 0) return trendData;
   const maxAxes = 7;
@@ -295,7 +467,7 @@ const buildRadarData = (trendData) => {
   return radarBuckets;
 };
 
-export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRange }) => {
+export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRange, aiInsights }) => {
   const totalEncounters = currentRecords.length;
   const positiveCount = currentRecords.filter((record) => record.sentimentLabel === "Positive").length;
   const negativeCount = currentRecords.filter((record) => record.sentimentLabel === "Negative").length;
@@ -340,52 +512,20 @@ export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRa
   const worstDepartment = [...departmentMetrics].sort((a, b) => a.satisfaction - b.satisfaction || b.feedbackCount - a.feedbackCount)[0] || null;
   const departmentChanges = buildDepartmentComparison(currentRecords, comparisonRecords);
   const risingComplaintDepartment = [...departmentChanges].sort((a, b) => b.negativeTrend - a.negativeTrend)[0] || null;
-  const bestDepartment = [...departmentMetrics].sort((a, b) => b.satisfaction - a.satisfaction || a.name.localeCompare(b.name))[0] || null;
 
-  const smartInsights = [
-    risingComplaintDepartment
-      ? {
-          id: "rising-complaints",
-          tone: risingComplaintDepartment.negativeTrend > 0 ? "danger" : "warning",
-          title: `${risingComplaintDepartment.name} complaints ${risingComplaintDepartment.negativeTrend > 0 ? "increased" : "stabilized"}`,
-          body: risingComplaintDepartment.negativeTrend > 0
-            ? `${risingComplaintDepartment.name} negative feedback moved by ${Math.abs(risingComplaintDepartment.negativeTrend)}% compared with the previous period.`
-            : `${risingComplaintDepartment.name} currently has the highest negative volume in the filtered dataset.`,
-        }
-      : {
-          id: "rising-complaints",
-          tone: "warning",
-          title: "Complaint trend is stable",
-          body: "No department shows a notable complaint spike in the selected date range.",
-        },
-    bestDepartment
-      ? {
-          id: "best-service",
-          tone: "success",
-          title: `${bestDepartment.name} leads satisfaction`,
-          body: `${bestDepartment.name} is currently running at a ${bestDepartment.satisfaction}% positive score across ${bestDepartment.feedbackCount} filtered feedback items.`,
-        }
-      : {
-          id: "best-service",
-          tone: "success",
-          title: "Waiting for live satisfaction signals",
-          body: "Feedback insights will appear here as soon as records match the selected filters.",
-        },
-    {
-      id: "resolution",
-      tone: overduePendingCount > 0 ? "warning" : "success",
-      title: overduePendingCount > 0 ? `${overduePendingCount} pending items are overdue` : "No overdue pending feedback",
-      body: overduePendingCount > 0
-        ? "Older pending items should be reviewed to keep hospital response times healthy."
-        : "All pending feedback in the current view is still inside the expected response window.",
-    },
-    {
-      id: "volume",
-      tone: weeklyTrendPercent >= 0 ? "success" : "warning",
-      title: `${dateRange.label} volume ${weeklyTrendPercent >= 0 ? "is up" : "is down"}`,
-      body: `${totalEncounters} records match the current filters, which is ${Math.abs(weeklyTrendPercent)}% ${weeklyTrendPercent >= 0 ? "higher" : "lower"} than the previous comparison window.`,
-    },
-  ];
+  const localSmartInsights = buildAiAgentInsights({
+    currentRecords,
+    comparisonRecords,
+    departmentMetrics,
+    worstDepartment,
+    risingComplaintDepartment,
+    overduePendingCount,
+    completionRate,
+    dateRange,
+  });
+  const smartInsights = Array.isArray(aiInsights?.insights) && aiInsights.insights.length > 0
+    ? aiInsights.insights
+    : localSmartInsights;
 
   return {
     dashboardValues: {
@@ -410,6 +550,7 @@ export const deriveDashboardState = ({ currentRecords, comparisonRecords, dateRa
     topDepartment,
     worstDepartment,
     smartInsights,
+    aiInsightsMeta: aiInsights || null,
     positiveRate,
     completionRate,
     todayCount,

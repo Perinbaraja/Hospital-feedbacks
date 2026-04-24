@@ -12,6 +12,7 @@ import _superAdminRoutes from './routes/superAdminRoutes.js';
 import _departmentRoutes from './routes/departmentRoutes.js';
 import _Feedback from './models/Feedback.js';
 import { protect, admin } from './routes/userRoutes.js';
+import { buildFallbackInsights, generateFeedbackInsights } from './services/aiInsightsAgent.js';
 
 const userRoutes = _userRoutes?.default || _userRoutes;
 const hospitalRoutes = _hospitalRoutes?.default || _hospitalRoutes;
@@ -291,6 +292,7 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
           range: queryRange,
           fromDate: queryFromDate,
           toDate: queryToDate,
+          searchTerm: querySearchTerm,
         } = req.query;
 
         if (!isSuperAdmin) {
@@ -303,6 +305,7 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
         // If super admin and no hospitalId, query remains empty (total aggregate for super admin overview)
 
         const selectedDepartment = String(queryDepartment || '').trim();
+        const selectedSearchTerm = String(querySearchTerm || '').trim().toLowerCase();
         const { currentStart, currentEnd, rangeDays, isAllTime } = buildDashboardCurrentRange({
           queryDate,
           queryRange,
@@ -328,12 +331,26 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
         const departmentFilteredRecords = selectedDepartment
           ? normalizedRecords.filter((record) => record.services.includes(selectedDepartment) || record.service === selectedDepartment)
           : normalizedRecords;
+        const searchFilteredRecords = selectedSearchTerm
+          ? departmentFilteredRecords.filter((record) => {
+              const searchable = [
+                record.id,
+                record.patientName,
+                record.patientEmail,
+                record.service,
+                record.comment,
+                ...(record.positiveTags || []),
+                ...(record.negativeTags || []),
+              ].join(' ').toLowerCase();
+              return searchable.includes(selectedSearchTerm);
+            })
+          : departmentFilteredRecords;
         const currentRecords = isAllTime
-          ? departmentFilteredRecords
-          : departmentFilteredRecords.filter((record) => isWithinRange(record.createdAt, currentStart, currentEnd));
+          ? searchFilteredRecords
+          : searchFilteredRecords.filter((record) => isWithinRange(record.createdAt, currentStart, currentEnd));
         const previousRecords = isAllTime
           ? []
-          : departmentFilteredRecords.filter((record) => isWithinRange(record.createdAt, trendPreviousStart, trendPreviousEnd));
+          : searchFilteredRecords.filter((record) => isWithinRange(record.createdAt, trendPreviousStart, trendPreviousEnd));
         const dailyFeedbackMap = new Map();
         const dailyFeedback = [];
         currentRecords.forEach((record) => {
@@ -473,6 +490,49 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
           }
         ];
 
+        let aiInsights;
+        try {
+          aiInsights = await generateFeedbackInsights({
+            records: currentRecords,
+            comparisonRecords: previousRecords,
+            rangeLabel: isAllTime ? 'All Time' : `${rangeDays} day window`,
+            filterContext: {
+              department: selectedDepartment || 'All',
+              searchTerm: selectedSearchTerm || '',
+              range: queryRange || 'alltime',
+            },
+            metrics: {
+              totalFeedback: totalEncounters,
+              positiveRate,
+              negativeCount,
+              mixedCount,
+              completionRate,
+              overduePendingCount,
+              departmentMetrics,
+            },
+          });
+        } catch (insightError) {
+          console.error('AI insight agent failed:', insightError.message);
+          aiInsights = buildFallbackInsights({
+            records: currentRecords,
+            comparisonRecords: previousRecords,
+            rangeLabel: isAllTime ? 'All Time' : `${rangeDays} day window`,
+            metrics: {
+              totalFeedback: totalEncounters,
+              positiveRate,
+              negativeCount,
+              mixedCount,
+              completionRate,
+              overduePendingCount,
+              departmentMetrics,
+            },
+          });
+          aiInsights.source = 'error-fallback';
+          aiInsights.provider = process.env.AI_PROVIDER || (process.env.GEMINI_API_KEY ? 'gemini' : 'openai');
+          aiInsights.model = process.env.GEMINI_MODEL || process.env.OPENAI_MODEL || 'configured model';
+          aiInsights.error = insightError.message;
+        }
+
         res.json({
             totalEncounters,
             positiveCount,
@@ -497,7 +557,8 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
             recentFeedback,
             feedbackRecords: currentRecords,
             comparisonRecords: previousRecords,
-            insights
+            insights,
+            aiInsights
         });
     } catch (error) {
         console.error('Core Dashboard Error:', error);

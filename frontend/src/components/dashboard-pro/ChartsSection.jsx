@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion as Motion } from "framer-motion";
 const MotionDiv = Motion.div;
 import {
@@ -20,7 +21,7 @@ import {
   Bar,
   Legend,
 } from "recharts";
-import { Sparkles, TrendingUp } from "lucide-react";
+import { BrainCircuit, CheckCircle2, ClipboardList, Sparkles, TrendingUp, TriangleAlert } from "lucide-react";
 
 const insightToneStyles = {
   success: {
@@ -59,6 +60,69 @@ function SmartInsight({ insight, index, motionVariants }) {
   );
 }
 
+function AgentListSection({ title, items, renderItem }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+      <div style={{ color: "#0f172a", fontSize: "0.92rem", fontWeight: 900 }}>{title}</div>
+      {items.map((item, index) => (
+        <div
+          key={`${title}-${index}`}
+          style={{
+            border: "1px solid #e7eef6",
+            borderRadius: 16,
+            padding: 12,
+            background: "#fbfdff",
+            color: "#334155",
+            fontSize: "0.82rem",
+            lineHeight: 1.55,
+          }}
+        >
+          {renderItem(item, index)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SentimentInsightSection({ title, tone, items }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const style = insightToneStyles[tone] || insightToneStyles.warning;
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ color: "#0f172a", fontSize: "0.92rem", fontWeight: 900, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {items.map((item, index) => (
+          <div
+            key={`${title}-${index}`}
+            style={{
+              borderRadius: 16,
+              padding: 12,
+              ...style,
+            }}
+          >
+            <div style={{ fontWeight: 900, fontSize: "0.86rem" }}>{item.title}</div>
+            <div style={{ marginTop: 5, fontSize: "0.82rem", lineHeight: 1.55 }}>{item.body}</div>
+            <div style={{ marginTop: 6, fontSize: "0.8rem", lineHeight: 1.5, fontWeight: 800 }}>
+              {item.department}: {item.recommendation}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const agentTabs = [
+  { id: "positive", label: "Positive", icon: CheckCircle2 },
+  { id: "negative", label: "Negative", icon: TriangleAlert },
+  { id: "mixed", label: "Mixed", icon: Sparkles },
+  { id: "actions", label: "Actions", icon: ClipboardList },
+  { id: "playbook", label: "Playbook", icon: BrainCircuit },
+];
+
 export default function ChartsSection({
   trendData,
   radarData,
@@ -66,10 +130,13 @@ export default function ChartsSection({
   departmentMetrics,
   worstDepartment,
   smartInsights,
+  aiInsightsMeta,
   positiveRate,
   rangeLabel,
   motionVariants,
 }) {
+  const [activeAgentTab, setActiveAgentTab] = useState("positive");
+
   return (
     <>
       <section className="dashboard-pro-grid">
@@ -224,14 +291,139 @@ export default function ChartsSection({
           className="dashboard-pro-card dashboard-pro-section"
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <Sparkles size={20} color="#8b5cf6" />
-            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>Smart Insights</div>
+            <BrainCircuit size={21} color="#2563eb" />
+            <div>
+              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>AI Prevention Agent</div>
+              <div style={{ marginTop: 4, color: "#64748b", fontSize: "0.86rem", lineHeight: 1.5 }}>
+                {aiInsightsMeta?.source === "model"
+                  ? `${aiInsightsMeta.provider ? `${aiInsightsMeta.provider.toUpperCase()} ` : ""}Model: ${aiInsightsMeta.model || "configured model"}`
+                  : aiInsightsMeta?.source === "fallback"
+                  ? "Fallback active: add OPENAI_API_KEY for model insights"
+                  : aiInsightsMeta?.source === "error-fallback"
+                  ? `Model unavailable: ${aiInsightsMeta.error || "showing rich fallback agent output"}`
+                  : "Analyzes feedback themes, risk, and department actions"}
+              </div>
+            </div>
           </div>
           <div style={{ display: "grid", gap: 12 }}>
             {smartInsights.map((item, index) => (
               <SmartInsight key={item.id} insight={item} index={index} motionVariants={motionVariants} />
             ))}
           </div>
+
+          <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {agentTabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeAgentTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveAgentTab(tab.id)}
+                  style={{
+                    border: active ? "1px solid rgba(37,99,235,0.35)" : "1px solid #dbe5f0",
+                    background: active ? "#eff6ff" : "#fff",
+                    color: active ? "#1d4ed8" : "#475569",
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontWeight: 900,
+                    fontSize: "0.78rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Icon size={14} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeAgentTab === "positive" ? (
+          <SentimentInsightSection
+            title="AI Positive Insights"
+            tone="success"
+            items={aiInsightsMeta?.positiveInsights}
+          />
+          ) : null}
+
+          {activeAgentTab === "negative" ? (
+          <SentimentInsightSection
+            title="AI Negative Insights"
+            tone="danger"
+            items={aiInsightsMeta?.negativeInsights}
+          />
+          ) : null}
+
+          {activeAgentTab === "mixed" ? (
+          <SentimentInsightSection
+            title="AI Mixed Insights"
+            tone="warning"
+            items={aiInsightsMeta?.mixedInsights}
+          />
+          ) : null}
+
+          {activeAgentTab === "actions" ? (
+          <>
+          <AgentListSection
+            title="Priority Actions"
+            items={aiInsightsMeta?.priorityActions}
+            renderItem={(item) => (
+              <>
+                <div style={{ fontWeight: 900, color: "#0f172a" }}>{item.priority} · {item.department}</div>
+                <div style={{ marginTop: 4 }}>{item.action}</div>
+                <div style={{ marginTop: 4, color: "#64748b" }}>{item.owner} · {item.timeframe}</div>
+              </>
+            )}
+          />
+
+          <AgentListSection
+            title="Prevention Checklist"
+            items={aiInsightsMeta?.preventionChecklist}
+            renderItem={(item) => <div>{item}</div>}
+          />
+          </>
+          ) : null}
+
+          {activeAgentTab === "playbook" ? (
+          <>
+          <AgentListSection
+            title="Department Playbook"
+            items={aiInsightsMeta?.departmentPlaybook}
+            renderItem={(item) => (
+              <>
+                <div style={{ fontWeight: 900, color: "#0f172a" }}>{item.department}</div>
+                <div style={{ marginTop: 4 }}>{item.riskReason}</div>
+                <div style={{ marginTop: 4, color: "#475569", fontWeight: 800 }}>{item.dailyHuddleTopic}</div>
+                <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                  {(item.preventionSteps || []).map((step, stepIndex) => (
+                    <div key={stepIndex}>- {step}</div>
+                  ))}
+                </div>
+              </>
+            )}
+          />
+
+          <AgentListSection
+            title="Follow-up Questions"
+            items={aiInsightsMeta?.followUpQuestions}
+            renderItem={(item) => <div>{item}</div>}
+          />
+
+          <AgentListSection
+            title="Patient Message Drafts"
+            items={aiInsightsMeta?.patientMessageDrafts}
+            renderItem={(item) => (
+              <>
+                <div style={{ fontWeight: 900, color: "#0f172a" }}>{item.scenario}</div>
+                <div style={{ marginTop: 4 }}>{item.message}</div>
+              </>
+            )}
+          />
+          </>
+          ) : null}
         </MotionDiv>
       </section>
     </>

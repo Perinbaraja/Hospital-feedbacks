@@ -1,7 +1,8 @@
 import API from '../api.js';
 
 const DASHBOARD_CACHE_TTL_MS = 60 * 1000;
-const STORAGE_PREFIX = 'admin-dashboard-cache:';
+const DASHBOARD_CACHE_VERSION = 'v5-ai-agent-sentiment';
+const STORAGE_PREFIX = `admin-dashboard-cache:${DASHBOARD_CACHE_VERSION}:`;
 const memoryCache = new Map();
 const inflightRequests = new Map();
 
@@ -10,15 +11,16 @@ const normalizeValue = (value) => {
     return String(value).trim();
 };
 
-const buildDashboardKey = ({ hospitalId, department, date, range, fromDate, toDate } = {}) => {
+const buildDashboardKey = ({ hospitalId, department, searchTerm, date, range, fromDate, toDate } = {}) => {
     const normalizedHospitalId = normalizeValue(hospitalId);
     const normalizedDepartment = normalizeValue(department) || 'all';
+    const normalizedSearchTerm = normalizeValue(searchTerm) || 'all';
     const normalizedDate = normalizeValue(date) || 'all';
     const normalizedRange = normalizeValue(range) || '7d';
     const normalizedFromDate = normalizeValue(fromDate) || 'all';
     const normalizedToDate = normalizeValue(toDate) || 'all';
     const hospitalKey = normalizedHospitalId ? `hospital:${normalizedHospitalId}` : 'hospital:self';
-    return `${hospitalKey}|dept:${normalizedDepartment}|date:${normalizedDate}|range:${normalizedRange}|from:${normalizedFromDate}|to:${normalizedToDate}`;
+    return `${hospitalKey}|dept:${normalizedDepartment}|search:${normalizedSearchTerm}|date:${normalizedDate}|range:${normalizedRange}|from:${normalizedFromDate}|to:${normalizedToDate}`;
 };
 
 const readSessionCache = (key) => {
@@ -46,8 +48,8 @@ const writeSessionCache = (key, entry) => {
     }
 };
 
-export const getCachedAdminDashboard = ({ hospitalId, department, date, range, fromDate, toDate } = {}) => {
-    const key = buildDashboardKey({ hospitalId, department, date, range, fromDate, toDate });
+export const getCachedAdminDashboard = ({ hospitalId, department, searchTerm, date, range, fromDate, toDate } = {}) => {
+    const key = buildDashboardKey({ hospitalId, department, searchTerm, date, range, fromDate, toDate });
     const memoryEntry = memoryCache.get(key);
 
     if (memoryEntry?.expiresAt > Date.now()) {
@@ -63,8 +65,8 @@ export const getCachedAdminDashboard = ({ hospitalId, department, date, range, f
     return null;
 };
 
-export const setCachedAdminDashboard = (data, { hospitalId, department, date, range, fromDate, toDate, ttlMs = DASHBOARD_CACHE_TTL_MS } = {}) => {
-    const key = buildDashboardKey({ hospitalId, department, date, range, fromDate, toDate });
+export const setCachedAdminDashboard = (data, { hospitalId, department, searchTerm, date, range, fromDate, toDate, ttlMs = DASHBOARD_CACHE_TTL_MS } = {}) => {
+    const key = buildDashboardKey({ hospitalId, department, searchTerm, date, range, fromDate, toDate });
     const entry = {
         data,
         expiresAt: Date.now() + ttlMs
@@ -93,11 +95,11 @@ export const clearAdminDashboardCache = () => {
     }
 };
 
-export const fetchAdminDashboard = async ({ hospitalId, department, date, range, fromDate, toDate } = {}, { forceRefresh = false, ttlMs = DASHBOARD_CACHE_TTL_MS } = {}) => {
-    const key = buildDashboardKey({ hospitalId, department, date, range, fromDate, toDate });
+export const fetchAdminDashboard = async ({ hospitalId, department, searchTerm, date, range, fromDate, toDate } = {}, { forceRefresh = false, ttlMs = DASHBOARD_CACHE_TTL_MS } = {}) => {
+    const key = buildDashboardKey({ hospitalId, department, searchTerm, date, range, fromDate, toDate });
 
     if (!forceRefresh) {
-        const cached = getCachedAdminDashboard({ hospitalId, department, date, range, fromDate, toDate });
+        const cached = getCachedAdminDashboard({ hospitalId, department, searchTerm, date, range, fromDate, toDate });
         if (cached) {
             return cached;
         }
@@ -110,13 +112,14 @@ export const fetchAdminDashboard = async ({ hospitalId, department, date, range,
     const params = new URLSearchParams();
     if (hospitalId) params.set('hospitalId', hospitalId);
     if (department) params.set('department', department);
+    if (searchTerm) params.set('searchTerm', searchTerm);
     if (date) params.set('date', date);
     if (range) params.set('range', range);
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     const query = params.toString() ? `?${params.toString()}` : '';
     const request = API.get(`/admin/dashboard${query}`)
-        .then(({ data }) => setCachedAdminDashboard(data, { hospitalId, department, date, range, fromDate, toDate, ttlMs }))
+        .then(({ data }) => setCachedAdminDashboard(data, { hospitalId, department, searchTerm, date, range, fromDate, toDate, ttlMs }))
         .finally(() => {
             inflightRequests.delete(key);
         });
