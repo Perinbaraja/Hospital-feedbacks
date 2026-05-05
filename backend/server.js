@@ -1,5 +1,26 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import app from './app.js';
+
+if (typeof globalThis.crypto === 'undefined') {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: crypto,
+    configurable: true,
+    enumerable: false,
+    writable: false,
+  });
+} else if (typeof globalThis.crypto.randomBytes !== 'function') {
+  try {
+    globalThis.crypto.randomBytes = crypto.randomBytes.bind(crypto);
+  } catch (error) {
+    Object.defineProperty(globalThis.crypto, 'randomBytes', {
+      value: crypto.randomBytes.bind(crypto),
+      configurable: true,
+      enumerable: false,
+      writable: false,
+    });
+  }
+}
 
 const PORT = process.env.PORT || 5000;
 
