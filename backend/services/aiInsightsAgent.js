@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import Hospital from "../models/Hospital.js";
 import Department from "../models/Department.js";
 import { sendFeedbackNotificationEmail } from "./emailService.js";
@@ -6,6 +5,16 @@ import { sendFeedbackNotificationEmail } from "./emailService.js";
 const AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
 const agentCache = new Map();
 const notificationDispatchCache = new Map();
+
+const createHashHex = (value) => {
+  const input = typeof value === 'string' ? value : JSON.stringify(value);
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) - hash) + input.charCodeAt(index);
+    hash |= 0;
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+};
 const DEFAULT_GEMINI_AGENT = "gemini-2.5-flash";
 const DEFAULT_OPENAI_AGENT = "gpt-4.1-mini";
 const GEMINI_MODEL_FALLBACKS = [
@@ -394,14 +403,12 @@ const dispatchInsightNotifications = async ({
     };
   }
 
-  const notificationFingerprint = crypto.createHash("sha256")
-    .update(JSON.stringify({
-      hospitalId,
-      riskLevel: riskSummary.level,
-      highPriorityActions,
-      summary: normalized.summary,
-    }))
-    .digest("hex");
+  const notificationFingerprint = createHashHex({
+    hospitalId,
+    riskLevel: riskSummary.level,
+    highPriorityActions,
+    summary: normalized.summary,
+  });
 
   const cachedDispatch = notificationDispatchCache.get(notificationFingerprint);
   if (cachedDispatch?.expiresAt > Date.now()) {
@@ -894,7 +901,7 @@ export const generateFeedbackInsights = async ({
   const payload = buildAgentInput({ records, comparisonRecords, metrics, rangeLabel, filterContext });
   const analysisSummary = buildAnalysisSummary({ payload });
   const riskSummary = buildRiskSummary({ metrics, comparisonRecords });
-  const cacheKey = crypto.createHash("sha256").update(JSON.stringify({ provider, agent, payload })).digest("hex");
+  const cacheKey = createHashHex({ provider, agent, payload });
   const cached = agentCache.get(cacheKey);
   if (cached?.expiresAt > Date.now()) {
     return cached.value;
