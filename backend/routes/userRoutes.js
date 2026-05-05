@@ -1,7 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import _User from '../models/User.js';
 import _Hospital from '../models/Hospital.js';
 import _Feedback from '../models/Feedback.js';
@@ -11,6 +10,8 @@ import { sendPasswordResetOtpEmail } from '../services/emailService.js';
 const User = _User?.default || _User;
 const Hospital = _Hospital?.default || _Hospital;
 const Feedback = _Feedback?.default || _Feedback;
+
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 // Protect routes middleware
 export const protect = async (req, res, next) => {
@@ -196,7 +197,7 @@ router.post('/forgot-password', async (req, res) => {
             return res.status(404).json({ message: `No account found for ${normalizedEmail}` });
         }
 
-        const otp = String(crypto.randomInt(100000, 1000000)).padStart(6, '0');
+        const otp = generateOtp();
         const expires = new Date(Date.now() + 5 * 60 * 1000);
 
         user.passwordResetOTP = otp;

@@ -21,6 +21,7 @@ import "./HospitalAdminDashboard.css";
 const emptyDashboard = {
   feedbackRecords: [],
   comparisonRecords: [],
+  aiInsights: null,
   lastUpdated: new Date().toISOString(),
 };
 
@@ -122,6 +123,12 @@ export default function HospitalAdminDashboard() {
         ...(hospitalId ? { hospitalId } : {}),
         range: dateRange.preset,
       };
+      if (debouncedFilters.department && debouncedFilters.department !== "All") {
+        requestParams.department = debouncedFilters.department;
+      }
+      if (debouncedFilters.searchTerm) {
+        requestParams.searchTerm = debouncedFilters.searchTerm;
+      }
       if (dateRange.preset !== "alltime") {
         requestParams.fromDate = dateRange.currentStart.toISOString();
         requestParams.toDate = dateRange.currentEnd.toISOString();
@@ -138,6 +145,7 @@ export default function HospitalAdminDashboard() {
       setDashboard({
         feedbackRecords: data.feedbackRecords || [],
         comparisonRecords: data.comparisonRecords || [],
+        aiInsights: data.aiInsights || null,
         lastUpdated: data.lastUpdated || new Date().toISOString(),
       });
     } catch (fetchError) {
@@ -146,13 +154,14 @@ export default function HospitalAdminDashboard() {
       setDashboard({
         feedbackRecords: dummyDashboardRecords,
         comparisonRecords: dummyComparisonRecords,
+        aiInsights: null,
         lastUpdated: new Date().toISOString(),
       });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dateRange.currentEnd, dateRange.currentStart, dateRange.preset, hospitalId]);
+  }, [dateRange.currentEnd, dateRange.currentStart, dateRange.preset, debouncedFilters.department, debouncedFilters.searchTerm, hospitalId]);
 
   useEffect(() => {
     loadDashboard({ showSkeleton: true });
@@ -192,8 +201,9 @@ export default function HospitalAdminDashboard() {
       currentRecords: filteredCurrentRecords,
       comparisonRecords: filteredComparisonRecords,
       dateRange,
+      aiInsights: dashboard.aiInsights,
     });
-  }, [dateRange, filteredComparisonRecords, filteredCurrentRecords]);
+  }, [dashboard.aiInsights, dateRange, filteredComparisonRecords, filteredCurrentRecords]);
 
   const handleFilterChange = useCallback((key, value) => {
     setFilters((current) => {
@@ -329,6 +339,7 @@ export default function HospitalAdminDashboard() {
           departmentMetrics={dashboardState.departmentMetrics}
           worstDepartment={dashboardState.worstDepartment}
           smartInsights={dashboardState.smartInsights}
+          aiInsightsMeta={dashboardState.aiInsightsMeta}
           positiveRate={dashboardState.positiveRate}
           rangeLabel={dateRange.label}
           motionVariants={cardMotion}
