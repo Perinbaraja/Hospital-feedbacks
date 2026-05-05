@@ -295,14 +295,19 @@ export default function ChartsSection({
             <div>
               <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a" }}>AI Prevention Agent</div>
               <div style={{ marginTop: 4, color: "#64748b", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                {aiInsightsMeta?.source === "model"
-                  ? `${aiInsightsMeta.provider ? `${aiInsightsMeta.provider.toUpperCase()} ` : ""}Model: ${aiInsightsMeta.model || "configured model"}`
+                {aiInsightsMeta?.source === "agent"
+                  ? `${aiInsightsMeta.provider ? `${aiInsightsMeta.provider.toUpperCase()} ` : ""}Agent: ${aiInsightsMeta.agent || aiInsightsMeta.model || "configured agent"}`
                   : aiInsightsMeta?.source === "fallback"
-                  ? "Fallback active: add OPENAI_API_KEY for model insights"
+                  ? "Fallback agent active: add a valid AI provider key for live agent insights"
                   : aiInsightsMeta?.source === "error-fallback"
-                  ? `Model unavailable: ${aiInsightsMeta.error || "showing rich fallback agent output"}`
+                  ? `Agent unavailable: ${aiInsightsMeta.error || "showing fallback agent output"}`
                   : "Analyzes feedback themes, risk, and department actions"}
               </div>
+              {aiInsightsMeta?.pipeline ? (
+                <div style={{ marginTop: 8, color: "#475569", fontSize: "0.78rem", lineHeight: 1.5 }}>
+                  {`Analysis: ${aiInsightsMeta.pipeline.feedbackAnalysis?.status || "n/a"} | Risk: ${aiInsightsMeta.pipeline.riskScoring?.level || aiInsightsMeta.pipeline.riskScoring?.status || "n/a"} | Actions: ${aiInsightsMeta.pipeline.actionGeneration?.status || "n/a"} | Notifications: ${aiInsightsMeta.pipeline.notificationDispatch?.status || "n/a"}`}
+                </div>
+              ) : null}
             </div>
           </div>
           <div style={{ display: "grid", gap: 12 }}>

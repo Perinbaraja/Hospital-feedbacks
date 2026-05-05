@@ -1,9 +1,13 @@
 import crypto from "crypto";
+import Hospital from "../models/Hospital.js";
+import Department from "../models/Department.js";
+import { sendFeedbackNotificationEmail } from "./emailService.js";
 
-const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
-const modelCache = new Map();
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-const DEFAULT_OPENAI_MODEL = "gpt-4.1-mini";
+const AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
+const agentCache = new Map();
+const notificationDispatchCache = new Map();
+const DEFAULT_GEMINI_AGENT = "gemini-2.5-flash";
+const DEFAULT_OPENAI_AGENT = "gpt-4.1-mini";
 const GEMINI_MODEL_FALLBACKS = [
   "gemini-2.5-flash",
   "gemini-2.0-flash",
@@ -179,6 +183,14 @@ const sanitizeText = (value, maxLength = 280) => String(value || "")
   .trim()
   .slice(0, maxLength);
 
+const getBooleanEnv = (value, fallback = false) => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
+};
+
 const getAiProvider = () => {
   const configuredProvider = String(process.env.AI_PROVIDER || "").trim().toLowerCase();
   if (configuredProvider) return configuredProvider;
@@ -187,9 +199,9 @@ const getAiProvider = () => {
   return "fallback";
 };
 
-const getConfiguredModel = (provider) => {
-  if (provider === "gemini") return process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-  if (provider === "openai") return process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+const getConfiguredAgent = (provider) => {
+  if (provider === "gemini") return process.env.GEMINI_AGENT || process.env.GEMINI_MODEL || DEFAULT_GEMINI_AGENT;
+  if (provider === "openai") return process.env.OPENAI_AGENT || process.env.OPENAI_MODEL || DEFAULT_OPENAI_AGENT;
   return null;
 };
 
@@ -226,6 +238,213 @@ const buildAgentInput = ({ records, comparisonRecords, metrics, rangeLabel, filt
     },
     departmentMetrics: (metrics.departmentMetrics || []).slice(0, 12),
     feedback: recentRecords,
+  };
+};
+
+const buildPipelineStages = ({ analysis, risk, actions, notifications }) => ({
+  feedbackAnalysis: analysis,
+  riskScoring: risk,
+  actionGeneration: actions,
+  notificationDispatch: notifications,
+});
+
+const buildAnalysisSummary = ({ payload }) => ({
+  status: payload.feedback.length > 0 ? "completed" : "insufficient_data",
+  feedbackCount: payload.feedback.length,
+  departmentCount: payload.departmentMetrics.length,
+  rangeLabel: payload.rangeLabel,
+});
+
+const buildRiskSummary = ({ metrics = {}, comparisonRecords = [] }) => {
+  const totalFeedback = metrics.totalFeedback || 0;
+  const negativeCount = metrics.negativeCount || 0;
+  const previousNegativeCount = comparisonRecords.filter((record) => record.sentimentLabel === "Negative").length;
+  const negativeRate = totalFeedback ? Math.round((negativeCount / totalFeedback) * 100) : 0;
+  const negativeTrend = previousNegativeCount === 0
+    ? (negativeCount > 0 ? 100 : 0)
+    : Math.round(((negativeCount - previousNegativeCount) / previousNegativeCount) * 100);
+  const riskScore = Math.min(
+    100,
+    Math.round(
+      (negativeRate * 0.55)
+      + (Math.max(0, negativeTrend) * 0.2)
+      + ((metrics.overduePendingCount || 0) * 8)
+      + Math.max(0, 75 - (metrics.completionRate || 0)) * 0.2
+    )
+  );
+
+  return {
+    status: totalFeedback > 0 ? "completed" : "insufficient_data",
+    score: riskScore,
+    level: riskScore >= 60 ? "High" : riskScore >= 35 ? "Moderate" : "Low",
+    negativeRate,
+    negativeTrend,
+    overduePendingCount: metrics.overduePendingCount || 0,
+  };
+};
+
+const buildActionSummary = (normalized = {}) => ({
+  status: Array.isArray(normalized.priorityActions) && normalized.priorityActions.length > 0 ? "completed" : "insufficient_data",
+  actionCount: Array.isArray(normalized.priorityActions) ? normalized.priorityActions.length : 0,
+  playbookCount: Array.isArray(normalized.departmentPlaybook) ? normalized.departmentPlaybook.length : 0,
+});
+
+const getNotificationGate = ({ normalized, riskSummary }) => {
+  const notificationsEnabled = getBooleanEnv(process.env.AI_AGENT_NOTIFICATIONS_ENABLED, false);
+  const highPriorityActions = (normalized.priorityActions || []).filter((item) => item.priority === "High");
+  return {
+    notificationsEnabled,
+    shouldDispatch: notificationsEnabled && riskSummary.level === "High" && highPriorityActions.length > 0,
+    highPriorityActions,
+  };
+};
+
+const buildInsightDispatchComment = ({ normalized, riskSummary, departmentName }) => {
+  const summary = sanitizeText(normalized.summary, 220);
+  const topAction = normalized.priorityActions?.[0];
+  const followUpQuestion = normalized.followUpQuestions?.[0];
+  return [
+    `AI agent risk level: ${riskSummary.level} (${riskSummary.score}/100).`,
+    summary ? `Summary: ${summary}` : "",
+    departmentName ? `Primary department: ${departmentName}.` : "",
+    topAction ? `Priority action: ${sanitizeText(topAction.action, 220)} Owner: ${sanitizeText(topAction.owner, 80)} Timeframe: ${sanitizeText(topAction.timeframe, 80)}.` : "",
+    followUpQuestion ? `Review question: ${sanitizeText(followUpQuestion, 180)}.` : "",
+  ].filter(Boolean).join(" ");
+};
+
+const collectNotificationRecipients = async ({ hospitalId, normalized }) => {
+  if (!hospitalId) return [];
+
+  const hospital = await Hospital.findOne({ hospitalId }).lean();
+  if (!hospital) return [];
+
+  const departmentNames = [...new Set((normalized.priorityActions || [])
+    .map((item) => sanitizeText(item.department, 100))
+    .filter(Boolean)
+    .filter((value) => value.toLowerCase() !== "all departments"))];
+
+  const departments = departmentNames.length > 0
+    ? await Department.find({
+      hospitalId,
+      name: { $in: departmentNames },
+    }).lean()
+    : [];
+
+  const recipients = [];
+  const seen = new Set();
+
+  const addRecipient = (recipient) => {
+    const email = String(recipient?.email || "").trim().toLowerCase();
+    if (!email || seen.has(email)) return;
+    seen.add(email);
+    recipients.push({ ...recipient, email });
+  };
+
+  addRecipient({
+    name: hospital.name || "Hospital Admin",
+    email: hospital.adminEmail,
+    department: "Administration",
+    type: "hospital-admin",
+  });
+
+  departments.forEach((department) => {
+    (department.incharges || []).forEach((incharge) => {
+      addRecipient({
+        name: incharge.name || department.name,
+        email: incharge.email,
+        department: department.name,
+        type: "department-incharge",
+      });
+    });
+  });
+
+  return recipients;
+};
+
+const dispatchInsightNotifications = async ({
+  normalized,
+  riskSummary,
+  hospitalId,
+  req = null,
+}) => {
+  const { notificationsEnabled, shouldDispatch, highPriorityActions } = getNotificationGate({ normalized, riskSummary });
+
+  if (!notificationsEnabled) {
+    return { status: "disabled", attempted: 0, sent: 0, recipients: [] };
+  }
+
+  if (!shouldDispatch) {
+    return {
+      status: "skipped",
+      reason: "Risk level is below dispatch threshold or no high-priority actions were generated.",
+      attempted: 0,
+      sent: 0,
+      recipients: [],
+    };
+  }
+
+  const recipients = await collectNotificationRecipients({ hospitalId, normalized });
+  if (recipients.length === 0) {
+    return {
+      status: "skipped",
+      reason: "No hospital admin or department incharge email recipients are configured.",
+      attempted: 0,
+      sent: 0,
+      recipients: [],
+    };
+  }
+
+  const notificationFingerprint = crypto.createHash("sha256")
+    .update(JSON.stringify({
+      hospitalId,
+      riskLevel: riskSummary.level,
+      highPriorityActions,
+      summary: normalized.summary,
+    }))
+    .digest("hex");
+
+  const cachedDispatch = notificationDispatchCache.get(notificationFingerprint);
+  if (cachedDispatch?.expiresAt > Date.now()) {
+    return {
+      status: "cached",
+      attempted: recipients.length,
+      sent: recipients.length,
+      recipients: recipients.map((item) => ({ email: item.email, department: item.department, type: item.type })),
+    };
+  }
+
+  const dispatchComment = buildInsightDispatchComment({
+    normalized,
+    riskSummary,
+    departmentName: highPriorityActions[0]?.department || normalized.departmentPlaybook?.[0]?.department,
+  });
+
+  const results = await Promise.allSettled(recipients.map((recipient) => sendFeedbackNotificationEmail({
+    toEmail: recipient.email,
+    recipientName: recipient.name,
+    hospitalName: "Hospital Feedback AI Agent",
+    departmentName: recipient.department || highPriorityActions[0]?.department || "Administration",
+    feedbackType: "negative",
+    feedbackLabel: `AI Risk Alert - ${riskSummary.level}`,
+    patientName: "AI Prevention Agent",
+    patientEmail: "dashboard@hospital.local",
+    comment: dispatchComment,
+    req,
+  })));
+
+  const sent = results.filter((item) => item.status === "fulfilled").length;
+  notificationDispatchCache.set(notificationFingerprint, {
+    expiresAt: Date.now() + AGENT_CACHE_TTL_MS,
+  });
+
+  return {
+    status: sent > 0 ? "completed" : "failed",
+    attempted: recipients.length,
+    sent,
+    recipients: recipients.map((item) => ({ email: item.email, department: item.department, type: item.type })),
+    errors: results
+      .filter((item) => item.status === "rejected")
+      .map((item) => sanitizeText(item.reason?.message || item.reason, 180)),
   };
 };
 
@@ -279,8 +498,8 @@ const listAvailableGeminiModels = async () => {
   return models;
 };
 
-const getGeminiCandidateModels = async (configuredModel) => {
-  const normalizedModel = String(configuredModel || DEFAULT_GEMINI_MODEL).replace(/^models\//, "");
+const getGeminiCandidateModels = async (configuredAgent) => {
+  const normalizedModel = String(configuredAgent || DEFAULT_GEMINI_AGENT).replace(/^models\//, "");
   const listedModels = await listAvailableGeminiModels();
   const textModels = listedModels.filter((model) => {
     const lowered = model.toLowerCase();
@@ -308,9 +527,11 @@ const normalizeAgentInsights = (parsed = {}) => {
   const patientMessageDrafts = Array.isArray(parsed.patientMessageDrafts) ? parsed.patientMessageDrafts : [];
 
   return {
-    source: "model",
+    source: "agent",
     provider: parsed.provider || getAiProvider(),
-    model: parsed.model || getConfiguredModel(getAiProvider()),
+    agent: parsed.agent || parsed.model || getConfiguredAgent(getAiProvider()),
+    model: parsed.model || parsed.agent || getConfiguredAgent(getAiProvider()),
+    pipeline: parsed.pipeline || null,
     generatedAt: new Date().toISOString(),
     summary: sanitizeText(parsed.summary, 500),
     riskLevel: ["Low", "Moderate", "High"].includes(parsed.riskLevel) ? parsed.riskLevel : "Moderate",
@@ -363,7 +584,7 @@ const normalizeAgentInsights = (parsed = {}) => {
   };
 };
 
-const buildAgentPrompt = (payload) => [
+const INSIGHT_AGENT_INSTRUCTIONS = [
   "You are a senior hospital operations and maintenance advisor.",
   "Analyze patient feedback and produce professional, admin-facing recommendations that improve maintenance quality, service reliability, and patient experience.",
   "Write in polished management language. Be specific, practical, and respectful.",
@@ -388,8 +609,6 @@ const buildAgentPrompt = (payload) => [
     followUpQuestions: ["string"],
     patientMessageDrafts: [{ scenario: "string", message: "string" }],
   }),
-  "Hospital feedback data:",
-  JSON.stringify(payload),
   "Quality requirements:",
   "- insight titles should sound professional and board-ready.",
   "- insight body should explain the observed issue and why it matters.",
@@ -403,8 +622,14 @@ const buildAgentPrompt = (payload) => [
   "- patientMessageDrafts should be empathetic and ready to send after admin review.",
 ].join("\n");
 
-const callGeminiInsights = async ({ model, payload }) => {
-  const candidateModels = await getGeminiCandidateModels(model);
+const buildAgentPrompt = (payload) => [
+  INSIGHT_AGENT_INSTRUCTIONS,
+  "Hospital feedback data:",
+  JSON.stringify(payload),
+].join("\n");
+
+const executeGeminiInsightAgent = async ({ agent, payload }) => {
+  const candidateModels = await getGeminiCandidateModels(agent);
   let lastErrorText = "";
 
   if (candidateModels.length === 0) {
@@ -446,13 +671,13 @@ const callGeminiInsights = async ({ model, payload }) => {
     const data = await response.json();
     const outputText = stripJsonCodeFence(extractGeminiText(data));
     const parsed = JSON.parse(outputText);
-    return normalizeAgentInsights({ ...parsed, provider: "gemini", model: candidateModel });
+    return normalizeAgentInsights({ ...parsed, provider: "gemini", agent: candidateModel, model: candidateModel });
   }
 
   throw new Error(`Gemini insight request failed: ${lastErrorText || "No configured Gemini model was available"}`);
 };
 
-const callOpenAiInsights = async ({ model, payload }) => {
+const executeOpenAiInsightAgent = async ({ agent, payload }) => {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -460,17 +685,9 @@ const callOpenAiInsights = async ({ model, payload }) => {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: "system",
-          content: "You are a hospital feedback prevention agent. Analyze patient feedback and produce practical, department-level actions to reduce negative feedback. Prioritize patient safety, empathy, fast closure, and operational prevention. Do not invent facts outside the provided data.",
-        },
-        {
-          role: "user",
-          content: `Analyze this hospital feedback data and return structured insights only:\n${JSON.stringify(payload)}`,
-        },
-      ],
+      model: agent,
+      instructions: INSIGHT_AGENT_INSTRUCTIONS,
+      input: `Analyze this hospital feedback data and return structured insights only:\n${JSON.stringify(payload)}`,
       text: {
         format: INSIGHT_SCHEMA,
       },
@@ -485,7 +702,7 @@ const callOpenAiInsights = async ({ model, payload }) => {
   const data = await response.json();
   const outputText = extractOutputText(data);
   const parsed = JSON.parse(outputText);
-  return normalizeAgentInsights({ ...parsed, provider: "openai", model });
+  return normalizeAgentInsights({ ...parsed, provider: "openai", agent, model: agent });
 };
 
 export const buildFallbackInsights = ({ records, comparisonRecords, metrics, rangeLabel }) => {
@@ -507,9 +724,12 @@ export const buildFallbackInsights = ({ records, comparisonRecords, metrics, ran
 
   return {
     source: "fallback",
+    provider: "fallback",
+    agent: "rule-based-fallback",
     model: null,
+    pipeline: null,
     generatedAt: new Date().toISOString(),
-    summary: `Model key is not configured. Rule-based fallback found ${negativeRate}% negative feedback in ${rangeLabel}.`,
+    summary: `Agent provider is not configured. Rule-based fallback found ${negativeRate}% negative feedback in ${rangeLabel}.`,
     riskLevel,
     insights: [
       {
@@ -637,26 +857,68 @@ export const buildFallbackInsights = ({ records, comparisonRecords, metrics, ran
   };
 };
 
-export const generateFeedbackInsights = async ({ records = [], comparisonRecords = [], metrics = {}, rangeLabel = "current period", filterContext = {} }) => {
+export const generateFeedbackInsights = async ({
+  records = [],
+  comparisonRecords = [],
+  metrics = {},
+  rangeLabel = "current period",
+  filterContext = {},
+  hospitalId = "",
+  req = null,
+}) => {
   const provider = getAiProvider();
   if (provider === "fallback" || (provider === "gemini" && !process.env.GEMINI_API_KEY) || (provider === "openai" && !process.env.OPENAI_API_KEY)) {
-    return buildFallbackInsights({ records, comparisonRecords, metrics, rangeLabel });
+    const fallback = buildFallbackInsights({ records, comparisonRecords, metrics, rangeLabel });
+    const payload = buildAgentInput({ records, comparisonRecords, metrics, rangeLabel, filterContext });
+    const analysisSummary = buildAnalysisSummary({ payload });
+    const riskSummary = buildRiskSummary({ metrics, comparisonRecords });
+    const actionSummary = buildActionSummary(fallback);
+    const notificationSummary = await dispatchInsightNotifications({
+      normalized: fallback,
+      riskSummary,
+      hospitalId,
+      req,
+    });
+    return {
+      ...fallback,
+      pipeline: buildPipelineStages({
+        analysis: analysisSummary,
+        risk: riskSummary,
+        actions: actionSummary,
+        notifications: notificationSummary,
+      }),
+    };
   }
 
-  const model = getConfiguredModel(provider);
+  const agent = getConfiguredAgent(provider);
   const payload = buildAgentInput({ records, comparisonRecords, metrics, rangeLabel, filterContext });
-  const cacheKey = crypto.createHash("sha256").update(JSON.stringify({ provider, model, payload })).digest("hex");
-  const cached = modelCache.get(cacheKey);
+  const analysisSummary = buildAnalysisSummary({ payload });
+  const riskSummary = buildRiskSummary({ metrics, comparisonRecords });
+  const cacheKey = crypto.createHash("sha256").update(JSON.stringify({ provider, agent, payload })).digest("hex");
+  const cached = agentCache.get(cacheKey);
   if (cached?.expiresAt > Date.now()) {
     return cached.value;
   }
 
   const normalized = provider === "gemini"
-    ? await callGeminiInsights({ model, payload })
-    : await callOpenAiInsights({ model, payload });
-  modelCache.set(cacheKey, {
+    ? await executeGeminiInsightAgent({ agent, payload })
+    : await executeOpenAiInsightAgent({ agent, payload });
+  const actionSummary = buildActionSummary(normalized);
+  const notificationSummary = await dispatchInsightNotifications({
+    normalized,
+    riskSummary,
+    hospitalId,
+    req,
+  });
+  normalized.pipeline = buildPipelineStages({
+    analysis: analysisSummary,
+    risk: riskSummary,
+    actions: actionSummary,
+    notifications: notificationSummary,
+  });
+  agentCache.set(cacheKey, {
     value: normalized,
-    expiresAt: Date.now() + MODEL_CACHE_TTL_MS,
+    expiresAt: Date.now() + AGENT_CACHE_TTL_MS,
   });
   return normalized;
 };

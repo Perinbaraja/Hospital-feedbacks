@@ -495,6 +495,8 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
           aiInsights = await generateFeedbackInsights({
             records: currentRecords,
             comparisonRecords: previousRecords,
+            hospitalId: query.hospitalId || req.user?.hospitalId || "",
+            req,
             rangeLabel: isAllTime ? 'All Time' : `${rangeDays} day window`,
             filterContext: {
               department: selectedDepartment || 'All',
@@ -529,7 +531,18 @@ app.get('/admin/dashboard', protect, admin, async (req, res) => {
           });
           aiInsights.source = 'error-fallback';
           aiInsights.provider = process.env.AI_PROVIDER || (process.env.GEMINI_API_KEY ? 'gemini' : 'openai');
-          aiInsights.model = process.env.GEMINI_MODEL || process.env.OPENAI_MODEL || 'configured model';
+          aiInsights.agent = process.env.GEMINI_AGENT
+            || process.env.OPENAI_AGENT
+            || process.env.GEMINI_MODEL
+            || process.env.OPENAI_MODEL
+            || 'configured agent';
+          aiInsights.model = aiInsights.agent;
+          aiInsights.pipeline = {
+            feedbackAnalysis: { status: 'completed' },
+            riskScoring: { status: 'completed' },
+            actionGeneration: { status: 'fallback' },
+            notificationDispatch: { status: 'skipped', reason: 'Agent execution failed before notification dispatch.' },
+          };
           aiInsights.error = insightError.message;
         }
 
